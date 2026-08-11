@@ -141,7 +141,6 @@ function LogEntry({ event }: { event: MonitorEvent }) {
   const time = new Date(event.checkedInAt).toLocaleTimeString("pt-BR");
   const isOk = event.status === "CONFIRMED";
   const isDup = event.status === "ALREADY_CHECKED_IN";
-  const isErr = event.status === "REJECTED";
 
   return (
     <div

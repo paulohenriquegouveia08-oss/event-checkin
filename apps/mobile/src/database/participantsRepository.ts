@@ -10,8 +10,8 @@ export async function replaceAll(participants: LocalParticipant[]): Promise<void
     await db.runAsync(`DELETE FROM participants`);
     for (const p of participants) {
       await db.runAsync(
-        `INSERT INTO participants (id, name, qrToken, status, updatedAt) VALUES (?, ?, ?, ?, ?)`,
-        [p.id, p.name, p.qrToken, p.status, p.updatedAt]
+        `INSERT INTO participants (id, name, email, phone, document, qrToken, status, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [p.id, p.name, p.email ?? null, p.phone ?? null, p.document ?? null, p.qrToken, p.status, p.updatedAt]
       );
     }
   });
@@ -20,7 +20,7 @@ export async function replaceAll(participants: LocalParticipant[]): Promise<void
 export async function findByQrToken(qrToken: string): Promise<LocalParticipant | null> {
   const db = await getDatabase();
   const row = await db.getFirstAsync<LocalParticipant>(
-    `SELECT id, name, qrToken, status, updatedAt FROM participants WHERE qrToken = ?`,
+    `SELECT id, name, email, phone, document, qrToken, status, updatedAt FROM participants WHERE qrToken = ?`,
     [qrToken]
   );
   return row ?? null;

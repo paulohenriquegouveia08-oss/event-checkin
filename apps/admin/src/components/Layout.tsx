@@ -16,7 +16,11 @@ export function Layout() {
           background: "var(--surface)",
         }}
       >
-        <Link to="/eventos" style={{ color: "var(--text)", textDecoration: "none", fontWeight: 700 }}>
+        <Link
+          to="/eventos"
+          style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--text)", textDecoration: "none", fontWeight: 700 }}
+        >
+          <img src="/logo-mark.png" alt="" width={28} height={28} style={{ display: "block" }} />
           PK Digital — Credenciamento
         </Link>
         <div className="row">

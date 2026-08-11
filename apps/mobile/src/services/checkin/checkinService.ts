@@ -32,6 +32,9 @@ export async function performCheckIn(qrToken: string): Promise<CheckInResult> {
     return {
       status: "ALREADY_CHECKED_IN",
       participantName: participant.name,
+      participantEmail: participant.email,
+      participantPhone: participant.phone,
+      participantDocument: participant.document,
       checkedInAt: existingLocal.checkedInAt,
     };
   }
@@ -48,7 +51,14 @@ export async function performCheckIn(qrToken: string): Promise<CheckInResult> {
         checkedInAt: response.checkedInAt,
         syncStatus: "synced",
       });
-      return { status: response.status, participantName: participant.name, checkedInAt: response.checkedInAt };
+      return {
+        status: response.status,
+        participantName: participant.name,
+        participantEmail: response.participant.email,
+        participantPhone: response.participant.phone,
+        participantDocument: response.participant.document,
+        checkedInAt: response.checkedInAt,
+      };
     } catch (error) {
       if (error instanceof ApiError && error.code === "NOT_FOUND") {
         return { status: "INVALID_TOKEN" };
@@ -56,9 +66,6 @@ export async function performCheckIn(qrToken: string): Promise<CheckInResult> {
       if (error instanceof ApiError && error.code === "FORBIDDEN") {
         return { status: "PARTICIPANT_INACTIVE", participantName: participant.name };
       }
-      // Falha de rede mesmo com isOnline() indicando conexão (timeout,
-      // servidor fora do ar, etc.) — cai para o caminho offline abaixo em
-      // vez de travar o operador. Fail-safe > fail-fast aqui.
     }
   }
 
@@ -71,5 +78,12 @@ export async function performCheckIn(qrToken: string): Promise<CheckInResult> {
     checkedInAt,
     syncStatus: "pending",
   });
-  return { status: "CONFIRMED", participantName: participant.name, checkedInAt };
+  return {
+    status: "CONFIRMED",
+    participantName: participant.name,
+    participantEmail: participant.email,
+    participantPhone: participant.phone,
+    participantDocument: participant.document,
+    checkedInAt,
+  };
 }

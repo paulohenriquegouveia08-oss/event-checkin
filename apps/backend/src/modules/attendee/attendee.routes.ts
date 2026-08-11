@@ -145,6 +145,8 @@ export async function attendeeRoutes(app: FastifyInstance) {
           id: participant.id,
           name: participant.name,
           email: participant.email,
+          phone: participant.phone,
+          document: participant.document,
           qrToken: participant.qrToken,
           status: participant.status,
           event: participant.event,

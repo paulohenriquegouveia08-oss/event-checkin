@@ -5,6 +5,7 @@ import { CameraScannerService } from "../services/scanner/CameraScannerService";
 import { CameraScannerView } from "../services/scanner/CameraScannerView";
 import { MockScannerService } from "../services/scanner/MockScannerService";
 import { performCheckIn } from "../services/checkin/checkinService";
+import { printCheckInReceipt } from "../services/receipt/printReceipt";
 import { syncPendingCheckIns, syncRoster } from "../services/sync/syncService";
 import { isOnline, subscribeConnectivity } from "../services/network/connectivity";
 import * as checkinsRepository from "../database/checkinsRepository";
@@ -72,6 +73,10 @@ export function ScannerScreen({ config, onOpenSettings }: Props) {
       const result = await performCheckIn(value);
       setFeedback(result);
       play(result.status);
+      // Imprimir comprovante automaticamente após check-in confirmado
+      if (result.status === "CONFIRMED" || result.status === "ALREADY_CHECKED_IN") {
+        printCheckInReceipt(config, result).catch(() => {});
+      }
     } catch {
       setFeedback({ status: "INVALID_TOKEN" });
     } finally {

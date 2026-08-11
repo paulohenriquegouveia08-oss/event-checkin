@@ -16,6 +16,9 @@ export interface TerminalConfig {
 export interface LocalParticipant {
   id: string;
   name: string;
+  email: string | null;
+  phone: string | null;
+  document: string | null;
   qrToken: string;
   status: "ACTIVE" | "CANCELLED";
   updatedAt: string;
@@ -48,5 +51,8 @@ export type CheckInResultStatus =
 export interface CheckInResult {
   status: CheckInResultStatus;
   participantName?: string;
+  participantEmail?: string | null;
+  participantPhone?: string | null;
+  participantDocument?: string | null;
   checkedInAt?: string;
 }

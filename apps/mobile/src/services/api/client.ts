@@ -113,7 +113,7 @@ export type OnlineCheckInStatus = "CONFIRMED" | "ALREADY_CHECKED_IN";
 
 export interface OnlineCheckInResponse {
   status: OnlineCheckInStatus;
-  participant: { id: string; name: string };
+  participant: { id: string; name: string; email: string | null; phone: string | null; document: string | null };
   checkedInAt: string;
 }
 

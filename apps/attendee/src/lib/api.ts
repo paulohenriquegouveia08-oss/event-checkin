@@ -4,6 +4,8 @@ export interface ParticipantData {
   id: string;
   name: string;
   email: string;
+  phone: string | null;
+  document: string | null;
   qrToken: string;
   status: string;
   event: {

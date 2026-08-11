@@ -15,7 +15,7 @@
     "android": {
       "package": "com.pkdigital.eventcheckin",
       "adaptiveIcon": {
-        "backgroundColor": "#0B1F3A",
+        "backgroundColor": "#154B4C",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"

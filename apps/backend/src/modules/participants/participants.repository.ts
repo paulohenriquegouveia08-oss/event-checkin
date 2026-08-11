@@ -30,7 +30,7 @@ export function findParticipantByQrToken(qrToken: string) {
 export function listParticipantsForOfflineSync(eventId: string) {
   return prisma.participant.findMany({
     where: { eventId },
-    select: { id: true, name: true, qrToken: true, status: true, updatedAt: true },
+    select: { id: true, name: true, email: true, phone: true, document: true, qrToken: true, status: true, updatedAt: true },
     orderBy: { updatedAt: "asc" },
   });
 }

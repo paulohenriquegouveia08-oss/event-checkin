@@ -7,6 +7,9 @@ import { attendeeEventBus } from "../attendee/attendee.events.js";
 export interface CheckInParticipantInfo {
   id: string;
   name: string;
+  email: string | null;
+  phone: string | null;
+  document: string | null;
 }
 
 export type CheckInOutcome =
@@ -52,7 +55,7 @@ export async function performCheckIn(params: PerformCheckInParams): Promise<Chec
       return {
         status: "CONFIRMED",
         checkIn: existingByLocalId,
-        participant: { id: participant!.id, name: participant!.name },
+        participant: { id: participant!.id, name: participant!.name, email: participant!.email, phone: participant!.phone, document: participant!.document },
       };
     }
   }
@@ -84,7 +87,7 @@ export async function performCheckIn(params: PerformCheckInParams): Promise<Chec
       checkedInAt: checkedInAt.toISOString(),
     });
 
-    return { status: "CONFIRMED", checkIn, participant: { id: participant.id, name: participant.name } };
+    return { status: "CONFIRMED", checkIn, participant: { id: participant.id, name: participant.name, email: participant.email, phone: participant.phone, document: participant.document } };
   } catch (error) {
     if (isUniqueConflictOn(error, "participantId")) {
       const existing = await checkinsRepository.findByEventAndParticipant(eventId, participant.id);
@@ -101,14 +104,14 @@ export async function performCheckIn(params: PerformCheckInParams): Promise<Chec
         return {
           status: "ALREADY_CHECKED_IN",
           checkIn: existing,
-          participant: { id: participant.id, name: participant.name },
+          participant: { id: participant.id, name: participant.name, email: participant.email, phone: participant.phone, document: participant.document },
         };
       }
     }
     if (isUniqueConflictOn(error, "localCheckInId") && terminalId && localCheckInId) {
       const existing = await checkinsRepository.findByTerminalAndLocalId(terminalId, localCheckInId);
       if (existing) {
-        return { status: "CONFIRMED", checkIn: existing, participant: { id: participant.id, name: participant.name } };
+        return { status: "CONFIRMED", checkIn: existing, participant: { id: participant.id, name: participant.name, email: participant.email, phone: participant.phone, document: participant.document } };
       }
     }
     throw new ConflictError("CHECKIN_CONFLICT", "Não foi possível registrar a presença. Tente novamente.");

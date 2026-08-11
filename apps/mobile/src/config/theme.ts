@@ -1,16 +1,19 @@
 /**
- * Tema visual do app — paleta verde escura idêntica ao attendee portal.
- * centralized para manter consistência entre todas as telas.
+ * Tema visual do app — paleta teal escura combinando com a identidade do
+ * evento (arte do 3º COPOL, ver event-checkin/assets/brand/). Centralizada
+ * pra manter consistência entre todas as telas, e com o mesmo conjunto de
+ * tokens do painel admin (index.css) e do portal do participante
+ * (globals.css) — os três sistemas compartilham a mesma paleta.
  */
 export const theme = {
-  background: "#0a0a0a",
-  surface: "#1a1a1a",
-  surfaceAlt: "#222222",
-  border: "#2a2a2a",
-  text: "#ededed",
-  textMuted: "#a1a1a1",
-  primary: "#22c55e",
-  primaryDark: "#16a34a",
+  background: "#0E3634",
+  surface: "#154B4C",
+  surfaceAlt: "#1C5F5F",
+  border: "#2A6F6E",
+  text: "#F0FAF9",
+  textMuted: "#9FC4C2",
+  primary: "#2DD4BF",
+  primaryDark: "#16A69A",
   success: "#22c55e",
   warning: "#f59e0b",
   danger: "#ef4444",

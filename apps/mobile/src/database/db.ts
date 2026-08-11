@@ -27,6 +27,9 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
     CREATE TABLE IF NOT EXISTS participants (
       id TEXT PRIMARY KEY NOT NULL,
       name TEXT NOT NULL,
+      email TEXT,
+      phone TEXT,
+      document TEXT,
       qrToken TEXT NOT NULL UNIQUE,
       status TEXT NOT NULL,
       updatedAt TEXT NOT NULL
@@ -45,6 +48,13 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
     );
     CREATE INDEX IF NOT EXISTS idx_checkins_syncstatus ON checkins (syncStatus);
   `);
+
+  // Migration: add email/phone/document columns if missing (existing databases)
+  const cols = await db.getAllAsync<{ name: string }>("PRAGMA table_info(participants)");
+  const colNames = cols.map((c) => c.name);
+  if (!colNames.includes("email")) await db.execAsync("ALTER TABLE participants ADD COLUMN email TEXT");
+  if (!colNames.includes("phone")) await db.execAsync("ALTER TABLE participants ADD COLUMN phone TEXT");
+  if (!colNames.includes("document")) await db.execAsync("ALTER TABLE participants ADD COLUMN document TEXT");
 
   dbInstance = db;
   return db;

@@ -3,6 +3,7 @@ import { ConflictError, ForbiddenError, NotFoundError } from "../../shared/error
 import * as participantsRepository from "../participants/participants.repository.js";
 import * as checkinsRepository from "./checkins.repository.js";
 import { attendeeEventBus } from "../attendee/attendee.events.js";
+import { adminCheckInBus } from "../admin/adminMonitor.events.js";
 
 export interface CheckInParticipantInfo {
   id: string;
@@ -20,6 +21,7 @@ export interface PerformCheckInParams {
   eventId: string;
   qrToken: string;
   terminalId: string | null;
+  terminalName?: string | null;
   source: CheckInSource;
   checkedInAt?: Date;
   localCheckInId?: string;
@@ -87,6 +89,22 @@ export async function performCheckIn(params: PerformCheckInParams): Promise<Chec
       checkedInAt: checkedInAt.toISOString(),
     });
 
+    // Publish to admin monitor bus
+    adminCheckInBus.publish(eventId, {
+      type: 'check_in',
+      eventId,
+      participantId: participant.id,
+      participantName: participant.name,
+      participantEmail: participant.email,
+      participantPhone: participant.phone,
+      participantDocument: participant.document,
+      status: 'CONFIRMED',
+      checkedInAt: checkedInAt.toISOString(),
+      terminalName: params.terminalName ?? null,
+      terminalId: params.terminalId ?? null,
+      source: params.source,
+    });
+
     return { status: "CONFIRMED", checkIn, participant: { id: participant.id, name: participant.name, email: participant.email, phone: participant.phone, document: participant.document } };
   } catch (error) {
     if (isUniqueConflictOn(error, "participantId")) {
@@ -99,6 +117,22 @@ export async function performCheckIn(params: PerformCheckInParams): Promise<Chec
           participantName: participant.name,
           status: 'ALREADY_CHECKED_IN',
           checkedInAt: existing.checkedInAt.toISOString(),
+        });
+
+        // Publish to admin monitor bus
+        adminCheckInBus.publish(eventId, {
+          type: 'check_in',
+          eventId,
+          participantId: participant.id,
+          participantName: participant.name,
+          participantEmail: participant.email,
+          participantPhone: participant.phone,
+          participantDocument: participant.document,
+          status: 'ALREADY_CHECKED_IN',
+          checkedInAt: existing.checkedInAt.toISOString(),
+          terminalName: params.terminalName ?? null,
+          terminalId: params.terminalId ?? null,
+          source: params.source,
         });
 
         return {

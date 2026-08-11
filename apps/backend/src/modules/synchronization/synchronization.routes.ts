@@ -5,6 +5,7 @@ import { getEventOrThrow } from "../events/events.service.js";
 import * as participantsService from "../participants/participants.service.js";
 import * as synchronizationService from "./synchronization.service.js";
 import { syncRequestSchema } from "./synchronization.schema.js";
+import { adminCheckInBus } from "../admin/adminMonitor.events.js";
 
 export async function synchronizationRoutes(app: FastifyInstance) {
   // Puxado pelo terminal antes/durante o evento para cachear localmente
@@ -29,6 +30,25 @@ export async function synchronizationRoutes(app: FastifyInstance) {
       request.terminal!.terminalId,
       input
     );
+
+    // Publish rejected sync items to admin monitor
+    for (const result of results) {
+      if (result.status === "REJECTED") {
+        adminCheckInBus.publish(request.terminal!.eventId, {
+          type: "check_in",
+          eventId: request.terminal!.eventId,
+          participantId: "",
+          participantName: result.participant?.name ?? "—",
+          status: "REJECTED",
+          checkedInAt: new Date().toISOString(),
+          terminalName: null,
+          terminalId: request.terminal!.terminalId,
+          source: "OFFLINE_SYNC",
+          errorMessage: result.message,
+        });
+      }
+    }
+
     return ok({ results });
   });
 }

@@ -51,7 +51,7 @@ export function buildApp() {
     timeWindow: "1 minute",
     keyGenerator: (request) => {
       // Don't rate-limit SSE connections by the same key
-      if (request.url.startsWith("/attendee/checkin-status")) {
+      if (request.url.startsWith("/attendee/checkin-status") || request.url.includes("/monitor")) {
         return `sse-${request.ip}`;
       }
       return request.ip;

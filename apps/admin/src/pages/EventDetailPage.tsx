@@ -4,8 +4,9 @@ import * as api from "../api/client";
 import { ParticipantsTab } from "./event/ParticipantsTab";
 import { TerminalsTab } from "./event/TerminalsTab";
 import { StatisticsTab } from "./event/StatisticsTab";
+import { LiveMonitorTab } from "./event/LiveMonitorTab";
 
-type Tab = "participants" | "terminals" | "statistics";
+type Tab = "participants" | "terminals" | "statistics" | "monitor";
 
 export function EventDetailPage() {
   const { eventId } = useParams<{ eventId: string }>();
@@ -62,11 +63,15 @@ export function EventDetailPage() {
         <TabButton active={tab === "statistics"} onClick={() => setTab("statistics")}>
           Estatísticas
         </TabButton>
+        <TabButton active={tab === "monitor"} onClick={() => setTab("monitor")}>
+          Monitor
+        </TabButton>
       </div>
 
       {tab === "participants" ? <ParticipantsTab eventId={eventId} /> : null}
       {tab === "terminals" ? <TerminalsTab eventId={eventId} /> : null}
       {tab === "statistics" ? <StatisticsTab eventId={eventId} /> : null}
+      {tab === "monitor" ? <LiveMonitorTab eventId={eventId} /> : null}
     </div>
   );
 }

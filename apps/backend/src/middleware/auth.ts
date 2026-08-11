@@ -31,7 +31,7 @@ declare module "@fastify/jwt" {
 declare module "fastify" {
   interface FastifyRequest {
     admin?: { userId: string; role: "ADMIN" };
-    terminal?: { terminalId: string; eventId: string };
+    terminal?: { terminalId: string; eventId: string; name: string };
   }
 }
 
@@ -80,5 +80,5 @@ export async function requireTerminal(request: FastifyRequest, _reply: FastifyRe
     data: { lastSeenAt: new Date() },
   });
 
-  request.terminal = { terminalId: terminal.id, eventId: terminal.eventId };
+  request.terminal = { terminalId: terminal.id, eventId: terminal.eventId, name: terminal.name };
 }

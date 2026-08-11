@@ -3,12 +3,10 @@ import { Link } from "react-router-dom";
 import * as api from "../api/client";
 
 const STATUS_LABEL: Record<api.EventRecord["status"], string> = {
-  DRAFT: "Rascunho",
   ACTIVE: "Ativo",
   CLOSED: "Encerrado",
 };
 const STATUS_BADGE: Record<api.EventRecord["status"], string> = {
-  DRAFT: "badge-muted",
   ACTIVE: "badge-success",
   CLOSED: "badge-warning",
 };

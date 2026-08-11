@@ -97,7 +97,7 @@ export interface EventRecord {
   location: string | null;
   startDate: string;
   endDate: string;
-  status: "DRAFT" | "ACTIVE" | "CLOSED";
+  status: "ACTIVE" | "CLOSED";
   createdAt: string;
   updatedAt: string;
 }

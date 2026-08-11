@@ -21,7 +21,7 @@ export const updateEventSchema = z.object({
   location: z.string().trim().max(300).optional(),
   startDate: z.coerce.date().optional(),
   endDate: z.coerce.date().optional(),
-  status: z.enum(["DRAFT", "ACTIVE", "CLOSED"]).optional(),
+  status: z.enum(["ACTIVE", "CLOSED"]).optional(),
 });
 
 export type UpdateEventInput = z.infer<typeof updateEventSchema>;

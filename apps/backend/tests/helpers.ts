@@ -11,7 +11,7 @@ export async function resetDatabase() {
   await prisma.user.deleteMany();
 }
 
-export async function createTestEvent(overrides: Partial<{ name: string; status: "DRAFT" | "ACTIVE" | "CLOSED" }> = {}) {
+export async function createTestEvent(overrides: Partial<{ name: string; status: "ACTIVE" | "CLOSED" }> = {}) {
   return prisma.event.create({
     data: {
       name: overrides.name ?? "Congresso de Teste 2026",

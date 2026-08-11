@@ -47,7 +47,6 @@ export function EventDetailPage() {
           </p>
         </div>
         <select value={event.status} onChange={(e) => handleStatusChange(e.target.value as api.EventRecord["status"])} style={{ width: 160 }}>
-          <option value="DRAFT">Rascunho</option>
           <option value="ACTIVE">Ativo</option>
           <option value="CLOSED">Encerrado</option>
         </select>

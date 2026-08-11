@@ -33,6 +33,9 @@ export function Layout() {
       <main style={{ padding: "24px", maxWidth: 1100, margin: "0 auto" }}>
         <Outlet />
       </main>
+      <footer style={{ textAlign: "center", padding: "16px 24px", borderTop: "1px solid var(--border)", color: "var(--text-muted)", fontSize: 12 }}>
+        Copol | LSPK Tecnology
+      </footer>
     </div>
   );
 }

@@ -574,6 +574,11 @@ export default function CheckInPage() {
         >
           Sair
         </button>
+
+        {/* Footer */}
+        <p className="text-center text-xs text-[--muted-foreground] pt-4">
+          Copol | LSPK Tecnology
+        </p>
       </div>
     </div>
   );

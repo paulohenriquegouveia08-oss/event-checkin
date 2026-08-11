@@ -77,10 +77,14 @@ export async function checkinsRoutes(app: FastifyInstance) {
       return reply.status(403).send({ success: false, error: { code: "FORBIDDEN", message: "Acesso negado" } });
     }
 
-    reply.raw.setHeader("Content-Type", "text/event-stream");
-    reply.raw.setHeader("Cache-Control", "no-cache");
-    reply.raw.setHeader("Connection", "keep-alive");
-    reply.raw.setHeader("X-Accel-Buffering", "no");
+    reply.raw.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "Cache-Control",
+      "X-Accel-Buffering": "no",
+    });
     reply.hijack();
 
     reply.raw.write(`data: ${JSON.stringify({ type: "connected", eventId })}\n\n`);

@@ -1,0 +1,154 @@
+// Schema do sistema de credenciamento e controle de presença.
+//
+// Nota de arquitetura (ver docs/architecture.md): o MVP não implementa
+// multi-tenancy via uma tabela Organization — o Event já funciona como
+// fronteira de isolamento de dados (participantes, terminais e check-ins
+// sempre pertencem a um evento). Adicionar Organization no futuro é uma
+// migration aditiva (organizationId nullable em Event/User), sem quebrar
+// o que existe hoje.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+}
+
+enum EventStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
+enum ParticipantStatus {
+  ACTIVE
+  CANCELLED
+}
+
+enum TerminalStatus {
+  PENDING // criado pelo admin, aguardando ativação
+  ACTIVE
+  INACTIVE
+}
+
+enum CheckInSource {
+  ONLINE // registrado diretamente pelo terminal, backend disponível
+  OFFLINE_SYNC // registrado offline no terminal, recebido depois via /terminals/sync
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         UserRole @default(ADMIN)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Event {
+  id          String      @id @default(uuid())
+  name        String
+  description String?
+  location    String?
+  startDate   DateTime
+  endDate     DateTime
+  status      EventStatus @default(DRAFT)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  participants Participant[]
+  terminals    Terminal[]
+  checkIns     CheckIn[]
+
+  @@map("events")
+}
+
+model Participant {
+  id        String            @id @default(uuid())
+  eventId   String
+  event     Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name      String
+  email     String?
+  phone     String?
+  document  String?
+  status    ParticipantStatus @default(ACTIVE)
+
+  // Token opaco de alta entropia que representa o participante no QR Code.
+  // Nunca contém nome/CPF/e-mail/telefone. Pode ser revogado e regerado
+  // (revokedAt marca o token antigo como inválido; um novo Participant.qrToken
+  // é atribuído via rotação, mantendo o mesmo participantId).
+  qrToken   String   @unique
+  revokedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  checkIns CheckIn[]
+
+  @@index([eventId])
+  @@map("participants")
+}
+
+model Terminal {
+  id         String         @id @default(uuid())
+  eventId    String
+  event      Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name       String
+  identifier String         @unique // ex.: TERM-001
+  status     TerminalStatus @default(PENDING)
+
+  // Fluxo de ativação (ver docs/security.md): o admin cria o terminal e
+  // recebe um código de ativação de curta duração. O equipamento troca esse
+  // código, uma única vez, por um token de longa duração (hash armazenado
+  // aqui, o valor em claro só existe na resposta da ativação).
+  activationCode          String?   @unique
+  activationCodeExpiresAt DateTime?
+  credentialHash          String?
+  activatedAt             DateTime?
+  lastSeenAt              DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  checkIns CheckIn[]
+
+  @@index([eventId])
+  @@map("terminals")
+}
+
+model CheckIn {
+  id            String        @id @default(uuid())
+  eventId       String
+  event         Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  participantId String
+  participant   Participant   @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  terminalId    String?
+  // SetNull: excluir um terminal não pode apagar o histórico de presenças
+  // já registradas por ele — só desassocia (checkIn.terminalId vira null).
+  terminal      Terminal?     @relation(fields: [terminalId], references: [id], onDelete: SetNull)
+  source        CheckInSource @default(ONLINE)
+
+  // Id gerado no terminal enquanto offline; usado para deduplicar reenvios
+  // do mesmo registro durante a sincronização (idempotência por terminal).
+  localCheckInId String?
+
+  checkedInAt DateTime
+  createdAt   DateTime @default(now())
+
+  // Garante, no nível do banco, que o mesmo participante não seja
+  // credenciado duas vezes no mesmo evento — mesmo sob concorrência entre
+  // terminais diferentes.
+  @@unique([eventId, participantId])
+  @@unique([terminalId, localCheckInId])
+  @@index([terminalId])
+  @@map("checkins")
+}

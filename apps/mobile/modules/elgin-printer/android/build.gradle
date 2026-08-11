@@ -1,0 +1,39 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.elginprinter'
+version = '0.1.0'
+
+android {
+  namespace "expo.modules.elginprinter"
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+  }
+  lintOptions {
+    abortOnError false
+  }
+}
+
+repositories {
+  // Repositório Maven local mínimo (grupo/artefato/versão + .pom), só pra
+  // servir a AAR da Elgin — ver "repo/" ao lado deste arquivo. Necessário
+  // porque o AGP proíbe dependência de arquivo .aar local direto em módulo
+  // que também gera sua própria AAR ("Direct local .aar file dependencies
+  // are not supported when building an AAR"); publicar num repo local
+  // (mesmo que de um único artefato) é o caminho suportado pelo AGP pra
+  // esse cenário (biblioteca proprietária sem Maven público).
+  maven { url uri("$projectDir/repo") }
+}
+
+dependencies {
+  // Biblioteca oficial da Elgin ("Plataforma de Comunicação Elgin",
+  // e1-VX.X.X-release.aar), a mesma usada nos exemplos oficiais React
+  // Native/Java/Kotlin da Elgin para a linha M8/M10/PosGo — expõe
+  // com.elgin.e1.Impressora.Termica, a classe real usada pra falar com a
+  // impressora térmica embutida. Baixada do repositório público
+  // ElginDeveloperCommunity/PDV_Android_Elgin (ver docs/printer.md).
+  implementation("com.elgin.e1:e1:2.16.0")
+}

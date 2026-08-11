@@ -1,0 +1,18 @@
+{
+  "name": "event-checkin",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "backend:dev": "npm run dev --workspace=apps/backend",
+    "backend:build": "npm run build --workspace=apps/backend",
+    "backend:test": "npm run test --workspace=apps/backend",
+    "backend:migrate": "npm run migrate --workspace=apps/backend",
+    "attendee:dev": "npm run dev --workspace=apps/attendee",
+    "attendee:build": "npm run build --workspace=apps/attendee",
+    "attendee:start": "npm run start --workspace=apps/attendee"
+  }
+}

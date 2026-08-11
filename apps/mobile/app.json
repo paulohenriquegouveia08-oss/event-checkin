@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "PK Digital Credenciamento",
+    "slug": "pk-digital-credenciamento",
+    "version": "1.0.0",
+    "orientation": "landscape",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "A câmera é usada para ler o QR Code de credenciamento do participante."
+      }
+    },
+    "android": {
+      "package": "com.pkdigital.eventcheckin",
+      "adaptiveIcon": {
+        "backgroundColor": "#0B1F3A",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.VIBRATE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-sqlite",
+      "expo-audio",
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "A câmera é usada para ler o QR Code de credenciamento do participante."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true,
+            "extraMavenRepos": ["../modules/elgin-printer/android/repo"]
+          }
+        }
+      ],
+      "expo-sharing"
+    ]
+  }
+}

@@ -1,0 +1,36 @@
+node_modules/
+dist/
+build/
+*.log
+
+# Segredos locais — nunca commitar
+.env
+.env.local
+!.env.example
+
+# Prisma
+apps/backend/prisma/dev.db
+
+# Android
+tools/scanner-poc-android/.gradle/
+tools/scanner-poc-android/app/build/
+tools/scanner-poc-android/local.properties
+tools/scanner-poc-android/.idea/
+tools/scanner-poc-android/*.iml
+
+# Expo prebuild (regenerado via `npx expo prebuild`, não versionado —
+# filosofia CNG do Expo)
+apps/mobile/android/
+apps/mobile/ios/
+
+# Playwright (painel admin)
+apps/admin/test-results/
+apps/admin/playwright-report/
+apps/admin/blob-report/
+apps/admin/playwright/.cache/
+
+.DS_Store
+
+# Next.js attendee app
+apps/attendee/.next/
+apps/attendee/out/

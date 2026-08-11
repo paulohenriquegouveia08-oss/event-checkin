@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { QRCodeSVG } from "qrcode.react";
+import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
+import { jsPDF } from "jspdf";
 import { getParticipantMe, connectSSE, type ParticipantData } from "@/lib/api";
 
 type CheckInStatus = "CONFIRMED" | "ALREADY_CHECKED_IN" | "REJECTED" | null;
@@ -121,6 +122,59 @@ export default function CheckInPage() {
     localStorage.removeItem("attendee_token");
     localStorage.removeItem("attendee_data");
     router.push("/");
+  };
+
+  const handleDownloadPdf = () => {
+    if (!participant) return;
+    const canvas = document.getElementById("qr-canvas") as HTMLCanvasElement;
+    if (!canvas) return;
+
+    const imgData = canvas.toDataURL("image/png");
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+    const pageW = doc.internal.pageSize.getWidth();
+
+    // Background
+    doc.setFillColor(10, 10, 10);
+    doc.rect(0, 0, pageW, 297, "F");
+
+    // Title
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.text(participant.event.name, pageW / 2, 40, { align: "center" });
+
+    if (participant.event.location) {
+      doc.setFontSize(12);
+      doc.setTextColor(160, 160, 160);
+      doc.text(participant.event.location, pageW / 2, 50, { align: "center" });
+    }
+
+    // QR Code
+    const qrSize = 70;
+    const qrX = (pageW - qrSize) / 2;
+    doc.addImage(imgData, "PNG", qrX, 70, qrSize, qrSize);
+
+    // Participant name
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.text(participant.name, pageW / 2, 155, { align: "center" });
+
+    // Email
+    doc.setFontSize(10);
+    doc.setTextColor(160, 160, 160);
+    doc.text(participant.email, pageW / 2, 163, { align: "center" });
+
+    // Token
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Código: ${participant.qrToken}`, pageW / 2, 175, { align: "center" });
+
+    // Footer
+    doc.setFontSize(8);
+    doc.setTextColor(80, 80, 80);
+    doc.text("Apresente este QR code na entrada do evento", pageW / 2, 260, { align: "center" });
+
+    doc.save(`qr-code-${participant.name.replace(/\s+/g, "_")}.pdf`);
   };
 
   if (loading) {
@@ -285,12 +339,31 @@ export default function CheckInPage() {
               level="M"
               includeMargin={false}
             />
+            {/* Hidden canvas for PDF export */}
+            <QRCodeCanvas
+              id="qr-canvas"
+              value={participant.qrToken}
+              size={300}
+              level="M"
+              includeMargin={false}
+              style={{ display: "none" }}
+            />
           </div>
 
           <p className="text-xs text-[--muted-foreground]">
             Seu código:{" "}
             <span className="font-mono">{participant.qrToken.slice(0, 12)}...</span>
           </p>
+
+          <button
+            onClick={handleDownloadPdf}
+            className="mt-4 inline-flex items-center gap-2 rounded-lg border border-[--border] bg-[--background] px-4 py-2 text-sm font-medium text-[--foreground] transition-colors hover:bg-[--muted]"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+            </svg>
+            Baixar QR Code em PDF
+          </button>
         </div>
 
         {/* Participant Info */}

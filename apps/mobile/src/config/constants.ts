@@ -24,4 +24,4 @@ export const SERVER_URL = "http://137.131.233.254:3000";
  * de proteção real — o que protege de fato é o operador não repassar o
  * PIN pra quem não deveria.
  */
-export const SETTINGS_PASSWORD = "pkdigital0508";
+export const SETTINGS_PASSWORD = "1505";

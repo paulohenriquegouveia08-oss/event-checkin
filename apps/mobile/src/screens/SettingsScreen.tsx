@@ -8,6 +8,7 @@ import { syncPendingCheckIns, syncRoster } from "../services/sync/syncService";
 import { isOnline } from "../services/network/connectivity";
 import { generateAndShareAttendanceReport } from "../services/report/attendanceReport";
 import { printAttendanceReport } from "../services/report/printReport";
+import ElginPrinter from "../../modules/elgin-printer/src/ElginPrinterModule";
 import { theme } from "../config/theme";
 import type { TerminalConfig } from "../types/index";
 
@@ -15,13 +16,14 @@ interface Props {
   config: TerminalConfig;
   onBack: () => void;
   onReconfigured: () => void;
+  onOpenPrintEditor: () => void;
 }
 
-export function SettingsScreen({ config, onBack, onReconfigured }: Props) {
+export function SettingsScreen({ config, onBack, onReconfigured, onOpenPrintEditor }: Props) {
   const insets = useSafeAreaInsets();
   const [participantCount, setParticipantCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
-  const [busy, setBusy] = useState<"sync" | "reset" | "pdf" | "print" | null>(null);
+  const [busy, setBusy] = useState<"sync" | "reset" | "pdf" | "print" | "test" | null>(null);
 
   async function refresh() {
     setParticipantCount(await participantsRepository.count());
@@ -64,18 +66,39 @@ export function SettingsScreen({ config, onBack, onReconfigured }: Props) {
     }
   }
 
-  async function handlePrintReport() {
+  async function handlePrintReport(allPeriod: boolean) {
     setBusy("print");
     try {
-      const { count } = await printAttendanceReport(config);
+      const { count } = await printAttendanceReport(config, allPeriod);
       if (count === 0) {
-        Alert.alert("Sem presenças", "Este terminal ainda não registrou nenhuma presença.");
+        Alert.alert("Sem presenças", allPeriod
+          ? "Este terminal ainda não registrou nenhuma presença."
+          : "Nenhuma presença registrada hoje.");
       }
     } catch (err) {
       Alert.alert(
         "Falha ao imprimir",
         err instanceof Error ? err.message : "Não foi possível usar a impressora do terminal."
       );
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleTestPrinter() {
+    setBusy("test");
+    try {
+      const r = ElginPrinter.connect(0, "", "", 0);
+      if (r !== 0) {
+        Alert.alert("Falha", `Não foi possível conectar à impressora (erro ${r}).`);
+        return;
+      }
+      ElginPrinter.printText("Teste de impressao OK", 1, false, false);
+      ElginPrinter.feedLines(2);
+      try { ElginPrinter.cutPaper(); } catch {}
+      Alert.alert("Sucesso", "Impressão de teste realizada com sucesso!");
+    } catch (err) {
+      Alert.alert("Erro", err instanceof Error ? err.message : "Erro desconhecido ao testar impressora.");
     } finally {
       setBusy(null);
     }
@@ -149,24 +172,48 @@ export function SettingsScreen({ config, onBack, onReconfigured }: Props) {
           </Text>
         </TouchableOpacity>
 
+        <TouchableOpacity
+          style={[styles.button, styles.buttonSecondary]}
+          onPress={handleGeneratePdf}
+          disabled={busy !== null}
+        >
+          <Text style={styles.buttonSecondaryText}>{busy === "pdf" ? "Gerando..." : "Relatório em PDF"}</Text>
+        </TouchableOpacity>
+
         <View style={styles.row}>
           <TouchableOpacity
             style={[styles.button, styles.buttonSecondary, styles.buttonHalf]}
-            onPress={handleGeneratePdf}
-            disabled={busy !== null}
-          >
-            <Text style={styles.buttonSecondaryText}>{busy === "pdf" ? "Gerando..." : "Relatório em PDF"}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.button, styles.buttonSecondary, styles.buttonHalf]}
-            onPress={handlePrintReport}
+            onPress={() => handlePrintReport(false)}
             disabled={busy !== null}
           >
             <Text style={styles.buttonSecondaryText}>
-              {busy === "print" ? "Imprimindo..." : "Imprimir na impressora"}
+              {busy === "print" ? "Imprimindo..." : "Imprimir Hoje"}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, styles.buttonSecondary, styles.buttonHalf]}
+            onPress={() => handlePrintReport(true)}
+            disabled={busy !== null}
+          >
+            <Text style={styles.buttonSecondaryText}>
+              {busy === "print" ? "Imprimindo..." : "Imprimir Tudo"}
             </Text>
           </TouchableOpacity>
         </View>
+
+        <TouchableOpacity style={[styles.button, styles.buttonSecondary]} onPress={onOpenPrintEditor}>
+          <Text style={styles.buttonSecondaryText}>Editar Layout de Impressão</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.button, styles.buttonSecondary]}
+          onPress={handleTestPrinter}
+          disabled={busy !== null}
+        >
+          <Text style={styles.buttonSecondaryText}>
+            {busy === "test" ? "Testando..." : "Testar Impressora"}
+          </Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.button, styles.buttonDanger]}

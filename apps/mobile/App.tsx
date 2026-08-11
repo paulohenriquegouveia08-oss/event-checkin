@@ -7,10 +7,12 @@ import { SetupScreen } from "./src/screens/SetupScreen";
 import { ScannerScreen } from "./src/screens/ScannerScreen";
 import { PasswordGateScreen } from "./src/screens/PasswordGateScreen";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
+import { PrintLayoutEditor } from "./src/screens/PrintLayoutEditor";
 import { onTerminalUnauthorized } from "./src/services/session/sessionEvents";
+import { theme } from "./src/config/theme";
 import type { TerminalConfig } from "./src/types/index";
 
-type Screen = "scanner" | "password" | "settings";
+type Screen = "scanner" | "password" | "settings" | "print-editor";
 
 export default function App() {
   const [loading, setLoading] = useState(true);
@@ -25,9 +27,6 @@ export default function App() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Terminal excluído/revogado no painel admin — o backend passa a
-  // responder 401 pra esse token, e a partir daí o app se desconecta
-  // sozinho, sem exigir que o operador perceba e reconfigure manualmente.
   useEffect(() => {
     return onTerminalUnauthorized(() => {
       configRepository.clearConfig().finally(() => {
@@ -56,7 +55,7 @@ export default function App() {
       <StatusBar style="light" hidden />
       {loading ? (
         <View style={styles.loading}>
-          <ActivityIndicator size="large" color="#2F6FED" />
+          <ActivityIndicator size="large" color={theme.primary} />
         </View>
       ) : !config ? (
         <SetupScreen onActivated={handleActivated} notice={disconnectedNotice} />
@@ -67,7 +66,10 @@ export default function App() {
           config={config}
           onBack={() => setScreen("scanner")}
           onReconfigured={handleReconfigured}
+          onOpenPrintEditor={() => setScreen("print-editor")}
         />
+      ) : screen === "print-editor" ? (
+        <PrintLayoutEditor onBack={() => setScreen("settings")} />
       ) : (
         <ScannerScreen config={config} onOpenSettings={() => setScreen("password")} />
       )}
@@ -76,5 +78,5 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  loading: { flex: 1, backgroundColor: "#0B1F3A", justifyContent: "center", alignItems: "center" },
+  loading: { flex: 1, backgroundColor: theme.background, justifyContent: "center", alignItems: "center" },
 });

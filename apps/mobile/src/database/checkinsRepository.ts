@@ -46,6 +46,18 @@ export async function listConfirmed(): Promise<LocalCheckIn[]> {
   );
 }
 
+/** Presenças confirmadas de hoje (reinício às 00h). */
+export async function listConfirmedToday(): Promise<LocalCheckIn[]> {
+  const db = await getDatabase();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const isoStart = today.toISOString();
+  return db.getAllAsync<LocalCheckIn>(
+    `SELECT * FROM checkins WHERE syncStatus IN ('pending', 'synced') AND checkedInAt >= ? ORDER BY checkedInAt ASC`,
+    [isoStart]
+  );
+}
+
 export async function markSyncStatus(
   localCheckInId: string,
   syncStatus: LocalCheckInSyncStatus,

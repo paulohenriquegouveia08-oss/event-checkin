@@ -1,66 +1,108 @@
 package expo.modules.elginprinter
 
-import com.elgin.e1.Impressora.Termica
+import android.util.Log
 import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import com.imin.printer.PrinterHelper
+import com.imin.printerlib.IminPrintUtils
 
 /**
- * Ponte pra impressora térmica embutida do Elgin M10 Pro (iMin D1),
- * usando a mesma biblioteca oficial da Elgin ("e1") usada nos exemplos
- * públicos da plataforma M8/M10/PosGo — ver
- * modules/elgin-printer/android/build.gradle e docs/printer.md pra
- * evidência/investigação completa.
- *
- * Convenções da classe `Termica` (todas confirmadas no código-fonte
- * oficial da Elgin, não inventadas):
- * - align: 0 = esquerda, 1 = centralizado, 2 = direita
- * - style: soma de flags — 1 = fonte B, 2 = sublinhado, 8 = negrito
- * - AbreConexaoImpressora(tipo, modelo, host, porta): tipo 6 = "coupled"/
- *   embutida (CONEXAO_M8) — internamente exige Build.MODEL igual a
- *   "MiniPDV M8"/"MiniPDV M10"/"EP5855" (confirmado via decompilação do
- *   e1-V02.16.00 — ver docs/printer.md). Neste M10 Pro físico, Build.MODEL
- *   é "D1" (é um iMin D1 rebrandeado — Fase 0), então tipo 6 SEMPRE falha
- *   com erro -5 aqui, independente do parâmetro "modelo". tipo 10 =
- *   CONEXAO_SERVICO: abre um Socket TCP cru (host, porta) pro serviço de
- *   impressão local do aparelho, sem checar Build.MODEL — é o caminho que
- *   este módulo usa. tipo/host/porta ficam configuráveis por parâmetro
- *   pra permitir testar variações em campo sem precisar recompilar.
+ * Expo module para impressora iMin D1.
+ * Usa IminPrintUtils (SDK 1.0) via conexão USB interna.
  */
 class ElginPrinterModule : Module() {
+  private var iminPrintUtils: IminPrintUtils? = null
+  private var initialized = false
+
   override fun definition() = ModuleDefinition {
     Name("ElginPrinter")
 
+    OnCreate {
+      val ctx = appContext.reactContext ?: throw Exceptions.MissingActivity()
+      PrinterHelper.getInstance().initPrinterService(ctx)
+      val utils = IminPrintUtils.getInstance(ctx)
+      utils.initPrinter(IminPrintUtils.PrintConnectType.USB)
+      iminPrintUtils = utils
+      initialized = true
+      Log.d("ElginPrinter", "iMin printer initialized (USB)")
+    }
+
     Function("connect") { tipo: Int, modelo: String, host: String, porta: Int ->
-      val activity = appContext.currentActivity
-        ?: throw Exceptions.MissingActivity()
-      Termica.setContext(activity)
-      Termica.AbreConexaoImpressora(tipo, modelo, host, porta)
+      if (initialized) 0 else -1
     }
 
     Function("disconnect") {
-      Termica.FechaConexaoImpressora()
+      // Keep service alive
     }
 
     Function("printText") { text: String, align: Int, isBold: Boolean, isUnderline: Boolean ->
-      var style = 0
-      if (isUnderline) style += 2
-      if (isBold) style += 8
-      Termica.ImpressaoTexto(text, align, style, 0)
+      val printer = iminPrintUtils ?: return@Function -1
+      try {
+        printer.setAlignment(align)
+        printer.setTextStyle(if (isBold) 1 else 0)
+        printer.setTextSize(24)
+        printer.setUnderline(isUnderline)
+        printer.printText(text)
+        printer.printAndLineFeed()
+        0
+      } catch (e: Exception) {
+        Log.e("ElginPrinter", "printText error", e)
+        -1
+      }
     }
 
     Function("feedLines") { lines: Int ->
-      Termica.AvancaPapel(lines)
+      val printer = iminPrintUtils ?: return@Function -1
+      try {
+        for (i in 0 until lines) {
+          printer.printAndLineFeed()
+        }
+        0
+      } catch (e: Exception) {
+        Log.e("ElginPrinter", "feedLines error", e)
+        -1
+      }
     }
 
     Function("cutPaper") {
-      Termica.Corte(1)
+      val printer = iminPrintUtils ?: return@Function -1
+      try {
+        printer.partialCut()
+        0
+      } catch (e: Exception) {
+        0
+      }
     }
 
-    // Sensor de papel — usado pra avisar o operador antes de tentar
-    // imprimir um relatório longo sem papel na bobina.
+    Function("cutTotal") {
+      val printer = iminPrintUtils ?: return@Function -1
+      try {
+        printer.partialCut()
+        0
+      } catch (e: Exception) {
+        0
+      }
+    }
+
     Function("paperStatus") {
-      Termica.StatusImpressora(3)
+      val printer = iminPrintUtils ?: return@Function -1
+      try {
+        printer.getPrinterStatus()
+      } catch (e: Exception) {
+        -1
+      }
+    }
+
+    Function("initialize") {
+      val printer = iminPrintUtils ?: return@Function -1
+      try {
+        printer.initPrinter(IminPrintUtils.PrintConnectType.USB)
+        0
+      } catch (e: Exception) {
+        Log.e("ElginPrinter", "initialize error", e)
+        -1
+      }
     }
   }
 }

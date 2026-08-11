@@ -1,5 +1,6 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { theme } from "../config/theme";
 import type { CheckInResult } from "../types/index";
 
 interface Props {
@@ -10,10 +11,10 @@ const PRESETS: Record<
   CheckInResult["status"],
   { symbol: string; title: string; color: string }
 > = {
-  CONFIRMED: { symbol: "✓", title: "PRESENÇA CONFIRMADA", color: "#1B7F3B" },
-  ALREADY_CHECKED_IN: { symbol: "!", title: "PRESENÇA JÁ REGISTRADA", color: "#B8860B" },
-  INVALID_TOKEN: { symbol: "✕", title: "CREDENCIAL INVÁLIDA", color: "#B3261E" },
-  PARTICIPANT_INACTIVE: { symbol: "✕", title: "CREDENCIAL INATIVA", color: "#B3261E" },
+  CONFIRMED: { symbol: "✓", title: "PRESENÇA CONFIRMADA", color: theme.success },
+  ALREADY_CHECKED_IN: { symbol: "!", title: "PRESENÇA JÁ REGISTRADA", color: theme.warning },
+  INVALID_TOKEN: { symbol: "✕", title: "CREDENCIAL INVÁLIDA", color: theme.danger },
+  PARTICIPANT_INACTIVE: { symbol: "✕", title: "CREDENCIAL INATIVA", color: theme.danger },
 };
 
 function formatTime(iso?: string): string {
@@ -21,9 +22,6 @@ function formatTime(iso?: string): string {
   return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
-/** Tela de resultado do check-in — seção 22 da especificação do produto.
- * Fica visível por um tempo curto e some sozinha (ver ScannerScreen),
- * pra não atrasar o próximo participante da fila. */
 export function FeedbackOverlay({ result }: Props) {
   const preset = PRESETS[result.status];
 
@@ -49,8 +47,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
   },
-  symbol: { fontSize: 96, color: "#fff", fontWeight: "700" },
-  title: { fontSize: 32, color: "#fff", fontWeight: "700", letterSpacing: 1 },
-  name: { fontSize: 26, color: "#fff" },
+  symbol: { fontSize: 96, color: theme.white, fontWeight: "700" },
+  title: { fontSize: 32, color: theme.white, fontWeight: "700", letterSpacing: 1 },
+  name: { fontSize: 26, color: theme.white },
   subtitle: { fontSize: 20, color: "#ffffffcc" },
 });

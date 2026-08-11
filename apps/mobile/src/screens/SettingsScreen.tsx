@@ -8,21 +8,15 @@ import { syncPendingCheckIns, syncRoster } from "../services/sync/syncService";
 import { isOnline } from "../services/network/connectivity";
 import { generateAndShareAttendanceReport } from "../services/report/attendanceReport";
 import { printAttendanceReport } from "../services/report/printReport";
+import { theme } from "../config/theme";
 import type { TerminalConfig } from "../types/index";
 
 interface Props {
   config: TerminalConfig;
   onBack: () => void;
-  /** Chamado depois que o terminal é desvinculado — volta pro assistente
-   * de configuração inicial (App.tsx troca pra <SetupScreen>). */
   onReconfigured: () => void;
 }
 
-/**
- * Tela de configurações do terminal — permite trocar de terminal/evento
- * sem depender de reinstalar o app ou limpar dados manualmente. Acessada
- * a partir do ícone de engrenagem na tela principal de scanner.
- */
 export function SettingsScreen({ config, onBack, onReconfigured }: Props) {
   const insets = useSafeAreaInsets();
   const [participantCount, setParticipantCount] = useState(0);
@@ -215,30 +209,30 @@ function Row({ label, value, mono, highlight }: { label: string; value: string; 
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0B1F3A" },
+  container: { flex: 1, backgroundColor: theme.background },
   header: {
     flexDirection: "row",
     alignItems: "center",
     gap: 16,
     paddingBottom: 14,
-    backgroundColor: "#0B1F3A",
+    backgroundColor: theme.surface,
     borderBottomWidth: 1,
-    borderBottomColor: "#1c2c4a",
+    borderBottomColor: theme.border,
   },
-  backLink: { color: "#8FB8FF", fontSize: 16 },
-  title: { color: "#fff", fontSize: 18, fontWeight: "700" },
+  backLink: { color: theme.primary, fontSize: 16 },
+  title: { color: theme.text, fontSize: 18, fontWeight: "700" },
   content: { padding: 20, gap: 16 },
-  card: { backgroundColor: "#132a4d", borderRadius: 10, padding: 16, gap: 12 },
+  card: { backgroundColor: theme.surfaceAlt, borderRadius: 10, padding: 16, gap: 12 },
   row: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
-  rowLabel: { color: "#8fa0bd", fontSize: 13, flexShrink: 0 },
-  rowValue: { color: "#fff", fontSize: 14, flexShrink: 1, textAlign: "right" },
-  rowValueHighlight: { color: "#E67E22", fontWeight: "700" },
+  rowLabel: { color: theme.textMuted, fontSize: 13, flexShrink: 0 },
+  rowValue: { color: theme.text, fontSize: 14, flexShrink: 1, textAlign: "right" },
+  rowValueHighlight: { color: theme.warning, fontWeight: "700" },
   mono: { fontFamily: "monospace" },
   button: { borderRadius: 8, paddingVertical: 14, alignItems: "center" },
   buttonHalf: { flex: 1 },
-  buttonSecondary: { backgroundColor: "#132a4d", borderWidth: 1, borderColor: "#2a3f61" },
-  buttonSecondaryText: { color: "#fff", fontWeight: "600" },
-  buttonDanger: { backgroundColor: "#3a1414", borderWidth: 1, borderColor: "#B3261E" },
-  buttonDangerText: { color: "#ff8a80", fontWeight: "700" },
-  hint: { color: "#8fa0bd", fontSize: 12, lineHeight: 18 },
+  buttonSecondary: { backgroundColor: theme.surfaceAlt, borderWidth: 1, borderColor: theme.border },
+  buttonSecondaryText: { color: theme.text, fontWeight: "600" },
+  buttonDanger: { backgroundColor: theme.surfaceAlt, borderWidth: 1, borderColor: theme.danger },
+  buttonDangerText: { color: theme.danger, fontWeight: "700" },
+  hint: { color: theme.textMuted, fontSize: 12, lineHeight: 18 },
 });

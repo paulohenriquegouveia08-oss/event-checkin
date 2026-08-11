@@ -11,6 +11,7 @@ import * as checkinsRepository from "../database/checkinsRepository";
 import * as participantsRepository from "../database/participantsRepository";
 import { useFeedback } from "../hooks/useFeedback";
 import { FeedbackOverlay } from "../components/FeedbackOverlay";
+import { theme } from "../config/theme";
 import type { CheckInResult, TerminalConfig } from "../types/index";
 
 interface Props {
@@ -45,10 +46,6 @@ export function ScannerScreen({ config, onOpenSettings }: Props) {
     setParticipantCount(await participantsRepository.count());
   }
 
-  /** Sincronização manual, acionada pelo operador tocando no indicador de
-   * status — útil tanto para forçar uma atualização quanto para os casos
-   * em que a sincronização automática ainda não rodou (ex.: logo após a
-   * ativação, se a rede cair no momento exato da primeira tentativa). */
   async function handleManualSync() {
     if (syncing) return;
     setSyncing(true);
@@ -58,8 +55,6 @@ export function ScannerScreen({ config, onOpenSettings }: Props) {
         await syncPendingCheckIns();
       }
     } catch {
-      // Mantém o cache atual — tenta de novo na próxima tentativa manual
-      // ou no próximo ciclo automático.
     } finally {
       await refreshParticipantCount();
       await refreshPendingCount();
@@ -105,16 +100,11 @@ export function ScannerScreen({ config, onOpenSettings }: Props) {
       await refreshPendingCount();
       await refreshParticipantCount();
 
-      // Autocorreção: se por algum motivo o terminal ficou sem nenhum
-      // participante em cache (ex.: a sincronização da ativação falhou
-      // silenciosamente), tenta sincronizar assim que a tela principal abre.
       const currentCount = await participantsRepository.count();
       if (currentCount === 0 && initiallyOnline) {
         try {
           await syncRoster();
         } catch {
-          // Sem sorte agora — o operador ainda pode forçar manualmente
-          // tocando no indicador de status, ou o ciclo automático tenta de novo.
         } finally {
           if (mounted) await refreshParticipantCount();
         }
@@ -134,8 +124,6 @@ export function ScannerScreen({ config, onOpenSettings }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sincronização periódica em segundo plano: puxa check-ins pendentes
-  // assim que há rede, sem exigir ação do operador (seção 13).
   useEffect(() => {
     const interval = setInterval(async () => {
       if (!(await isOnline())) return;
@@ -143,7 +131,6 @@ export function ScannerScreen({ config, onOpenSettings }: Props) {
         await syncPendingCheckIns();
         await syncRoster();
       } catch {
-        // Rede instável — tenta de novo no próximo ciclo, sem interromper a operação.
       } finally {
         await refreshPendingCount();
         await refreshParticipantCount();
@@ -182,7 +169,7 @@ export function ScannerScreen({ config, onOpenSettings }: Props) {
             <Text style={styles.pendingBadge}>{pendingCount} pendente(s) de envio</Text>
           ) : null}
           <View style={styles.statusRow}>
-            <View style={[styles.dot, { backgroundColor: online ? "#2ECC71" : "#E67E22" }]} />
+            <View style={[styles.dot, { backgroundColor: online ? theme.success : theme.warning }]} />
             <Text style={styles.statusText}>{online ? "ONLINE" : "OFFLINE"}</Text>
           </View>
         </TouchableOpacity>
@@ -197,7 +184,7 @@ export function ScannerScreen({ config, onOpenSettings }: Props) {
             <TextInput
               style={styles.manualInput}
               placeholder="evt_..."
-              placeholderTextColor="#8a94a6"
+              placeholderTextColor={theme.textMuted}
               autoCapitalize="none"
               value={manualValue}
               onChangeText={setManualValue}
@@ -231,32 +218,34 @@ export function ScannerScreen({ config, onOpenSettings }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#000" },
+  container: { flex: 1, backgroundColor: theme.background },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 14,
-    backgroundColor: "#0B1F3A",
+    backgroundColor: theme.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.border,
   },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
   settingsButton: { padding: 4 },
-  settingsIcon: { color: "#8FB8FF", fontSize: 22 },
-  eventName: { color: "#fff", fontSize: 18, fontWeight: "700" },
-  terminalName: { color: "#c7d0e0", fontSize: 13 },
+  settingsIcon: { color: theme.textMuted, fontSize: 22 },
+  eventName: { color: theme.text, fontSize: 18, fontWeight: "700" },
+  terminalName: { color: theme.textMuted, fontSize: 13 },
   headerRight: { alignItems: "flex-end", gap: 4 },
-  cacheText: { color: "#8FB8FF", fontSize: 11 },
-  pendingBadge: { color: "#E67E22", fontSize: 12, fontWeight: "600" },
+  cacheText: { color: theme.textMuted, fontSize: 11 },
+  pendingBadge: { color: theme.warning, fontSize: 12, fontWeight: "600" },
   statusRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   dot: { width: 10, height: 10, borderRadius: 5 },
-  statusText: { color: "#fff", fontSize: 13, fontWeight: "600" },
+  statusText: { color: theme.text, fontSize: 13, fontWeight: "600" },
   cameraArea: { flex: 1, position: "relative" },
   waiting: {
     position: "absolute",
     bottom: 24,
     alignSelf: "center",
-    color: "#fff",
+    color: theme.text,
     fontSize: 16,
     backgroundColor: "#00000088",
     paddingHorizontal: 16,
@@ -264,18 +253,20 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   manualArea: { flex: 1, justifyContent: "center", alignItems: "center", padding: 32, gap: 16 },
-  manualLabel: { color: "#c7d0e0", fontSize: 14 },
+  manualLabel: { color: theme.textMuted, fontSize: 14 },
   manualInput: {
     width: "100%",
-    backgroundColor: "#132a4d",
-    color: "#fff",
+    backgroundColor: theme.surfaceAlt,
+    color: theme.text,
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
+    borderWidth: 1,
+    borderColor: theme.border,
   },
-  manualButton: { backgroundColor: "#2F6FED", paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
-  manualButtonText: { color: "#fff", fontWeight: "700" },
-  modeToggle: { padding: 14, alignItems: "center", backgroundColor: "#0B1F3A" },
-  modeToggleText: { color: "#8FB8FF", fontSize: 13 },
+  manualButton: { backgroundColor: theme.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
+  manualButtonText: { color: theme.white, fontWeight: "700" },
+  modeToggle: { padding: 14, alignItems: "center", backgroundColor: theme.surface, borderTopWidth: 1, borderTopColor: theme.border },
+  modeToggleText: { color: theme.textMuted, fontSize: 13 },
 });

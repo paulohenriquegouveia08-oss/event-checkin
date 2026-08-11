@@ -1,14 +1,13 @@
 import React, { useState } from "react";
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity } from "react-native";
 import { SETTINGS_PASSWORD } from "../config/constants";
+import { theme } from "../config/theme";
 
 interface Props {
   onUnlocked: () => void;
   onCancel: () => void;
 }
 
-/** Trava simples antes de entrar nas configurações do terminal — ver
- * config/constants.ts para o porquê do PIN ficar em claro no código. */
 export function PasswordGateScreen({ onUnlocked, onCancel }: Props) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState(false);
@@ -31,7 +30,7 @@ export function PasswordGateScreen({ onUnlocked, onCancel }: Props) {
       <TextInput
         style={styles.input}
         placeholder="PIN"
-        placeholderTextColor="#8a94a6"
+        placeholderTextColor={theme.textMuted}
         secureTextEntry
         autoFocus
         value={password}
@@ -55,12 +54,12 @@ export function PasswordGateScreen({ onUnlocked, onCancel }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0B1F3A", padding: 32, justifyContent: "center" },
-  title: { color: "#fff", fontSize: 22, fontWeight: "700", textAlign: "center", marginBottom: 6 },
-  subtitle: { color: "#8fa0bd", fontSize: 14, textAlign: "center", marginBottom: 28 },
+  container: { flex: 1, backgroundColor: theme.background, padding: 32, justifyContent: "center" },
+  title: { color: theme.text, fontSize: 22, fontWeight: "700", textAlign: "center", marginBottom: 6 },
+  subtitle: { color: theme.textMuted, fontSize: 14, textAlign: "center", marginBottom: 28 },
   input: {
-    backgroundColor: "#132a4d",
-    color: "#fff",
+    backgroundColor: theme.surfaceAlt,
+    color: theme.text,
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -68,11 +67,11 @@ const styles = StyleSheet.create({
     textAlign: "center",
     letterSpacing: 6,
     borderWidth: 1,
-    borderColor: "#2a3f61",
+    borderColor: theme.border,
   },
-  error: { color: "#ff6b6b", marginTop: 12, textAlign: "center" },
-  button: { marginTop: 24, backgroundColor: "#2F6FED", paddingVertical: 14, borderRadius: 8, alignItems: "center" },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "700", letterSpacing: 1 },
+  error: { color: theme.danger, marginTop: 12, textAlign: "center" },
+  button: { marginTop: 24, backgroundColor: theme.primary, paddingVertical: 14, borderRadius: 8, alignItems: "center" },
+  buttonText: { color: theme.white, fontSize: 16, fontWeight: "700", letterSpacing: 1 },
   cancelButton: { marginTop: 16, alignItems: "center" },
-  cancelText: { color: "#8FB8FF", fontSize: 14 },
+  cancelText: { color: theme.primary, fontSize: 14 },
 });

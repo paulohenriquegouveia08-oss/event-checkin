@@ -149,9 +149,11 @@ export default function CheckInPage() {
       doc.text(participant.event.location, pageW / 2, 50, { align: "center" });
     }
 
-    // QR Code
+    // QR Code - white background behind it
     const qrSize = 70;
     const qrX = (pageW - qrSize) / 2;
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(qrX - 5, 65, qrSize + 10, qrSize + 10, 3, 3, "F");
     doc.addImage(imgData, "PNG", qrX, 70, qrSize, qrSize);
 
     // Participant name

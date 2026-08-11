@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { proxyRequest } from "../proxy";
+import { proxyRequest } from "../../proxy";
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization") || "";

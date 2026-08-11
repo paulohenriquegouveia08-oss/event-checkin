@@ -5,6 +5,16 @@ import type { TerminalConfig } from "../../types/index";
 const ALIGN_LEFT = 0;
 const ALIGN_CENTER = 1;
 
+// tipo 10 = CONEXAO_SERVICO — socket TCP local, não depende de
+// Build.MODEL (ver ElginPrinterModule.kt / docs/printer.md: tipo 6,
+// "impressora interna" nos exemplos oficiais, exige Build.MODEL ==
+// "MiniPDV M8"/"M10", e este M10 Pro reporta "D1"). Host/porta do
+// serviço de impressão local — PROVÁVEL, não confirmado ainda (ver
+// docs/printer.md).
+const CONEXAO_SERVICO = 10;
+const PRINTER_SERVICE_HOST = "127.0.0.1";
+const PRINTER_SERVICE_PORT = 9100;
+
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
@@ -19,7 +29,7 @@ function formatTime(iso: string): string {
 export async function printAttendanceReport(config: TerminalConfig): Promise<{ count: number }> {
   const checkIns = await checkinsRepository.listConfirmed();
 
-  const connectResult = ElginPrinter.connect();
+  const connectResult = ElginPrinter.connect(CONEXAO_SERVICO, "", PRINTER_SERVICE_HOST, PRINTER_SERVICE_PORT);
   if (connectResult !== 0) {
     throw new Error("Não foi possível conectar à impressora térmica do terminal.");
   }

@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://137.131.233.254:3000";
 
 export interface ParticipantData {
   id: string;
@@ -39,7 +39,7 @@ export async function loginAttendee(
   email: string,
   eventName: string
 ): Promise<LoginResponse> {
-  const res = await fetch(`${API_URL}/attendee/login`, {
+  const res = await fetch("/api/attendee/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, eventName }),
@@ -57,7 +57,7 @@ export async function loginAttendee(
 export async function getParticipantMe(
   token: string
 ): Promise<ApiResponse<ParticipantData>> {
-  const res = await fetch(`${API_URL}/attendee/me`, {
+  const res = await fetch("/api/attendee/me", {
     headers: { Authorization: `Bearer ${token}` },
   });
 
@@ -70,7 +70,7 @@ export function connectSSE(
   onError?: (error: Event) => void
 ): () => void {
   const eventSource = new EventSource(
-    `${API_URL}/attendee/checkin-status?token=${encodeURIComponent(token)}`
+    `/api/attendee/checkin-status?token=${encodeURIComponent(token)}`
   );
 
   eventSource.onmessage = (event) => {

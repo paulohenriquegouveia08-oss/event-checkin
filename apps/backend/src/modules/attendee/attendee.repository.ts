@@ -3,14 +3,11 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 export const attendeeRepository = {
-  async findParticipantByEmailAndEvent(email: string, eventName: string) {
-    const participant = await prisma.participant.findFirst({
+  async findParticipantByEmail(email: string) {
+    const participants = await prisma.participant.findMany({
       where: {
         email: { equals: email, mode: "insensitive" },
-        event: {
-          name: { equals: eventName, mode: "insensitive" },
-          status: "ACTIVE",
-        },
+        event: { status: "ACTIVE" },
       },
       include: {
         event: {
@@ -34,9 +31,10 @@ export const attendeeRepository = {
           take: 1,
         },
       },
+      orderBy: { event: { startDate: "desc" } },
     });
 
-    return participant;
+    return participants;
   },
 
   async getParticipantById(id: string) {

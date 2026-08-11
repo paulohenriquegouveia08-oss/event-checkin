@@ -24,8 +24,10 @@ export interface ParticipantData {
 export interface LoginResponse {
   success: boolean;
   data: {
-    token: string;
-    participant: ParticipantData;
+    token?: string;
+    participant?: ParticipantData;
+    requiresEventSelection?: boolean;
+    events?: ParticipantData[];
   };
 }
 
@@ -36,19 +38,36 @@ export interface ApiResponse<T> {
 }
 
 export async function loginAttendee(
-  email: string,
-  eventName: string
+  email: string
 ): Promise<LoginResponse> {
   const res = await fetch("/api/attendee/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, eventName }),
+    body: JSON.stringify({ email }),
   });
 
   const data = await res.json();
 
   if (!res.ok) {
     throw new Error(data.error?.message ?? "Erro ao fazer login");
+  }
+
+  return data;
+}
+
+export async function selectEvent(
+  participantId: string
+): Promise<LoginResponse> {
+  const res = await fetch("/api/attendee/select-event", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ participantId }),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(data.error?.message ?? "Erro ao selecionar evento");
   }
 
   return data;

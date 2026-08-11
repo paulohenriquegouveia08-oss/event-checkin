@@ -1,23 +1,91 @@
 import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 import { attendeeLoginSchema } from "./attendee.schema.js";
 import { attendeeRepository } from "./attendee.repository.js";
 import { ok, fail } from "../../shared/response.js";
 import { attendeeEventBus, type CheckInEvent } from "./attendee.events.js";
 
+const selectEventSchema = z.object({
+  participantId: z.string().uuid(),
+});
+
 export async function attendeeRoutes(app: FastifyInstance) {
   /**
    * POST /attendee/login
-   * Public — participant logs in with email + event name.
-   * Returns JWT + participant data + QR token.
+   * Public — participant logs in with email only.
+   * If found in 1 active event → returns JWT + participant data.
+   * If found in multiple events → returns list for selection.
    */
   app.post("/attendee/login", async (request, reply) => {
-    const { email, eventName } = attendeeLoginSchema.parse(request.body);
+    const { email } = attendeeLoginSchema.parse(request.body);
 
-    const participant = await attendeeRepository.findParticipantByEmailAndEvent(email, eventName);
+    const participants = await attendeeRepository.findParticipantByEmail(email);
 
-    if (!participant) {
+    if (participants.length === 0) {
       return reply.status(404).send(
-        fail("NOT_FOUND", "Participante não encontrado para este evento")
+        fail("NOT_FOUND", "Nenhum evento encontrado para este e-mail")
+      );
+    }
+
+    // If only one event, auto-select and login
+    if (participants.length === 1) {
+      const participant = participants[0];
+      const token = await reply.jwtSign(
+        {
+          sub: participant.id,
+          eventId: participant.eventId,
+          type: "attendee" as const,
+        },
+        { expiresIn: "24h" }
+      );
+
+      return reply.send(
+        ok({
+          token,
+          participant: {
+            id: participant.id,
+            name: participant.name,
+            email: participant.email,
+            qrToken: participant.qrToken,
+            status: participant.status,
+            event: participant.event,
+            lastCheckIn: participant.checkIns[0] ?? null,
+            checkedIn: participant.checkIns.length > 0,
+          },
+        })
+      );
+    }
+
+    // Multiple events — return list for selection
+    return reply.send(
+      ok({
+        requiresEventSelection: true,
+        events: participants.map((p) => ({
+          participantId: p.id,
+          name: p.name,
+          email: p.email,
+          qrToken: p.qrToken,
+          status: p.status,
+          event: p.event,
+          lastCheckIn: p.checkIns[0] ?? null,
+          checkedIn: p.checkIns.length > 0,
+        })),
+      })
+    );
+  });
+
+  /**
+   * POST /attendee/select-event
+   * Public — after email lookup found multiple events, participant picks one.
+   */
+  app.post("/attendee/select-event", async (request, reply) => {
+    const { participantId } = selectEventSchema.parse(request.body);
+
+    const participant = await attendeeRepository.getParticipantById(participantId);
+
+    if (!participant || participant.status !== "ACTIVE") {
+      return reply.status(404).send(
+        fail("NOT_FOUND", "Participante não encontrado")
       );
     }
 

@@ -56,6 +56,12 @@ export async function checkinsRoutes(app: FastifyInstance) {
     return ok(stats);
   });
 
+  app.get("/events/:eventId/report", { preHandler: requireAdmin }, async (request) => {
+    const { eventId } = checkinEventParamsSchema.parse(request.params);
+    const report = await checkinsService.getEventReport(eventId);
+    return ok(report);
+  });
+
   // SSE endpoint for real-time admin monitoring
   app.get("/events/:eventId/monitor", async (request, reply) => {
     const { eventId } = checkinEventParamsSchema.parse(request.params);

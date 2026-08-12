@@ -1,5 +1,6 @@
 import { Prisma, type CheckIn, type CheckInSource } from "@prisma/client";
 import { ConflictError, ForbiddenError, NotFoundError } from "../../shared/errors.js";
+import { prisma } from "../../database/prisma.js";
 import * as participantsRepository from "../participants/participants.repository.js";
 import * as checkinsRepository from "./checkins.repository.js";
 import { attendeeEventBus } from "../attendee/attendee.events.js";
@@ -169,6 +170,30 @@ export async function getEventStatistics(eventId: string) {
     checkInsByTerminal: byTerminal.map((row) => ({
       terminalId: row.terminalId,
       count: row._count._all,
+    })),
+  };
+}
+
+export async function getEventReport(eventId: string) {
+  const [event, checkIns, totalParticipants] = await Promise.all([
+    prisma.event.findUnique({ where: { id: eventId }, select: { name: true, location: true } }),
+    checkinsRepository.listCheckInsByEvent(eventId),
+    participantsRepository.listParticipantsByEvent(eventId).then((rows) => rows.length),
+  ]);
+
+  return {
+    eventName: event?.name ?? "Evento",
+    eventLocation: event?.location ?? "",
+    totalRegistered: totalParticipants,
+    totalCheckedIn: checkIns.length,
+    checkIns: checkIns.map((c) => ({
+      participantName: c.participant.name,
+      participantEmail: c.participant.email,
+      participantPhone: c.participant.phone,
+      participantDocument: c.participant.document,
+      terminalName: c.terminal?.name ?? null,
+      source: c.source,
+      checkedInAt: c.checkedInAt.toISOString(),
     })),
   };
 }

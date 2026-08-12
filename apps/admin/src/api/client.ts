@@ -222,6 +222,27 @@ export function getStatistics(eventId: string) {
   return request<EventStatistics>(`/events/${eventId}/statistics`);
 }
 
+// --- Report ---
+export interface ReportCheckIn {
+  participantName: string;
+  participantEmail: string | null;
+  participantPhone: string | null;
+  participantDocument: string | null;
+  terminalName: string | null;
+  source: string;
+  checkedInAt: string;
+}
+export interface EventReport {
+  eventName: string;
+  eventLocation: string;
+  totalRegistered: number;
+  totalCheckedIn: number;
+  checkIns: ReportCheckIn[];
+}
+export function getReport(eventId: string) {
+  return request<EventReport>(`/events/${eventId}/report`);
+}
+
 export function checkHealth() {
   return request<{ status: string; apiVersion: string }>("/health", { auth: false });
 }

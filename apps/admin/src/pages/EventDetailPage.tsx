@@ -5,8 +5,9 @@ import { ParticipantsTab } from "./event/ParticipantsTab";
 import { TerminalsTab } from "./event/TerminalsTab";
 import { StatisticsTab } from "./event/StatisticsTab";
 import { LiveMonitorTab } from "./event/LiveMonitorTab";
+import { ReportTab } from "./event/ReportTab";
 
-type Tab = "participants" | "terminals" | "statistics" | "monitor";
+type Tab = "participants" | "terminals" | "statistics" | "monitor" | "report";
 
 export function EventDetailPage() {
   const { eventId } = useParams<{ eventId: string }>();
@@ -66,12 +67,16 @@ export function EventDetailPage() {
         <TabButton active={tab === "monitor"} onClick={() => setTab("monitor")}>
           Monitor
         </TabButton>
+        <TabButton active={tab === "report"} onClick={() => setTab("report")}>
+          Relatório
+        </TabButton>
       </div>
 
       {tab === "participants" ? <ParticipantsTab eventId={eventId} /> : null}
       {tab === "terminals" ? <TerminalsTab eventId={eventId} /> : null}
       {tab === "statistics" ? <StatisticsTab eventId={eventId} /> : null}
       {tab === "monitor" ? <LiveMonitorTab eventId={eventId} /> : null}
+      {tab === "report" ? <ReportTab eventId={eventId} /> : null}
     </div>
   );
 }

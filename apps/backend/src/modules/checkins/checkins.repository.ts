@@ -37,3 +37,14 @@ export function countByEventAndTerminal(eventId: string) {
     _count: { _all: true },
   });
 }
+
+export function listCheckInsByEvent(eventId: string) {
+  return prisma.checkIn.findMany({
+    where: { eventId },
+    include: {
+      participant: { select: { name: true, email: true, phone: true, document: true } },
+      terminal: { select: { name: true } },
+    },
+    orderBy: { checkedInAt: "asc" },
+  });
+}

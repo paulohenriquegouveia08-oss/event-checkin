@@ -10,6 +10,10 @@ export async function listEvents() {
   return eventsRepository.listEvents();
 }
 
+export async function listActiveEvents() {
+  return eventsRepository.listActiveEvents();
+}
+
 export async function getEventOrThrow(eventId: string) {
   const event = await eventsRepository.findEventById(eventId);
   if (!event) {

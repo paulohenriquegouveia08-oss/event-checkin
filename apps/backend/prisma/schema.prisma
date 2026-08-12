@@ -41,6 +41,18 @@ enum CheckInSource {
   OFFLINE_SYNC // registrado offline no terminal, recebido depois via /terminals/sync
 }
 
+enum InscriptionCategory {
+  STUDENT_UP
+  STUDENT_OTHER
+  PROFESSIONAL
+}
+
+enum InscriptionStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
 model User {
   id           String   @id @default(uuid())
   name         String
@@ -67,6 +79,7 @@ model Event {
   participants Participant[]
   terminals    Terminal[]
   checkIns     CheckIn[]
+  inscriptions Inscription[]
 
   @@map("events")
 }
@@ -150,4 +163,26 @@ model CheckIn {
   @@unique([terminalId, localCheckInId])
   @@index([terminalId])
   @@map("checkins")
+}
+
+model Inscription {
+  id            String              @id @default(uuid())
+  eventId       String
+  event         Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  participantId String?
+  name          String
+  email         String
+  document      String              // CPF
+  phone         String?
+  institution   String?
+  category      InscriptionCategory
+  amount        Decimal             @db.Decimal(10, 2)
+  status        InscriptionStatus   @default(PENDING)
+  paymentId     String?
+  notes         String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([eventId])
+  @@map("inscriptions")
 }

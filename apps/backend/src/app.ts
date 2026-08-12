@@ -13,6 +13,7 @@ import { terminalsRoutes } from "./modules/terminals/terminals.routes.js";
 import { checkinsRoutes } from "./modules/checkins/checkins.routes.js";
 import { synchronizationRoutes } from "./modules/synchronization/synchronization.routes.js";
 import { attendeeRoutes } from "./modules/attendee/attendee.routes.js";
+import { inscriptionsRoutes } from "./modules/inscriptions/inscriptions.routes.js";
 
 // Versão da API — usada pelo app do terminal para verificar compatibilidade
 // (seção 27 da especificação). Incrementar em mudanças que quebrem contrato.
@@ -68,6 +69,7 @@ export function buildApp() {
   app.register(checkinsRoutes);
   app.register(synchronizationRoutes);
   app.register(attendeeRoutes);
+  app.register(inscriptionsRoutes);
 
   return app;
 }

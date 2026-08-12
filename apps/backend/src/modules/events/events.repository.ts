@@ -9,6 +9,13 @@ export function listEvents() {
   return prisma.event.findMany({ orderBy: { startDate: "desc" } });
 }
 
+export function listActiveEvents() {
+  return prisma.event.findMany({
+    where: { status: "ACTIVE" },
+    orderBy: { startDate: "desc" },
+  });
+}
+
 export function findEventById(eventId: string) {
   return prisma.event.findUnique({ where: { id: eventId } });
 }

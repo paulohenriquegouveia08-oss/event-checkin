@@ -16,6 +16,19 @@ export async function eventsRoutes(app: FastifyInstance) {
     return ok(events);
   });
 
+  // Public — list active events (for pre-copol site)
+  app.get("/events/active", async () => {
+    const events = await eventsService.listActiveEvents();
+    return ok(events);
+  });
+
+  // Public — get event by ID (for pre-copol inscription form)
+  app.get("/events/:eventId/public", async (request) => {
+    const { eventId } = eventIdParamsSchema.parse(request.params);
+    const event = await eventsService.getEventOrThrow(eventId);
+    return ok(event);
+  });
+
   app.get("/events/:eventId", { preHandler: requireAdmin }, async (request) => {
     const { eventId } = eventIdParamsSchema.parse(request.params);
     const event = await eventsService.getEventOrThrow(eventId);

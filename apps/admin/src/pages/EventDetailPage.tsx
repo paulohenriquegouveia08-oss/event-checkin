@@ -14,6 +14,10 @@ export function EventDetailPage() {
   const [event, setEvent] = useState<api.EventRecord | null>(null);
   const [tab, setTab] = useState<Tab>("participants");
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editLocation, setEditLocation] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!eventId) return;
@@ -29,6 +33,29 @@ export function EventDetailPage() {
     setEvent(updated);
   }
 
+  function startEditing() {
+    if (!event) return;
+    setEditName(event.name);
+    setEditLocation(event.location ?? "");
+    setEditing(true);
+  }
+
+  async function handleSave() {
+    if (!eventId || !editName.trim()) return;
+    setSaving(true);
+    try {
+      const updated = await api.updateEvent(eventId, {
+        name: editName.trim(),
+        location: editLocation.trim() || undefined,
+      });
+      setEvent(updated);
+      setEditing(false);
+    } catch {
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (!eventId) return null;
   if (error) return <p className="error-text">{error}</p>;
   if (!event) return <p className="muted">Carregando...</p>;
@@ -40,13 +67,39 @@ export function EventDetailPage() {
       </Link>
 
       <div className="spread">
-        <div>
-          <h1 style={{ fontSize: 22, margin: 0 }}>{event.name}</h1>
-          <p className="muted" style={{ margin: "4px 0 0" }}>
-            {new Date(event.startDate).toLocaleDateString("pt-BR")} —{" "}
-            {new Date(event.endDate).toLocaleDateString("pt-BR")}
-            {event.location ? ` · ${event.location}` : ""}
-          </p>
+        <div style={{ flex: 1 }}>
+          {editing ? (
+            <div className="stack" style={{ gap: 8 }}>
+              <input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Nome do evento"
+                autoFocus
+              />
+              <input
+                value={editLocation}
+                onChange={(e) => setEditLocation(e.target.value)}
+                placeholder="Local / Endereço"
+              />
+              <div className="row" style={{ gap: 8 }}>
+                <button className="btn btn-sm" onClick={handleSave} disabled={saving || !editName.trim()}>
+                  {saving ? "Salvando..." : "Salvar"}
+                </button>
+                <button className="btn btn-secondary btn-sm" onClick={() => setEditing(false)}>
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div onClick={startEditing} style={{ cursor: "pointer" }} title="Clique para editar">
+              <h1 style={{ fontSize: 22, margin: 0 }}>{event.name}</h1>
+              <p className="muted" style={{ margin: "4px 0 0" }}>
+                {new Date(event.startDate).toLocaleDateString("pt-BR")} —{" "}
+                {new Date(event.endDate).toLocaleDateString("pt-BR")}
+                {event.location ? ` · ${event.location}` : ""}
+              </p>
+            </div>
+          )}
         </div>
         <select value={event.status} onChange={(e) => handleStatusChange(e.target.value as api.EventRecord["status"])} style={{ width: 160 }}>
           <option value="ACTIVE">Ativo</option>

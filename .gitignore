@@ -34,3 +34,4 @@ apps/admin/playwright/.cache/
 # Next.js attendee app
 apps/attendee/.next/
 apps/attendee/out/
+.vercel

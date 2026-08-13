@@ -22,9 +22,20 @@ async function main() {
     return;
   }
 
+  // O perfil bootstrap ADMINISTRADOR é criado pela migration
+  // 20260813000000_rbac_roles_permissions — se não existir, o seed não
+  // tem pra qual perfil vincular o usuário.
+  const adminRole = await prisma.role.findUnique({ where: { key: "ADMINISTRADOR" } });
+  if (!adminRole) {
+    console.error(
+      "Perfil ADMINISTRADOR não encontrado — rode as migrations (prisma migrate deploy) antes do seed."
+    );
+    process.exit(1);
+  }
+
   const passwordHash = await bcrypt.hash(password, 12);
   const user = await prisma.user.create({
-    data: { name, email, passwordHash, role: "ADMIN" },
+    data: { name, email, passwordHash, roleId: adminRole.id },
   });
 
   console.log(`Usuário admin criado: ${user.email} (id ${user.id})`);

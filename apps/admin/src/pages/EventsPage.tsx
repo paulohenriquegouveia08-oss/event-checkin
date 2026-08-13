@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import * as api from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 
 const STATUS_LABEL: Record<api.EventRecord["status"], string> = {
   ACTIVE: "Ativo",
@@ -12,6 +13,8 @@ const STATUS_BADGE: Record<api.EventRecord["status"], string> = {
 };
 
 export function EventsPage() {
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission("events.create");
   const [events, setEvents] = useState<api.EventRecord[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -29,12 +32,14 @@ export function EventsPage() {
     <div className="stack">
       <div className="spread">
         <h1 style={{ fontSize: 22, margin: 0 }}>Eventos</h1>
-        <button className="btn" onClick={() => setShowForm((v) => !v)}>
-          {showForm ? "Cancelar" : "+ Novo evento"}
-        </button>
+        {canCreate ? (
+          <button className="btn" onClick={() => setShowForm((v) => !v)}>
+            {showForm ? "Cancelar" : "+ Novo evento"}
+          </button>
+        ) : null}
       </div>
 
-      {showForm ? (
+      {showForm && canCreate ? (
         <CreateEventForm
           onCreated={() => {
             setShowForm(false);

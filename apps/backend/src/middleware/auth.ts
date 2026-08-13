@@ -5,7 +5,11 @@ import { sha256Hex } from "../shared/tokens.js";
 
 export interface AdminJwtPayload {
   sub: string;
-  role: "ADMIN";
+  // key do Role no momento do login (ex: "ADMINISTRADOR") — só informativo
+  // no token; a checagem de permissão real sempre confere o banco (ver
+  // requirePermission), então mudar as permissões de um perfil já vale
+  // pra sessões abertas, sem esperar reautenticação.
+  role: string;
   type: "admin";
 }
 
@@ -30,13 +34,26 @@ declare module "@fastify/jwt" {
 
 declare module "fastify" {
   interface FastifyRequest {
-    admin?: { userId: string; role: "ADMIN" };
+    admin?: {
+      userId: string;
+      email: string;
+      roleKey: string;
+      roleId: string;
+      isSystem: boolean;
+      permissions: Set<string>;
+    };
     terminal?: { terminalId: string; eventId: string; name: string };
   }
 }
 
-/** Exige um token de sessão de administrador válido. */
-export async function requireAdmin(request: FastifyRequest, _reply: FastifyReply) {
+/**
+ * Valida a sessão de admin (JWT + usuário ainda ativo) e carrega o perfil
+ * com suas permissões em request.admin. Não decide sozinha se a ação é
+ * permitida — isso é requirePermission(). Perfil com isSystem=true (só o
+ * bootstrap ADMINISTRADOR) é tratado como "todas as permissões" sem
+ * precisar de linha em role_permissions — ver comentário no schema.prisma.
+ */
+async function loadAdminSession(request: FastifyRequest) {
   try {
     await request.jwtVerify();
   } catch {
@@ -46,7 +63,61 @@ export async function requireAdmin(request: FastifyRequest, _reply: FastifyReply
   if (payload.type !== "admin") {
     throw new ForbiddenError("Este endpoint requer autenticação de administrador");
   }
-  request.admin = { userId: payload.sub, role: payload.role };
+
+  const user = await prisma.user.findUnique({
+    where: { id: payload.sub },
+    include: { role: { include: { permissions: { include: { permission: true } } } } },
+  });
+
+  if (!user || !user.isActive) {
+    throw new UnauthorizedError("Sessão inválida ou usuário desativado");
+  }
+
+  const permissions = new Set(user.role.permissions.map((rp) => rp.permission.key));
+  request.admin = {
+    userId: user.id,
+    email: user.email,
+    roleKey: user.role.key,
+    roleId: user.role.id,
+    isSystem: user.role.isSystem,
+    permissions,
+  };
+}
+
+/** Mesma checagem de requirePermission(), mas utilizável fora do ciclo de
+ * preHandler do Fastify — usado pelo endpoint SSE de monitor, que recebe
+ * o token via query string (EventSource não manda headers) e por isso
+ * não passa pelo fluxo normal de autenticação. */
+export async function userHasPermission(userId: string, permissionKey: string): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { role: { include: { permissions: { include: { permission: true } } } } },
+  });
+  if (!user || !user.isActive) return false;
+  if (user.role.isSystem) return true;
+  return user.role.permissions.some((rp) => rp.permission.key === permissionKey);
+}
+
+/** Exige apenas uma sessão de admin válida, sem checar permissão
+ * específica — uso restrito a endpoints que qualquer perfil autenticado
+ * pode acessar (ex: "quem sou eu"). Ações de verdade devem usar
+ * requirePermission(). */
+export async function requireAdmin(request: FastifyRequest, _reply: FastifyReply) {
+  await loadAdminSession(request);
+}
+
+/** Exige sessão de admin válida E a permissão informada (ou isSystem).
+ * A checagem é sempre contra o banco no momento da requisição — mudar as
+ * permissões de um perfil pela UI reflete imediatamente, sem esperar o
+ * usuário logado de novo. */
+export function requirePermission(permissionKey: string) {
+  return async function (request: FastifyRequest, _reply: FastifyReply) {
+    await loadAdminSession(request);
+    const admin = request.admin!;
+    if (!admin.isSystem && !admin.permissions.has(permissionKey)) {
+      throw new ForbiddenError(`Seu perfil não tem a permissão "${permissionKey}"`);
+    }
+  };
 }
 
 /**

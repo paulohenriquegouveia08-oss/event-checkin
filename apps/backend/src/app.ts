@@ -14,6 +14,9 @@ import { checkinsRoutes } from "./modules/checkins/checkins.routes.js";
 import { synchronizationRoutes } from "./modules/synchronization/synchronization.routes.js";
 import { attendeeRoutes } from "./modules/attendee/attendee.routes.js";
 import { inscriptionsRoutes } from "./modules/inscriptions/inscriptions.routes.js";
+import { rolesRoutes } from "./modules/roles/roles.routes.js";
+import { usersRoutes } from "./modules/users/users.routes.js";
+import { auditRoutes } from "./modules/audit/audit.routes.js";
 
 // Versão da API — usada pelo app do terminal para verificar compatibilidade
 // (seção 27 da especificação). Incrementar em mudanças que quebrem contrato.
@@ -39,7 +42,12 @@ export function buildApp() {
   app.register(cors, {
     origin: (origin, callback) => {
       // Allow requests with no origin (mobile apps, curl, etc.)
-      if (!origin || ALLOWED_ORIGINS.length === 0 || ALLOWED_ORIGINS.includes(origin)) {
+      // Vercel preview deployments get a new random subdomain per deploy
+      // (ex: event-checkin-pre-copol-56c1lnfk7.vercel.app) — aceitar
+      // qualquer *.vercel.app evita ter que atualizar CORS_ORIGINS a cada
+      // deploy novo do portal do participante.
+      const isVercelPreview = !!origin && /^https:\/\/[a-z0-9-]+\.vercel\.app$/.test(origin);
+      if (!origin || ALLOWED_ORIGINS.length === 0 || ALLOWED_ORIGINS.includes(origin) || isVercelPreview) {
         callback(null, true);
       } else {
         callback(new Error("Not allowed by CORS"), false);
@@ -70,6 +78,9 @@ export function buildApp() {
   app.register(synchronizationRoutes);
   app.register(attendeeRoutes);
   app.register(inscriptionsRoutes);
+  app.register(rolesRoutes);
+  app.register(usersRoutes);
+  app.register(auditRoutes);
 
   return app;
 }

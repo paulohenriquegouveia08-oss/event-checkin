@@ -1,7 +1,8 @@
 import type { FastifyInstance } from "fastify";
-import { requireAdmin } from "../../middleware/auth.js";
+import { requirePermission } from "../../middleware/auth.js";
 import { ok } from "../../shared/response.js";
 import { sha256Hex } from "../../shared/tokens.js";
+import { recordAudit } from "../audit/audit.service.js";
 import { getEventOrThrow } from "../events/events.service.js";
 import * as terminalsService from "./terminals.service.js";
 import {
@@ -19,30 +20,44 @@ import {
 const TERMINAL_TOKEN_EXPIRES_IN = "365d";
 
 export async function terminalsRoutes(app: FastifyInstance) {
-  app.post("/events/:eventId/terminals", { preHandler: requireAdmin }, async (request, reply) => {
-    const { eventId } = eventTerminalParamsSchema.parse(request.params);
-    const { name } = createTerminalSchema.parse(request.body);
-    const terminal = await terminalsService.createTerminal(eventId, name);
-    return reply.status(201).send(ok(terminal));
-  });
+  app.post(
+    "/events/:eventId/terminals",
+    { preHandler: requirePermission("terminals.create") },
+    async (request, reply) => {
+      const { eventId } = eventTerminalParamsSchema.parse(request.params);
+      const { name } = createTerminalSchema.parse(request.body);
+      const terminal = await terminalsService.createTerminal(eventId, name);
+      await recordAudit(request, "terminal.create", "Terminal", terminal.id, { eventId, name });
+      return reply.status(201).send(ok(terminal));
+    }
+  );
 
-  app.get("/events/:eventId/terminals", { preHandler: requireAdmin }, async (request) => {
+  app.get("/events/:eventId/terminals", { preHandler: requirePermission("terminals.view") }, async (request) => {
     const { eventId } = eventTerminalParamsSchema.parse(request.params);
     const terminals = await terminalsService.listTerminals(eventId);
     return ok(terminals);
   });
 
-  app.get("/terminals/:terminalId/status", { preHandler: requireAdmin }, async (request) => {
-    const { terminalId } = terminalParamsSchema.parse(request.params);
-    const terminal = await terminalsService.getTerminalStatus(terminalId);
-    return ok(terminal);
-  });
+  app.get(
+    "/terminals/:terminalId/status",
+    { preHandler: requirePermission("terminals.view") },
+    async (request) => {
+      const { terminalId } = terminalParamsSchema.parse(request.params);
+      const terminal = await terminalsService.getTerminalStatus(terminalId);
+      return ok(terminal);
+    }
+  );
 
-  app.delete("/events/:eventId/terminals/:terminalId", { preHandler: requireAdmin }, async (request, reply) => {
-    const { eventId, terminalId } = eventTerminalIdParamsSchema.parse(request.params);
-    await terminalsService.deleteTerminal(eventId, terminalId);
-    return reply.status(204).send();
-  });
+  app.delete(
+    "/events/:eventId/terminals/:terminalId",
+    { preHandler: requirePermission("terminals.delete") },
+    async (request, reply) => {
+      const { eventId, terminalId } = eventTerminalIdParamsSchema.parse(request.params);
+      await terminalsService.deleteTerminal(eventId, terminalId);
+      await recordAudit(request, "terminal.delete", "Terminal", terminalId);
+      return reply.status(204).send();
+    }
+  );
 
   // Endpoint público: a própria posse do código de ativação (curto,
   // expirável, uso único) é a credencial neste momento do fluxo.

@@ -10,10 +10,19 @@ export async function authRoutes(app: FastifyInstance) {
     const user = await authenticateAdmin(email, password);
 
     const token = await reply.jwtSign(
-      { sub: user.id, role: user.role, type: "admin" as const },
+      { sub: user.id, role: user.role.key, type: "admin" as const },
       { expiresIn: env.JWT_ADMIN_EXPIRES_IN }
     );
 
-    return ok({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+    return ok({
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        permissions: user.permissions,
+      },
+    });
   });
 }

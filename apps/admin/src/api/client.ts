@@ -75,11 +75,19 @@ async function request<T>(
 }
 
 // --- Auth ---
+export interface AdminRoleRef {
+  id: string;
+  key: string;
+  name: string;
+  isSystem: boolean;
+}
 export interface AdminUser {
   id: string;
   name: string;
   email: string;
-  role: string;
+  role: AdminRoleRef;
+  // "ALL" pro perfil protegido (ADMINISTRADOR); lista de keys pros demais.
+  permissions: "ALL" | string[];
 }
 export function login(email: string, password: string) {
   return request<{ token: string; user: AdminUser }>("/auth/login", {
@@ -89,7 +97,113 @@ export function login(email: string, password: string) {
   });
 }
 
+// --- Perfis e permissões (RBAC) ---
+export interface PermissionDef {
+  id: string;
+  key: string;
+  description: string;
+  category: string;
+}
+export interface RoleRecord {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  isSystem: boolean;
+  userCount: number;
+  permissionKeys: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+export function listRoles() {
+  return request<RoleRecord[]>("/roles");
+}
+export function listPermissions() {
+  return request<PermissionDef[]>("/permissions");
+}
+export function createRole(input: { name: string; description?: string }) {
+  return request<RoleRecord>("/roles", { method: "POST", body: input });
+}
+export function updateRole(roleId: string, input: { name?: string; description?: string }) {
+  return request<RoleRecord>(`/roles/${roleId}`, { method: "PATCH", body: input });
+}
+export function deleteRole(roleId: string) {
+  return request<void>(`/roles/${roleId}`, { method: "DELETE" });
+}
+export function updateRolePermissions(roleId: string, permissionKeys: string[]) {
+  return request<RoleRecord>(`/roles/${roleId}/permissions`, { method: "PUT", body: { permissionKeys } });
+}
+
+// --- Usuários ---
+export interface UserRecord {
+  id: string;
+  name: string;
+  email: string;
+  isActive: boolean;
+  lastLoginAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  role: AdminRoleRef;
+}
+export function listUsers() {
+  return request<UserRecord[]>("/users");
+}
+export function createUser(input: { name: string; email: string; password: string; roleId: string }) {
+  return request<UserRecord>("/users", { method: "POST", body: input });
+}
+export function updateUser(
+  userId: string,
+  input: Partial<{ name: string; email: string; roleId: string; password: string }>
+) {
+  return request<UserRecord>(`/users/${userId}`, { method: "PATCH", body: input });
+}
+export function toggleUserActive(userId: string, isActive: boolean) {
+  return request<UserRecord>(`/users/${userId}/toggle-active`, { method: "POST", body: { isActive } });
+}
+export function deleteUser(userId: string) {
+  return request<void>(`/users/${userId}`, { method: "DELETE" });
+}
+
+// --- Auditoria ---
+export interface AuditLogRecord {
+  id: string;
+  actorId: string | null;
+  actorEmail: string;
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  metadata: unknown;
+  createdAt: string;
+}
+export function listAuditLogs(limit = 200) {
+  return request<AuditLogRecord[]>(`/audit-logs?limit=${limit}`);
+}
+
 // --- Events ---
+export interface PricingTier {
+  key: string;
+  label: string;
+  amount: number;
+}
+export interface SiteStep {
+  title: string;
+  text: string;
+}
+export interface SiteContent {
+  eventTitle?: string;
+  eventYear?: string;
+  heroBadge?: string;
+  heroSubtitle?: string;
+  aboutTitle?: string;
+  aboutText?: string;
+  stepsTitle?: string;
+  steps?: SiteStep[];
+  pricingTitle?: string;
+  pricingTiers?: PricingTier[];
+  partnersTitle?: string;
+  partnersText?: string;
+  footerText?: string;
+}
 export interface EventRecord {
   id: string;
   name: string;
@@ -98,6 +212,10 @@ export interface EventRecord {
   startDate: string;
   endDate: string;
   status: "ACTIVE" | "CLOSED";
+  registrationDeadline: string | null;
+  registrationsClosedAt: string | null;
+  registrationsOpen: boolean;
+  siteContent: SiteContent | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -116,8 +234,17 @@ export function createEvent(input: {
 }) {
   return request<EventRecord>("/events", { method: "POST", body: input });
 }
-export function updateEvent(eventId: string, input: Partial<EventRecord>) {
+export function updateEvent(
+  eventId: string,
+  input: Partial<Omit<EventRecord, "registrationDeadline">> & { registrationDeadline?: string | null }
+) {
   return request<EventRecord>(`/events/${eventId}`, { method: "PATCH", body: input });
+}
+export function closeRegistrations(eventId: string) {
+  return request<EventRecord>(`/events/${eventId}/registrations/close`, { method: "POST" });
+}
+export function reopenRegistrations(eventId: string) {
+  return request<EventRecord>(`/events/${eventId}/registrations/reopen`, { method: "POST" });
 }
 
 // --- Participants ---

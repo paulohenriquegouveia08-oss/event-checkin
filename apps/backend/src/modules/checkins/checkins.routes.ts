@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { requireAdmin, requireTerminal } from "../../middleware/auth.js";
+import { requirePermission, requireTerminal, userHasPermission } from "../../middleware/auth.js";
 import { ForbiddenError, NotFoundError } from "../../shared/errors.js";
 import { ok } from "../../shared/response.js";
 import * as checkinsService from "./checkins.service.js";
@@ -50,13 +50,17 @@ export async function checkinsRoutes(app: FastifyInstance) {
     }
   });
 
-  app.get("/events/:eventId/statistics", { preHandler: requireAdmin }, async (request) => {
-    const { eventId } = checkinEventParamsSchema.parse(request.params);
-    const stats = await checkinsService.getEventStatistics(eventId);
-    return ok(stats);
-  });
+  app.get(
+    "/events/:eventId/statistics",
+    { preHandler: requirePermission("statistics.view") },
+    async (request) => {
+      const { eventId } = checkinEventParamsSchema.parse(request.params);
+      const stats = await checkinsService.getEventStatistics(eventId);
+      return ok(stats);
+    }
+  );
 
-  app.get("/events/:eventId/report", { preHandler: requireAdmin }, async (request) => {
+  app.get("/events/:eventId/report", { preHandler: requirePermission("reports.view") }, async (request) => {
     const { eventId } = checkinEventParamsSchema.parse(request.params);
     const report = await checkinsService.getEventReport(eventId);
     return ok(report);
@@ -80,6 +84,9 @@ export async function checkinsRoutes(app: FastifyInstance) {
     }
 
     if (payload.type !== "admin") {
+      return reply.status(403).send({ success: false, error: { code: "FORBIDDEN", message: "Acesso negado" } });
+    }
+    if (!(await userHasPermission(payload.sub, "monitor.view"))) {
       return reply.status(403).send({ success: false, error: { code: "FORBIDDEN", message: "Acesso negado" } });
     }
 

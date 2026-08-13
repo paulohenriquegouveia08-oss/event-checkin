@@ -1,13 +1,16 @@
 import { env } from "./config/env.js";
 import { buildApp } from "./app.js";
+import { prisma } from "./database/prisma.js";
+import { syncPermissions } from "./shared/permissions.js";
 
 const app = buildApp();
 
-app
-  .listen({ port: env.PORT, host: "0.0.0.0" })
-  .then((address) => {
-    app.log.info(`event-checkin backend ouvindo em ${address}`);
-  })
+syncPermissions(prisma)
+  .then(() =>
+    app.listen({ port: env.PORT, host: "0.0.0.0" }).then((address) => {
+      app.log.info(`event-checkin backend ouvindo em ${address}`);
+    })
+  )
   .catch((error) => {
     app.log.error(error);
     process.exit(1);

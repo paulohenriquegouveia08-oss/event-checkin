@@ -1,5 +1,32 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://137.131.233.254:3000";
 
+export interface PricingTier {
+  key: string;
+  label: string;
+  amount: number;
+}
+
+export interface Step {
+  title: string;
+  text: string;
+}
+
+export interface SiteContent {
+  eventTitle: string;
+  eventYear: string;
+  heroBadge: string;
+  heroSubtitle: string;
+  aboutTitle: string;
+  aboutText: string;
+  stepsTitle: string;
+  steps: Step[];
+  pricingTitle: string;
+  pricingTiers: PricingTier[];
+  partnersTitle: string;
+  partnersText: string;
+  footerText: string;
+}
+
 export interface EventData {
   id: string;
   name: string;
@@ -8,6 +35,9 @@ export interface EventData {
   startDate: string;
   endDate: string;
   status: string;
+  registrationDeadline: string | null;
+  registrationsOpen: boolean;
+  siteContent: SiteContent;
 }
 
 export interface InscriptionInput {
@@ -15,7 +45,7 @@ export interface InscriptionInput {
   email: string;
   document: string;
   phone: string;
-  category: "STUDENT_UP" | "STUDENT_OTHER" | "PROFESSIONAL";
+  category: string;
   institution?: string;
   notes?: string;
 }

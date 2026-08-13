@@ -1,0 +1,18 @@
+# Deploys do Vercel (apps/pre-copol, apps/attendee) empacotam a partir da
+# raiz do monorepo pra resolver workspaces — sem esse arquivo, diretórios
+# pesados e irrelevantes pro Next.js (build nativo do app mobile, node_modules
+# de outros workspaces) entram no upload e estouram o limite de tamanho.
+node_modules
+apps/mobile/android
+apps/mobile/node_modules
+apps/mobile/modules/*/android/build
+apps/attendee/.next
+apps/attendee/node_modules
+apps/admin/node_modules
+apps/admin/dist
+apps/backend/node_modules
+apps/backend/dist
+apps/pre-copol/.next
+apps/pre-copol/node_modules
+tools/scanner-poc-android
+assets/brand

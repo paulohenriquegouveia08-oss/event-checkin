@@ -1,5 +1,5 @@
 import { prisma } from "../../database/prisma.js";
-import type { InscriptionCategory, InscriptionStatus } from "@prisma/client";
+import type { InscriptionStatus } from "@prisma/client";
 
 export interface CreateInscriptionParams {
   eventId: string;
@@ -8,7 +8,7 @@ export interface CreateInscriptionParams {
   document: string;
   phone?: string;
   institution?: string;
-  category: InscriptionCategory;
+  category: string;
   amount: number;
   notes?: string;
 }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { siteContentSchema } from "./site-content.js";
 
 export const createEventSchema = z
   .object({
@@ -7,6 +8,8 @@ export const createEventSchema = z
     location: z.string().trim().max(300).optional(),
     startDate: z.coerce.date(),
     endDate: z.coerce.date(),
+    registrationDeadline: z.coerce.date().nullable().optional(),
+    siteContent: siteContentSchema.optional(),
   })
   .refine((data) => data.endDate >= data.startDate, {
     message: "endDate deve ser igual ou posterior a startDate",
@@ -22,6 +25,10 @@ export const updateEventSchema = z.object({
   startDate: z.coerce.date().optional(),
   endDate: z.coerce.date().optional(),
   status: z.enum(["ACTIVE", "CLOSED"]).optional(),
+  // null explicitamente remove o prazo (inscrições ficam abertas até
+  // encerramento manual, se houver)
+  registrationDeadline: z.coerce.date().nullable().optional(),
+  siteContent: siteContentSchema.optional(),
 });
 
 export type UpdateEventInput = z.infer<typeof updateEventSchema>;

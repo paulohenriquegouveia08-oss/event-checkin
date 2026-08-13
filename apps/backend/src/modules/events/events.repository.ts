@@ -23,3 +23,17 @@ export function findEventById(eventId: string) {
 export function updateEvent(eventId: string, data: UpdateEventInput) {
   return prisma.event.update({ where: { id: eventId }, data });
 }
+
+export function setRegistrationsClosedAt(eventId: string, closedAt: Date | null) {
+  return prisma.event.update({ where: { id: eventId }, data: { registrationsClosedAt: closedAt } });
+}
+
+export function reopenRegistrations(eventId: string, clearDeadline: boolean) {
+  return prisma.event.update({
+    where: { id: eventId },
+    data: {
+      registrationsClosedAt: null,
+      ...(clearDeadline ? { registrationDeadline: null } : {}),
+    },
+  });
+}

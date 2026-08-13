@@ -2,29 +2,197 @@
 
 :root {
   --background: #0e3634;
+  --background-deep: #082523;
   --foreground: #f0faf9;
   --primary: #2dd4bf;
-  --primary-foreground: #000000;
+  --primary-foreground: #04302c;
   --muted: #154b4c;
+  --muted-2: #1c5f5f;
   --muted-foreground: #9fc4c2;
   --border: #2a6f6e;
   --gold: #d4a853;
+  --gold-soft: #e8c98a;
   --destructive: #ef4444;
   --warning: #f59e0b;
   --success: #22c55e;
+
+  --font-heading: var(--font-jakarta), system-ui, -apple-system, sans-serif;
+  --shadow-card: 0 8px 30px -8px rgba(0, 0, 0, 0.45);
+  --shadow-glow: 0 0 60px -12px rgba(45, 212, 191, 0.35);
 }
 
 * {
   box-sizing: border-box;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: var(--font-heading);
   margin: 0;
+  -webkit-font-smoothing: antialiased;
 }
 
 a {
   color: var(--primary);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-heading);
+  letter-spacing: -0.02em;
+}
+
+/* ---------- Fundo decorativo (ondas), inspirado na arte oficial do COPOL ---------- */
+.wave-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.wave-bg::before,
+.wave-bg::after {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  background: radial-gradient(circle at 20% 20%, rgba(45, 212, 191, 0.16), transparent 45%),
+    radial-gradient(circle at 85% 15%, rgba(212, 168, 83, 0.14), transparent 40%),
+    radial-gradient(circle at 70% 80%, rgba(45, 212, 191, 0.12), transparent 45%);
+}
+
+.wave-bg::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 800' opacity='0.35'%3E%3Cg fill='none' stroke='%232dd4bf' stroke-opacity='0.14'%3E%3Cpath d='M-100 150 C 150 50, 300 250, 550 120 S 900 50, 1100 180'/%3E%3Cpath d='M-100 250 C 150 150, 300 350, 550 220 S 900 150, 1100 280'/%3E%3Cpath d='M-100 350 C 150 250, 300 450, 550 320 S 900 250, 1100 380'/%3E%3Cpath d='M-100 620 C 150 520, 300 720, 550 590 S 900 520, 1100 650'/%3E%3Cpath d='M-100 700 C 150 600, 300 800, 550 670 S 900 600, 1100 730'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: cover;
+  background-position: center;
+  inset: 0;
+}
+
+/* ---------- Utilitários ---------- */
+.container-page {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+.card {
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: rgba(45, 212, 191, 0.08);
+  color: var(--primary);
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: linear-gradient(135deg, var(--primary), #22b8a3);
+  color: var(--primary-foreground);
+  font-weight: 700;
+  padding: 16px 32px;
+  border-radius: 14px;
+  text-decoration: none;
+  font-size: 16px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 10px 30px -8px rgba(45, 212, 191, 0.55);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 36px -8px rgba(45, 212, 191, 0.65);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: transparent;
+  color: var(--foreground);
+  font-weight: 600;
+  padding: 15px 28px;
+  border-radius: 14px;
+  text-decoration: none;
+  font-size: 15px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.btn-secondary:hover {
+  border-color: var(--primary);
+  background: rgba(45, 212, 191, 0.06);
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.6s ease both;
+}
+
+@keyframes float-slow {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-float {
+  animation: float-slow 6s ease-in-out infinite;
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(45, 212, 191, 0);
+  }
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2.4s ease-in-out infinite;
 }

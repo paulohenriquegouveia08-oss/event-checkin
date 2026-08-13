@@ -133,14 +133,49 @@ referência em outro lugar:
 - Dados de teste (evento/participantes/terminal criados pelos testes E2E)
   removidos do banco de produção depois da validação.
 
+## HTTPS/TLS do backend
+
+O backend também responde em HTTPS real, em
+`https://137-131-233-254.sslip.io` (porta 443), necessário pra qualquer
+front-end servido em HTTPS (Vercel, etc.) conseguir chamar a API sem
+bloqueio de mixed content do navegador. Continua respondendo em HTTP puro
+na porta `${PORT}` também (usado pelo app mobile, que não tem essa
+restrição de navegador e já tem `usesCleartextTraffic` habilitado).
+
+**Sem domínio próprio ainda** — usa [sslip.io](https://sslip.io) (DNS
+público gratuito: `<ip-com-hifens>.sslip.io` resolve pro próprio IP), o
+que permite emitir certificado Let's Encrypt real sem precisar comprar
+domínio. Quando houver domínio próprio, trocar só isso.
+
+**Portas 80/443 já pertencem a outro cliente** (`fbelegance-nginx`,
+projeto separado nesta mesma VPS compartilhada) — não dá pra subir um
+proxy TLS próprio nessas portas. A solução foi adicionar um **server
+block novo e isolado**, `/home/ubuntu/fbelegance/nginx/conf.d/event-checkin.conf`
+(arquivo próprio, não mexe no `default.conf` deles), que só responde pro
+hostname `137-131-233-254.sslip.io` e faz proxy pra
+`172.25.0.1:3000` (gateway da rede docker do fbelegance, que alcança a
+porta publicada do backend no host). O certificado fica isolado em
+`/home/ubuntu/event-checkin/certbot/` (config/work/logs próprios, não
+compartilha estado com o certbot do fbelegance) — só o **webroot** do
+desafio HTTP-01 é compartilhado (`fbelegance_certbot-webroot`, volume já
+usado pelo próprio site deles pra isso, seguro pra dois domínios
+diferentes usarem o mesmo webroot). Os arquivos do certificado emitido
+são copiados (não montados) pro volume `fbelegance_certbot-certs` — que É
+o volume que o nginx deles já lê — numa subpasta nova
+(`live/137-131-233-254.sslip.io/`), sem tocar na pasta do domínio deles.
+
+**Renovação automática**: cron do root, 3h17 todo dia
+(`/home/ubuntu/event-checkin/certbot/renew.sh`) — roda `certbot renew`
+isolado, recopia os arquivos pro volume do fbelegance e dá
+`docker exec fbelegance-nginx nginx -s reload` (reload gracioso, sem
+downtime). Certificado atual expira em 10/11/2026.
+
+**CORS**: além da lista fixa em `CORS_ORIGINS`, o backend aceita
+automaticamente qualquer origem `https://*.vercel.app` (ver
+`ALLOWED_ORIGINS`/`isVercelPreview` em `src/app.ts`) — necessário porque
+cada deploy de preview do Vercel gera um subdomínio novo.
+
 ## Limitações conhecidas (ainda não implementado)
 
-- **HTTPS/TLS não está incluído.** Backend e painel expostos em HTTP puro
-  (`http://<ip>:<porta>`), sem domínio ainda. Em produção real, colocar
-  atrás de um reverse proxy com TLS (Caddy, Nginx + Certbot, Traefik)
-  quando houver um domínio apontando pra VPS — a especificação do produto
-  exige HTTPS (seção 6). Enquanto isso, o app mobile precisa de
-  `usesCleartextTraffic` habilitado (ver `apps/mobile/README.md`) para
-  falar com o backend.
 - Sem backup automatizado agendado (só o procedimento manual documentado
   em `database.md`).

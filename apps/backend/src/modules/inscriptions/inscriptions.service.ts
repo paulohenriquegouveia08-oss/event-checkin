@@ -1,9 +1,20 @@
-import { NotFoundError } from "../../shared/errors.js";
+import { ForbiddenError, NotFoundError, ValidationError } from "../../shared/errors.js";
+import { getEventOrThrow } from "../events/events.service.js";
+import { findTierAmount } from "../events/site-content.js";
 import * as inscriptionsRepository from "./inscriptions.repository.js";
-import { getCategoryAmount, type CreateInscriptionInput } from "./inscriptions.schema.js";
+import type { CreateInscriptionInput } from "./inscriptions.schema.js";
 
 export async function createInscription(eventId: string, input: CreateInscriptionInput) {
-  const amount = getCategoryAmount(input.category);
+  const event = await getEventOrThrow(eventId);
+
+  if (!event.registrationsOpen) {
+    throw new ForbiddenError("As inscrições para este evento estão encerradas");
+  }
+
+  const amount = findTierAmount(event.siteContent, input.category);
+  if (amount === null) {
+    throw new ValidationError("Categoria de inscrição inválida para este evento");
+  }
 
   const inscription = await inscriptionsRepository.createInscription({
     eventId,

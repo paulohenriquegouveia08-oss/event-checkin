@@ -1,179 +1,116 @@
-"use client";
+import Image from "next/image";
+import { SiteHeader } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteFooter";
 
-import Link from "next/link";
+// Parceiros com logo em imagem. LSPK já vem com fundo preto na própria
+// arte (mantido, a pedido) — as outras logos têm fundo transparente, então
+// usam cartão claro pra ficarem legíveis com qualquer paleta.
+const LOGO_PARTNERS = [
+  { name: "LSPK", subtitle: "LSPK Tecnology", src: "/partners/lspk.png", width: 200, card: "dark" as const },
+  { name: "Universidade Positivo", subtitle: "Campus Londrina", src: "/partners/positivo.png", width: 210, card: "light" as const },
+  { name: "Ecohub", subtitle: "Ecossistema de Inovação", src: "/partners/ecohub.png", width: 180, card: "light" as const },
+];
 
 export default function ParceriasPage() {
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      {/* Header */}
-      <header
-        style={{
-          padding: "20px 24px",
-          borderBottom: "1px solid var(--border)",
-          background: "var(--muted)",
-        }}
-      >
-        <div style={{ maxWidth: 900, margin: "0 auto" }}>
-          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>
-            <span style={{ color: "var(--gold)" }}>Pré-Copol</span> 2026
-          </h1>
-          <p style={{ margin: "4px 0 0", color: "var(--muted-foreground)", fontSize: 14 }}>
-            Inscrições abertas — Vagas limitadas!
-          </p>
-        </div>
-      </header>
+      <SiteHeader />
 
-      {/* Nav */}
-      <nav
-        style={{
-          padding: "12px 24px",
-          borderBottom: "1px solid var(--border)",
-          background: "var(--background)",
-        }}
-      >
-        <div style={{ maxWidth: 900, margin: "0 auto", display: "flex", gap: 24 }}>
-          <Link href="/" style={{ color: "var(--muted-foreground)", textDecoration: "none" }}>
-            Eventos
-          </Link>
-          <Link href="/parcerias" style={{ color: "var(--primary)", fontWeight: 600, textDecoration: "none" }}>
-            Parcerias
-          </Link>
-        </div>
-      </nav>
-
-      {/* Content */}
-      <main style={{ flex: 1, padding: "32px 24px", maxWidth: 900, margin: "0 auto", width: "100%" }}>
-        <h2 style={{ fontSize: 22, margin: "0 0 24px" }}>Parcerias</h2>
-
-        <p style={{ color: "var(--muted-foreground)", fontSize: 14, margin: "0 0 32px" }}>
-          O Pré-Copol e o COPOL contam com o apoio de instituições e empresas comprometidas com a excelência em Odontologia.
-        </p>
-
-        {/* Partners grid */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-            gap: 16,
-          }}
-        >
-          {/* LSPK */}
-          <div
+      <main style={{ flex: 1, position: "relative" }}>
+        <div className="wave-bg" style={{ opacity: 0.5 }} />
+        <div className="container-page animate-fade-up" style={{ position: "relative", padding: "56px 24px 72px" }}>
+          <span
             style={{
-              background: "var(--muted)",
-              border: "1px solid var(--border)",
-              borderRadius: 8,
-              padding: 24,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 12,
-              minHeight: 140,
+              fontSize: 13,
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: "var(--gold)",
             }}
           >
+            Realização e apoio
+          </span>
+          <h1 style={{ fontSize: "clamp(28px, 4.5vw, 40px)", margin: "8px 0 16px" }}>Parcerias</h1>
+          <p style={{ color: "var(--muted-foreground)", fontSize: 16, margin: "0 0 40px", maxWidth: 560, lineHeight: 1.6 }}>
+            O Pré-Copol e o COPOL contam com o apoio de instituições e empresas comprometidas com a excelência em
+            Odontologia.
+          </p>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+              gap: 20,
+            }}
+          >
+            {LOGO_PARTNERS.map((partner) => (
+              <div
+                key={partner.name}
+                style={{
+                  background: partner.card === "dark" ? "#000000" : "#ffffff",
+                  border: partner.card === "dark" ? "1px solid var(--border)" : "none",
+                  borderRadius: 16,
+                  padding: 28,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 12,
+                  minHeight: 160,
+                  textAlign: "center",
+                  boxShadow: "var(--shadow-card)",
+                }}
+              >
+                <Image
+                  src={partner.src}
+                  alt={partner.name}
+                  width={partner.width}
+                  height={partner.width / 3.3}
+                  style={{ width: partner.width, height: "auto" }}
+                />
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: partner.card === "dark" ? "var(--muted-foreground)" : "#4b5563",
+                  }}
+                >
+                  {partner.subtitle}
+                </p>
+              </div>
+            ))}
+
             <div
               style={{
-                fontSize: 24,
-                fontWeight: 700,
-                color: "var(--primary)",
+                border: "2px dashed var(--border)",
+                borderRadius: 16,
+                padding: 32,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                minHeight: 160,
+                opacity: 0.6,
                 textAlign: "center",
               }}
             >
-              LSPK
+              <p style={{ margin: 0, fontSize: 14, color: "var(--muted-foreground)" }}>Novos parceiros</p>
+              <p style={{ margin: 0, fontSize: 12, color: "var(--muted-foreground)" }}>Em breve...</p>
             </div>
-            <p style={{ margin: 0, fontSize: 13, color: "var(--muted-foreground)", textAlign: "center" }}>
-              LSPK Tecnology
-            </p>
           </div>
 
-          {/* Universidade Positivo */}
-          <div
-            style={{
-              background: "var(--muted)",
-              border: "1px solid var(--border)",
-              borderRadius: 8,
-              padding: 24,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 12,
-              minHeight: 140,
-            }}
-          >
-            <div
-              style={{
-                fontSize: 18,
-                fontWeight: 700,
-                color: "var(--gold)",
-                textAlign: "center",
-              }}
-            >
-              Universidade Positivo
-            </div>
-            <p style={{ margin: 0, fontSize: 13, color: "var(--muted-foreground)", textAlign: "center" }}>
-              Campus Londrina
+          <div className="card" style={{ marginTop: 40, padding: 32, textAlign: "center" }}>
+            <p style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 700 }}>Quer ser nosso parceiro?</p>
+            <p style={{ margin: 0, fontSize: 14, color: "var(--muted-foreground)" }}>
+              Entre em contato conosco para conhecer as oportunidades de parceria.
             </p>
           </div>
-
-          {/* Placeholder for future partners */}
-          <div
-            style={{
-              background: "var(--muted)",
-              border: "2px dashed var(--border)",
-              borderRadius: 8,
-              padding: 24,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              minHeight: 140,
-              opacity: 0.6,
-            }}
-          >
-            <p style={{ margin: 0, fontSize: 14, color: "var(--muted-foreground)", textAlign: "center" }}>
-              Novos parceiros
-            </p>
-            <p style={{ margin: 0, fontSize: 12, color: "var(--muted-foreground)", textAlign: "center" }}>
-              Em breve...
-            </p>
-          </div>
-        </div>
-
-        {/* CTA */}
-        <div
-          style={{
-            marginTop: 40,
-            padding: 24,
-            background: "var(--muted)",
-            border: "1px solid var(--border)",
-            borderRadius: 8,
-            textAlign: "center",
-          }}
-        >
-          <p style={{ margin: "0 0 12px", fontSize: 14, color: "var(--muted-foreground)" }}>
-            Quer ser nosso parceiro?
-          </p>
-          <p style={{ margin: 0, fontSize: 14, color: "var(--muted-foreground)" }}>
-            Entre em contato conosco para conhecer as oportunidades de parceria.
-          </p>
         </div>
       </main>
 
-      {/* Footer */}
-      <footer
-        style={{
-          padding: "16px 24px",
-          borderTop: "1px solid var(--border)",
-          textAlign: "center",
-          color: "var(--muted-foreground)",
-          fontSize: 12,
-        }}
-      >
-        Copol | LSPK Tecnology
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

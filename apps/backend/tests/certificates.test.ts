@@ -395,6 +395,84 @@ describe("GET /events/:eventId/certificates/preview", () => {
   });
 });
 
+describe("PATCH /events/:eventId — certificateSettings (texto do certificado)", () => {
+  it("salva e reflete carga horária, local, texto e signatários customizados", async () => {
+    const event = await createTestEvent();
+    const adminToken = await loginAdmin();
+
+    const patchRes = await app.inject({
+      method: "PATCH",
+      url: `/events/${event.id}`,
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: {
+        certificateSettings: {
+          workloadHours: 40,
+          closingText: "Texto customizado de encerramento.",
+          locationLabel: "Curitiba/PR",
+          signatories: [{ name: "Fulano de Tal", role: "Diretor" }],
+        },
+      },
+    });
+    expect(patchRes.statusCode).toBe(200);
+
+    const getRes = await app.inject({
+      method: "GET",
+      url: `/events/${event.id}`,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    expect(getRes.json().data.certificateSettings).toEqual({
+      workloadHours: 40,
+      closingText: "Texto customizado de encerramento.",
+      locationLabel: "Curitiba/PR",
+      signatories: [{ name: "Fulano de Tal", role: "Diretor" }],
+    });
+  });
+
+  it("exige events.edit (certificates.issue sozinho não basta)", async () => {
+    const event = await createTestEvent();
+    const issueOnlyRole = await createTestRole("Emissor de Certificados", ["certificates.view", "certificates.issue"]);
+    const { user, password } = await createTestUserWithRole(issueOnlyRole.id, "emissor@teste.com");
+    const loginRes = await app.inject({ method: "POST", url: "/auth/login", payload: { email: user.email, password } });
+    const token = loginRes.json().data.token as string;
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/events/${event.id}`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: { certificateSettings: { workloadHours: 4 } },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it("um certificado gerado depois da mudança usa a nova configuração (carga horária customizada)", async () => {
+    const event = await createEndedTestEvent();
+    const participant = await createTestParticipant(event.id);
+    await createTestCheckIn(event.id, participant.id);
+    const adminToken = await loginAdmin();
+
+    await app.inject({
+      method: "PATCH",
+      url: `/events/${event.id}`,
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { certificateSettings: { workloadHours: 4, locationLabel: "Maringá/PR" } },
+    });
+
+    const attendeeToken = await createAttendeeToken(app, participant);
+    const download = await app.inject({
+      method: "GET",
+      url: `/events/${event.id}/certificates/download`,
+      headers: { authorization: `Bearer ${attendeeToken}` },
+    });
+    expect(download.statusCode).toBe(200);
+
+    const certificate = await prisma.certificate.findUniqueOrThrow({
+      where: { eventId_participantId: { eventId: event.id, participantId: participant.id } },
+    });
+    // Snapshot da carga horária vigente no momento da geração.
+    expect(certificate.workloadHours).toBe(4);
+  });
+});
+
 describe("administração", () => {
   it("bloqueia liberação de certificados antes do evento terminar", async () => {
     const event = await createTestEvent(); // não terminou

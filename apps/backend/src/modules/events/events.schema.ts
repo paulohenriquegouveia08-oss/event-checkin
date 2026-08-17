@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { siteContentSchema } from "./site-content.js";
+import { certificateSettingsSchema } from "../certificates/certificate-settings.js";
 
 export const createEventSchema = z
   .object({
@@ -10,6 +11,7 @@ export const createEventSchema = z
     endDate: z.coerce.date(),
     registrationDeadline: z.coerce.date().nullable().optional(),
     siteContent: siteContentSchema.optional(),
+    certificateSettings: certificateSettingsSchema.optional(),
   })
   .refine((data) => data.endDate >= data.startDate, {
     message: "endDate deve ser igual ou posterior a startDate",
@@ -29,6 +31,7 @@ export const updateEventSchema = z.object({
   // encerramento manual, se houver)
   registrationDeadline: z.coerce.date().nullable().optional(),
   siteContent: siteContentSchema.optional(),
+  certificateSettings: certificateSettingsSchema.optional(),
 });
 
 export type UpdateEventInput = z.infer<typeof updateEventSchema>;

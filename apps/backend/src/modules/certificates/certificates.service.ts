@@ -95,6 +95,7 @@ export async function getOrGenerateCertificatePdf(eventId: string, participantId
     closingText: settings.closingText,
     verificationUrl: verificationUrl(certificate.verificationCode),
     templateAssetKey: settings.templateAssetKey,
+    signatories: settings.signatories,
   });
 
   await certificateStorage.save(fileKey, buffer);
@@ -192,6 +193,7 @@ export async function generateTestCertificatePdf(eventId: string, participantNam
     closingText: settings.closingText,
     verificationUrl: verificationUrl("preview"),
     templateAssetKey: settings.templateAssetKey,
+    signatories: settings.signatories,
   });
 }
 

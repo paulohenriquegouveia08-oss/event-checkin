@@ -204,6 +204,17 @@ export interface SiteContent {
   partnersText?: string;
   footerText?: string;
 }
+export interface CertificateSignatory {
+  name: string;
+  role: string;
+}
+export interface CertificateSettings {
+  workloadHours?: number;
+  closingText?: string;
+  locationLabel?: string;
+  signatories?: CertificateSignatory[];
+  templateAssetKey?: string;
+}
 export interface EventRecord {
   id: string;
   name: string;
@@ -216,6 +227,7 @@ export interface EventRecord {
   registrationsClosedAt: string | null;
   registrationsOpen: boolean;
   siteContent: SiteContent | null;
+  certificateSettings: CertificateSettings | null;
   createdAt: string;
   updatedAt: string;
 }

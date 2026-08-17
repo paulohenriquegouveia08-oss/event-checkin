@@ -10,6 +10,11 @@ import { numberToWordsPtBr } from "../../shared/number-to-words-pt-br.js";
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const ASSETS_DIR = join(currentDir, "..", "..", "..", "assets", "certificates");
 
+export interface CertificateSignatory {
+  name: string;
+  role: string;
+}
+
 export interface CertificateData {
   participantName: string;
   eventName: string;
@@ -20,6 +25,7 @@ export interface CertificateData {
   closingText: string;
   verificationUrl: string;
   templateAssetKey: string;
+  signatories: CertificateSignatory[];
 }
 
 // Coordenadas em pixel da imagem-base (1491×1055 — ver
@@ -38,6 +44,19 @@ const PARAGRAPH_BOX = { xLeft: 478, xRight: 1330, yTop: 470, lineHeight: 40 };
 // xRight é o limite antes do logo da Universidade Positivo (começa ≈735px)
 const DATE_CHIP = { x: 508, xRight: 722, yLine1: 973, yLine2: 1000 };
 const QR_BOX = { xLeft: 1206, yTop: 946, size: 88 };
+
+// As 3 colunas de signatários — nome (linhas 720-784) e cargo (793-878),
+// preservando as linhas divisórias verticais (x≈749/1091) e o tracinho fixo
+// sob o nome (y≈785-788), que ficam intactos na imagem-base (ver
+// assets/certificates/README.md). O nome sempre fica acima do tracinho e
+// o cargo sempre abaixo — não importa quantas linhas cada um ocupar.
+const SIGNATORY_COLUMNS = [
+  { xLeft: 475, xRight: 735 },
+  { xLeft: 760, xRight: 1080 },
+  { xLeft: 1100, xRight: 1385 },
+];
+const SIGNATORY_NAME_BOX = { yTop: 727, lineHeight: 27, maxLines: 2 };
+const SIGNATORY_ROLE_BOX = { yTop: 808, lineHeight: 22, maxLines: 3 };
 
 async function loadBackground(templateAssetKey: string): Promise<Buffer> {
   const path = join(ASSETS_DIR, `${templateAssetKey}-base.png`);
@@ -65,7 +84,11 @@ interface TextRun {
 function wrapRuns(runs: TextRun[], maxWidth: number): TextRun[][] {
   const words: TextRun[] = [];
   for (const run of runs) {
-    const tokens = run.text.split(" ");
+    // Mesma normalização de wrapPlainText — evita quebrar em runtime se um
+    // dos campos editáveis (ex.: closingText) vier com quebra de linha. Sem
+    // trim(): os espaços nas pontas de alguns runs são o que garante o
+    // espaçamento entre um run e o próximo (ex.: "Participou do " + nome).
+    const tokens = run.text.replace(/\s+/g, " ").split(" ");
     tokens.forEach((token, i) => {
       const text = i < tokens.length - 1 ? `${token} ` : token;
       if (text.length > 0) words.push({ ...run, text });
@@ -106,6 +129,66 @@ function fitFontSize(text: string, font: PDFFont, maxWidth: number, preferredSiz
   return size;
 }
 
+/** Quebra texto simples (uma única fonte/cor) em linhas que cabem em
+ * maxWidth — versão sem "runs", usada pros signatários (nome/cargo têm
+ * estilo único cada, ao contrário do parágrafo principal). */
+function wrapPlainText(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
+  // As fontes padrão do pdf-lib (WinAnsi) não conseguem codificar quebras
+  // de linha literais — normaliza pra espaço antes de quebrar em palavras.
+  // Defesa também contra texto colado de um textarea (ver CertificatesTab).
+  const words = text.replace(/\s+/g, " ").trim().split(" ");
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    const attempt = current ? `${current} ${word}` : word;
+    if (font.widthOfTextAtSize(attempt, size) > maxWidth && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = attempt;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+/** Desenha texto centralizado horizontalmente numa coluna, quebrado em até
+ * `maxLines` linhas, encolhendo a fonte se necessário pra respeitar esse
+ * limite (evita estourar o espaço fixo entre nome/cargo/rodapé). */
+function drawCenteredBlock(
+  page: PDFPage,
+  text: string,
+  opts: {
+    font: PDFFont;
+    color: RGB;
+    preferredSize: number;
+    minSize: number;
+    maxLines: number;
+    columnXLeftPt: number;
+    columnXRightPt: number;
+    yTopPt: number;
+    lineHeightPt: number;
+  }
+) {
+  const maxWidth = opts.columnXRightPt - opts.columnXLeftPt;
+  const centerX = (opts.columnXLeftPt + opts.columnXRightPt) / 2;
+
+  let size = opts.preferredSize;
+  let lines = wrapPlainText(text, opts.font, size, maxWidth);
+  while (lines.length > opts.maxLines && size > opts.minSize) {
+    size -= 1;
+    lines = wrapPlainText(text, opts.font, size, maxWidth);
+  }
+  lines = lines.slice(0, opts.maxLines);
+
+  let y = opts.yTopPt;
+  for (const line of lines) {
+    const width = opts.font.widthOfTextAtSize(line, size);
+    page.drawText(line, { x: centerX - width / 2, y, size, font: opts.font, color: opts.color });
+    y -= opts.lineHeightPt;
+  }
+}
+
 /**
  * Gera o PDF do certificado individual. Template visual = imagem de fundo
  * (fornecida pelo usuário, com as áreas dinâmicas apagadas — ver
@@ -134,6 +217,7 @@ export async function renderCertificatePdf(data: CertificateData): Promise<Buffe
   const helvetica = await pdf.embedFont(StandardFonts.Helvetica);
   const helveticaBold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const timesBold = await pdf.embedFont(StandardFonts.TimesRomanBold);
+  const timesItalic = await pdf.embedFont(StandardFonts.TimesRomanItalic);
 
   // --- Nome do participante ---
   const nameMaxWidthPx = NAME_BOX.xRight - NAME_BOX.xLeft;
@@ -194,6 +278,37 @@ export async function renderCertificatePdf(data: CertificateData): Promise<Buffe
     size: locationSize,
     font: helvetica,
     color: INK,
+  });
+
+  // --- Signatários (até 3 colunas fixas na imagem-base) ---
+  data.signatories.slice(0, SIGNATORY_COLUMNS.length).forEach((signatory, i) => {
+    const column = SIGNATORY_COLUMNS[i];
+    const columnXLeftPt = toX(column.xLeft);
+    const columnXRightPt = toX(column.xRight);
+
+    drawCenteredBlock(page, signatory.name, {
+      font: helveticaBold,
+      color: TEAL,
+      preferredSize: 13,
+      minSize: 9,
+      maxLines: SIGNATORY_NAME_BOX.maxLines,
+      columnXLeftPt,
+      columnXRightPt,
+      yTopPt: toY(SIGNATORY_NAME_BOX.yTop),
+      lineHeightPt: SIGNATORY_NAME_BOX.lineHeight * scaleY,
+    });
+
+    drawCenteredBlock(page, signatory.role, {
+      font: timesItalic,
+      color: INK,
+      preferredSize: 11,
+      minSize: 8,
+      maxLines: SIGNATORY_ROLE_BOX.maxLines,
+      columnXLeftPt,
+      columnXRightPt,
+      yTopPt: toY(SIGNATORY_ROLE_BOX.yTop),
+      lineHeightPt: SIGNATORY_ROLE_BOX.lineHeight * scaleY,
+    });
   });
 
   // --- QR Code de validação pública ---

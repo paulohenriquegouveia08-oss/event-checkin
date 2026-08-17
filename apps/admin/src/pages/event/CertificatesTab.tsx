@@ -1,6 +1,22 @@
 import { useEffect, useState } from "react";
 import * as api from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
+import { ContentSection, ListEditor, TextAreaField, TextField } from "../../components/FormFields";
+
+// Espelha DEFAULT_CERTIFICATE_SETTINGS do backend
+// (certificate-settings.ts) — preenche o formulário com o que já está no
+// ar quando o evento ainda não tem nada customizado.
+const DEFAULT_SETTINGS = {
+  workloadHours: 16,
+  closingText: "O evento proporcionou atualização científica e integração entre profissionais e acadêmicos da odontologia.",
+  locationLabel: "Londrina/PR",
+};
+const DEFAULT_SIGNATORIES: api.CertificateSignatory[] = [
+  { name: "Gustavo Nascimento De Souza Pinto", role: "Coordenador do Evento" },
+  { name: "Pablo Guilherme Caldarelli", role: "Coordenador Geral do Campus Coordenador do Curso de Odontologia" },
+  { name: "Amanda Vessoni Barbosa Kasuya", role: "Coordenador Adjunta do Curso de Odontologia." },
+];
+const MAX_SIGNATORIES = 3;
 
 const STATUS_LABEL: Record<api.CertificateRowStatus, string> = {
   LOCKED: "Bloqueado",
@@ -19,6 +35,10 @@ const STATUS_BADGE_CLASS: Record<api.CertificateRowStatus, string> = {
 export function CertificatesTab({ eventId }: { eventId: string }) {
   const { hasPermission } = useAuth();
   const canIssue = hasPermission("certificates.issue");
+  // Salvar o texto do certificado é uma edição do próprio Event
+  // (Event.certificateSettings, via PATCH /events/:eventId) — mesma
+  // permissão que já protege a aba Site, não certificates.issue.
+  const canEditSettings = hasPermission("events.edit");
 
   const [stats, setStats] = useState<api.CertificateStats | null>(null);
   const [rows, setRows] = useState<api.CertificateRow[]>([]);
@@ -29,6 +49,14 @@ export function CertificatesTab({ eventId }: { eventId: string }) {
   const [previewing, setPreviewing] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
 
+  const [workloadHours, setWorkloadHours] = useState(DEFAULT_SETTINGS.workloadHours);
+  const [closingText, setClosingText] = useState(DEFAULT_SETTINGS.closingText);
+  const [locationLabel, setLocationLabel] = useState(DEFAULT_SETTINGS.locationLabel);
+  const [signatories, setSignatories] = useState<api.CertificateSignatory[]>(DEFAULT_SIGNATORIES);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [settingsNotice, setSettingsNotice] = useState<string | null>(null);
+
   function reload() {
     Promise.all([api.getCertificateStats(eventId), api.listCertificates(eventId)])
       .then(([s, list]) => {
@@ -38,10 +66,74 @@ export function CertificatesTab({ eventId }: { eventId: string }) {
       .catch((err) => setError(err instanceof Error ? err.message : "Falha ao carregar certificados"));
   }
 
+  function loadSettings() {
+    api
+      .getEvent(eventId)
+      .then((event) => {
+        const c = event.certificateSettings ?? {};
+        setWorkloadHours(c.workloadHours || DEFAULT_SETTINGS.workloadHours);
+        setClosingText(c.closingText || DEFAULT_SETTINGS.closingText);
+        setLocationLabel(c.locationLabel || DEFAULT_SETTINGS.locationLabel);
+        setSignatories(c.signatories && c.signatories.length > 0 ? c.signatories : DEFAULT_SIGNATORIES);
+      })
+      .catch((err) => setSettingsError(err instanceof Error ? err.message : "Falha ao carregar configurações do certificado"));
+  }
+
   useEffect(() => {
     reload();
+    loadSettings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
+
+  function updateSignatory<K extends keyof api.CertificateSignatory>(index: number, key: K, value: api.CertificateSignatory[K]) {
+    setSignatories((prev) => prev.map((s, i) => (i === index ? { ...s, [key]: value } : s)));
+  }
+  function addSignatory() {
+    if (signatories.length >= MAX_SIGNATORIES) return;
+    setSignatories((prev) => [...prev, { name: "", role: "" }]);
+  }
+  function removeSignatory(index: number) {
+    setSignatories((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  async function handleSaveSettings() {
+    setSettingsError(null);
+    setSettingsNotice(null);
+
+    if (!locationLabel.trim()) {
+      setSettingsError("Preencha o local exibido no certificado.");
+      return;
+    }
+    if (!workloadHours || workloadHours <= 0) {
+      setSettingsError("A carga horária precisa ser maior que zero.");
+      return;
+    }
+    const cleanSignatories = signatories
+      .map((s) => ({ name: s.name.trim(), role: s.role.trim() }))
+      .filter((s) => s.name && s.role);
+    if (cleanSignatories.length === 0) {
+      setSettingsError("Configure pelo menos um signatário.");
+      return;
+    }
+
+    setSavingSettings(true);
+    try {
+      await api.updateEvent(eventId, {
+        certificateSettings: {
+          workloadHours,
+          closingText: closingText.trim() || undefined,
+          locationLabel: locationLabel.trim(),
+          signatories: cleanSignatories,
+        },
+      });
+      setSignatories(cleanSignatories);
+      setSettingsNotice("Configurações do certificado salvas.");
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : "Falha ao salvar as configurações do certificado");
+    } finally {
+      setSavingSettings(false);
+    }
+  }
 
   async function handlePreview() {
     setPreviewing(true);
@@ -131,6 +223,83 @@ export function CertificatesTab({ eventId }: { eventId: string }) {
           </p>
         )}
       </div>
+
+      {canEditSettings && (
+      <div className="card">
+        <h2 style={{ fontSize: 15, margin: "0 0 4px" }}>Texto do certificado</h2>
+        <p className="muted" style={{ margin: "0 0 20px", fontSize: 12 }}>
+          Nome do participante, nome do evento e as datas vêm automaticamente do evento — só o que está aqui embaixo
+          precisa ser configurado à parte. O layout (logo, título, ondas, logos de apoio) continua fixo.
+        </p>
+
+        <div className="stack" style={{ gap: 24 }}>
+          <ContentSection title="Parágrafo descritivo">
+            <div className="row" style={{ gap: 12, alignItems: "flex-end" }}>
+              <TextField label="Local (ex.: Cidade/UF)" value={locationLabel} onChange={setLocationLabel} />
+              <div style={{ flex: "0 0 140px" }}>
+                <label className="muted" style={{ display: "block", fontSize: 12, marginBottom: 4 }}>
+                  Carga horária (horas)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  value={workloadHours}
+                  onChange={(e) => setWorkloadHours(Number(e.target.value))}
+                  style={{ width: "100%" }}
+                />
+              </div>
+            </div>
+            <TextAreaField
+              label='Texto de fechamento (depois de "...carga horária total de X horas.")'
+              value={closingText}
+              onChange={setClosingText}
+              rows={2}
+            />
+          </ContentSection>
+
+          <ContentSection title="Signatários (até 3, aparecem no rodapé)">
+            <ListEditor label="Signatários" onAdd={addSignatory} addDisabled={signatories.length >= MAX_SIGNATORIES}>
+              {signatories.map((signatory, i) => (
+                <div key={i} className="row" style={{ gap: 8, alignItems: "flex-start" }}>
+                  <div className="stack" style={{ gap: 6, flex: 1 }}>
+                    <input
+                      value={signatory.name}
+                      onChange={(e) => updateSignatory(i, "name", e.target.value)}
+                      placeholder="Nome"
+                    />
+                    <input
+                      value={signatory.role}
+                      onChange={(e) => updateSignatory(i, "role", e.target.value)}
+                      placeholder="Cargo"
+                    />
+                  </div>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => removeSignatory(i)}
+                    type="button"
+                    disabled={signatories.length <= 1}
+                    title="Remover signatário"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </ListEditor>
+          </ContentSection>
+
+          {settingsError && <p className="error-text" style={{ margin: 0 }}>{settingsError}</p>}
+          {settingsNotice && (
+            <p style={{ color: "var(--success)", margin: 0, fontSize: 13 }}>{settingsNotice}</p>
+          )}
+
+          <div>
+            <button className="btn btn-sm" onClick={handleSaveSettings} disabled={savingSettings}>
+              {savingSettings ? "Salvando..." : "Salvar texto do certificado"}
+            </button>
+          </div>
+        </div>
+      </div>
+      )}
 
       {!stats.eventEnded && (
         <p className="muted" style={{ margin: 0 }}>

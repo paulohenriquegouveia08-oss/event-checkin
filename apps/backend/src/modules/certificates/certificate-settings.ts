@@ -42,7 +42,7 @@ export const DEFAULT_CERTIFICATE_SETTINGS: ResolvedCertificateSettings = {
   locationLabel: "Londrina/PR",
   signatories: [
     { name: "Gustavo Nascimento De Souza Pinto", role: "Coordenador do Evento" },
-    { name: "Pablo Guilherme Caldarelli", role: "Coordenador Geral do Campus\nCoordenador do Curso de Odontologia" },
+    { name: "Pablo Guilherme Caldarelli", role: "Coordenador Geral do Campus Coordenador do Curso de Odontologia" },
     { name: "Amanda Vessoni Barbosa Kasuya", role: "Coordenador Adjunta do Curso de Odontologia." },
   ],
   templateAssetKey: "copol-2026",

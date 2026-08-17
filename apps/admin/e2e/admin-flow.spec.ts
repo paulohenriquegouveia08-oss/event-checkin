@@ -85,8 +85,11 @@ test("fluxo completo do painel administrativo", async ({ page }) => {
     await page.getByRole("button", { name: "Terminais" }).click();
     await page.getByLabel(/Nome do terminal/).fill("Entrada E2E");
     await page.getByRole("button", { name: "+ Criar terminal" }).click();
-    await expect(page.getByText(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/)).toBeVisible();
-    await expect(page.getByRole("cell", { name: "Entrada E2E" })).toBeVisible();
+    const row = page.getByRole("row", { name: /Entrada E2E/ });
+    await expect(row).toBeVisible();
+    // Código de ativação fica sempre visível na própria linha da tabela
+    // (não só num toast que some ao recarregar) — ver TerminalsTab.tsx.
+    await expect(row.getByText(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/)).toBeVisible();
   });
 
   await test.step("excluir o terminal", async () => {

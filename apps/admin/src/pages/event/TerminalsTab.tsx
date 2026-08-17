@@ -17,8 +17,16 @@ export function TerminalsTab({ eventId }: { eventId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
-  const [justCreated, setJustCreated] = useState<api.TerminalRecord | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  function copyCode(terminal: api.TerminalRecord) {
+    if (!terminal.activationCode) return;
+    navigator.clipboard.writeText(terminal.activationCode).then(() => {
+      setCopiedId(terminal.id);
+      setTimeout(() => setCopiedId((id) => (id === terminal.id ? null : id)), 1500);
+    });
+  }
 
   function reload() {
     api
@@ -34,8 +42,7 @@ export function TerminalsTab({ eventId }: { eventId: string }) {
     setError(null);
     setCreating(true);
     try {
-      const terminal = await api.createTerminal(eventId, name);
-      setJustCreated(terminal);
+      await api.createTerminal(eventId, name);
       setName("");
       reload();
     } catch (err) {
@@ -78,26 +85,12 @@ export function TerminalsTab({ eventId }: { eventId: string }) {
         </div>
       </form>
 
-      {justCreated ? (
-        <div className="card" style={{ borderColor: "var(--primary)" }}>
-          <p style={{ margin: 0 }}>
-            Terminal <strong>{justCreated.name}</strong> ({justCreated.identifier}) criado. Código de ativação
-            (uso único, válido por 72h):
-          </p>
-          <p style={{ fontSize: 28, fontWeight: 700, letterSpacing: 4, margin: "12px 0" }}>
-            {justCreated.activationCode}
-          </p>
-          <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-            Digite este código na tela de configuração inicial do app do terminal (M10 Pro). Ele não pode ser
-            recuperado depois — se perder, crie um novo terminal.
-          </p>
-          <button className="btn btn-secondary btn-sm" style={{ marginTop: 12 }} onClick={() => setJustCreated(null)}>
-            Fechar
-          </button>
-        </div>
-      ) : null}
-
       {error ? <p className="error-text">{error}</p> : null}
+
+      <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+        O código de ativação de cada terminal fica sempre visível na coluna abaixo enquanto ele estiver "Aguardando
+        ativação" — digite-o na tela de configuração inicial do app do terminal (M10 Pro).
+      </p>
 
       {terminals && terminals.length > 0 ? (
         <div className="card" style={{ padding: 0 }}>
@@ -107,6 +100,7 @@ export function TerminalsTab({ eventId }: { eventId: string }) {
                 <th>Nome</th>
                 <th>Identificador</th>
                 <th>Status</th>
+                <th>Código de ativação</th>
                 <th>Último contato</th>
                 <th></th>
               </tr>
@@ -118,6 +112,13 @@ export function TerminalsTab({ eventId }: { eventId: string }) {
                   <td className="muted">{t.identifier}</td>
                   <td>
                     <span className={`badge ${STATUS_BADGE[t.status]}`}>{STATUS_LABEL[t.status]}</span>
+                  </td>
+                  <td>
+                    {t.status === "PENDING" && t.activationCode ? (
+                      <ActivationCodeCell terminal={t} copied={copiedId === t.id} onCopy={() => copyCode(t)} />
+                    ) : (
+                      <span className="muted">—</span>
+                    )}
                   </td>
                   <td className="muted">
                     {t.lastSeenAt ? new Date(t.lastSeenAt).toLocaleString("pt-BR") : "Nunca"}
@@ -138,6 +139,48 @@ export function TerminalsTab({ eventId }: { eventId: string }) {
         </div>
       ) : terminals ? (
         <p className="muted">Nenhum terminal cadastrado ainda.</p>
+      ) : null}
+    </div>
+  );
+}
+
+/** Código de ativação sempre visível na lista (não só na hora da criação)
+ * — antes só aparecia num card que sumia ao fechar/recarregar a página,
+ * mesmo o backend já devolvendo o código o tempo todo enquanto o
+ * terminal está PENDING (só é apagado no momento da ativação). */
+function ActivationCodeCell({
+  terminal,
+  copied,
+  onCopy,
+}: {
+  terminal: api.TerminalRecord;
+  copied: boolean;
+  onCopy: () => void;
+}) {
+  const expired = terminal.activationCodeExpiresAt ? new Date(terminal.activationCodeExpiresAt) < new Date() : false;
+
+  return (
+    <div className="row" style={{ gap: 8, alignItems: "center" }}>
+      <span
+        style={{
+          fontFamily: "monospace",
+          fontSize: 15,
+          fontWeight: 700,
+          letterSpacing: 1,
+          color: expired ? "var(--danger)" : "var(--text)",
+        }}
+      >
+        {terminal.activationCode}
+      </span>
+      <button className="btn btn-secondary btn-sm" onClick={onCopy} type="button" title="Copiar código">
+        {copied ? "Copiado!" : "Copiar"}
+      </button>
+      {expired ? (
+        <span className="badge badge-danger">Expirado — exclua e crie outro</span>
+      ) : terminal.activationCodeExpiresAt ? (
+        <span className="muted" style={{ fontSize: 12 }}>
+          expira em {new Date(terminal.activationCodeExpiresAt).toLocaleString("pt-BR")}
+        </span>
       ) : null}
     </div>
   );

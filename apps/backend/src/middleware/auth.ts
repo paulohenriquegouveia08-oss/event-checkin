@@ -43,6 +43,7 @@ declare module "fastify" {
       permissions: Set<string>;
     };
     terminal?: { terminalId: string; eventId: string; name: string };
+    attendee?: { participantId: string; eventId: string };
   }
 }
 
@@ -152,4 +153,33 @@ export async function requireTerminal(request: FastifyRequest, _reply: FastifyRe
   });
 
   request.terminal = { terminalId: terminal.id, eventId: terminal.eventId, name: terminal.name };
+}
+
+/**
+ * Exige um token de participante (attendee) válido. Mesma lógica do padrão
+ * já usado em GET /attendee/me e na SSE de check-in (attendee.routes.ts):
+ * o participantId SEMPRE vem do JWT verificado (payload.sub), nunca de um
+ * parâmetro de rota/body — é o que impede um participante de baixar o
+ * certificado/comprovante de outro só trocando um id na URL. Reconfirma no
+ * banco que o participante ainda está ACTIVE e não foi revogado, pelo mesmo
+ * motivo do requireTerminal: revogar deve valer imediatamente, sem esperar
+ * o JWT expirar.
+ */
+export async function requireAttendee(request: FastifyRequest, _reply: FastifyReply) {
+  try {
+    await request.jwtVerify();
+  } catch {
+    throw new UnauthorizedError("Token inválido ou expirado");
+  }
+  const payload = request.user;
+  if (payload.type !== "attendee") {
+    throw new ForbiddenError("Este endpoint requer autenticação de participante");
+  }
+
+  const participant = await prisma.participant.findUnique({ where: { id: payload.sub } });
+  if (!participant || participant.status !== "ACTIVE" || participant.revokedAt) {
+    throw new UnauthorizedError("Sessão inválida ou credencial revogada");
+  }
+
+  request.attendee = { participantId: participant.id, eventId: participant.eventId };
 }

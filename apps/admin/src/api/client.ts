@@ -370,6 +370,45 @@ export function getReport(eventId: string) {
   return request<EventReport>(`/events/${eventId}/report`);
 }
 
+// --- Certificados ---
+export interface CertificateStats {
+  totalParticipants: number;
+  present: number;
+  eligible: number;
+  generated: number;
+  pending: number;
+  revoked: number;
+  eventEnded: boolean;
+}
+export function getCertificateStats(eventId: string) {
+  return request<CertificateStats>(`/events/${eventId}/certificates/stats`);
+}
+
+export type CertificateRowStatus = "LOCKED" | "ELIGIBLE" | "GENERATED" | "REVOKED";
+export interface CertificateRow {
+  id: string;
+  participantName: string;
+  participantEmail: string | null;
+  status: CertificateRowStatus;
+  generatedAt: string | null;
+  revokedAt: string | null;
+}
+export function listCertificates(eventId: string) {
+  return request<CertificateRow[]>(`/events/${eventId}/certificates`);
+}
+
+export function releaseCertificates(eventId: string) {
+  return request<{ createdCount: number }>(`/events/${eventId}/certificates/release`, { method: "POST" });
+}
+
+export function revokeCertificate(certificateId: string) {
+  return request<CertificateRow>(`/certificates/${certificateId}/revoke`, { method: "POST" });
+}
+
+export function reinstateCertificate(certificateId: string) {
+  return request<CertificateRow>(`/certificates/${certificateId}/reinstate`, { method: "POST" });
+}
+
 export function checkHealth() {
   return request<{ status: string; apiVersion: string }>("/health", { auth: false });
 }

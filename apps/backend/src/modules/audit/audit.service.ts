@@ -34,3 +34,33 @@ export async function recordAudit(
 export async function listAuditLogs(limit = 200) {
   return auditRepository.listAuditLogs(Math.min(limit, 500));
 }
+
+/**
+ * Mesmo princípio de recordAudit(), mas para ações disparadas pelo próprio
+ * participante (attendee), que não passa por requireAdmin — não existe
+ * request.admin nesses endpoints. Usado por certificates.routes.ts para
+ * registrar geração/download de certificado e comprovante (ver seção 14 do
+ * pedido: "certificate.generated", "certificate.downloaded" etc. também
+ * precisam ficar auditados mesmo sem um admin envolvido na ação).
+ */
+export async function recordParticipantAudit(
+  request: FastifyRequest,
+  action: string,
+  entityType: string,
+  entityId: string | null,
+  actorEmail: string,
+  metadata?: unknown
+): Promise<void> {
+  try {
+    await auditRepository.createAuditLog({
+      actorId: null,
+      actorEmail,
+      action,
+      entityType,
+      entityId,
+      metadata,
+    });
+  } catch (error) {
+    request.log.error({ error, action, entityType }, "Falha ao gravar log de auditoria");
+  }
+}

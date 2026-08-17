@@ -89,3 +89,19 @@ export function createInscription(eventId: string, input: InscriptionInput) {
     body: input,
   });
 }
+
+export interface PublicCertificate {
+  valid: boolean;
+  revoked: boolean;
+  participantName: string;
+  eventName: string;
+  eventLocation: string | null;
+  eventStartDate: string;
+  eventEndDate: string;
+  workloadHours: number | null;
+  generatedAt: string | null;
+}
+
+export function getPublicCertificate(code: string) {
+  return request<PublicCertificate>(`/public/certificates/${code}`);
+}

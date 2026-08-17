@@ -11,6 +11,9 @@ build/
 # Prisma
 apps/backend/prisma/dev.db
 
+# PDFs gerados (certificados/comprovantes) — ver certificate-storage.ts
+apps/backend/storage/
+
 # Android
 tools/scanner-poc-android/.gradle/
 tools/scanner-poc-android/app/build/

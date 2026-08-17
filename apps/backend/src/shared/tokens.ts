@@ -31,3 +31,13 @@ export function generateActivationCode(): string {
 export function sha256Hex(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
+
+/**
+ * Código de verificação opaco (160 bits) usado na URL pública de validação
+ * de certificados/comprovantes — ex.: cert_9Nq..., att_9Nq... Nunca usar o
+ * id sequencial/uuid da linha na URL pública: aqui o valor é gerado à parte
+ * e não revela nada sobre a linha (id, participantId, contagem etc.).
+ */
+export function generateVerificationCode(prefix: "cert" | "att"): string {
+  return `${prefix}_${randomBytes(20).toString("base64url")}`;
+}

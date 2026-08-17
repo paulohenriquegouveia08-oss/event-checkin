@@ -85,6 +85,60 @@ export async function getParticipantMe(
   return res.json();
 }
 
+// --- Meus documentos (certificado / comprovante) ---
+
+export type CertificateDisplayStatus = "LOCKED" | "ELIGIBLE" | "GENERATED" | "REVOKED";
+
+export interface MyDocuments {
+  qrCode: { available: boolean };
+  attendanceProof: { available: boolean };
+  certificate: {
+    status: CertificateDisplayStatus;
+    canDownload: boolean;
+    reason: "EVENT_NOT_ENDED" | "NOT_PRESENT" | null;
+    generatedAt: string | null;
+  };
+}
+
+export async function getMyDocuments(token: string, eventId: string): Promise<ApiResponse<MyDocuments>> {
+  const res = await fetch(`/api/attendee/my-documents?eventId=${encodeURIComponent(eventId)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.json();
+}
+
+async function downloadPdf(path: string, token: string, eventId: string, filename: string): Promise<void> {
+  const res = await fetch(`${path}?eventId=${encodeURIComponent(eventId)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new Error(data?.error?.message ?? "Não foi possível baixar o arquivo");
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+export function downloadCertificate(token: string, eventId: string, participantName: string): Promise<void> {
+  return downloadPdf("/api/attendee/certificate", token, eventId, `certificado-${participantName.replace(/\s+/g, "_")}.pdf`);
+}
+
+export function downloadAttendanceProof(token: string, eventId: string, participantName: string): Promise<void> {
+  return downloadPdf(
+    "/api/attendee/attendance-proof",
+    token,
+    eventId,
+    `comprovante-${participantName.replace(/\s+/g, "_")}.pdf`
+  );
+}
+
 export function connectSSE(
   token: string,
   onEvent: (event: any) => void,

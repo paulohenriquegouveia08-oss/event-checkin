@@ -5,6 +5,8 @@ import { hashPassword } from "../src/shared/passwords.js";
 import { syncPermissions } from "../src/shared/permissions.js";
 
 export async function resetDatabase() {
+  await prisma.certificate.deleteMany();
+  await prisma.attendanceProof.deleteMany();
   await prisma.checkIn.deleteMany();
   await prisma.terminal.deleteMany();
   await prisma.participant.deleteMany();
@@ -17,14 +19,33 @@ export async function resetDatabase() {
   await syncPermissions(prisma);
 }
 
-export async function createTestEvent(overrides: Partial<{ name: string; status: "ACTIVE" | "CLOSED" }> = {}) {
+export async function createTestEvent(
+  overrides: Partial<{
+    name: string;
+    status: "ACTIVE" | "CLOSED";
+    startDate: Date;
+    endDate: Date;
+    certificateSettings: unknown;
+  }> = {}
+) {
   return prisma.event.create({
     data: {
       name: overrides.name ?? "Congresso de Teste 2026",
-      startDate: new Date("2026-09-01T09:00:00Z"),
-      endDate: new Date("2026-09-03T18:00:00Z"),
+      startDate: overrides.startDate ?? new Date("2026-09-01T09:00:00Z"),
+      endDate: overrides.endDate ?? new Date("2026-09-03T18:00:00Z"),
       status: overrides.status ?? "ACTIVE",
+      certificateSettings: overrides.certificateSettings as never,
     },
+  });
+}
+
+/** Cria um evento já encerrado (endDate no passado) — usado nos testes de
+ * elegibilidade de certificado (ver certificate-eligibility.service.ts). */
+export async function createEndedTestEvent(overrides: Partial<{ name: string }> = {}) {
+  return createTestEvent({
+    ...overrides,
+    startDate: new Date("2020-01-10T09:00:00Z"),
+    endDate: new Date("2020-01-11T18:00:00Z"),
   });
 }
 
@@ -69,6 +90,21 @@ export async function createActiveTerminalWithToken(app: FastifyInstance, eventI
   });
 
   return { terminal, token };
+}
+
+/** Token de sessão de participante (attendee), sem passar pelo fluxo de
+ * login por e-mail — usado nos testes de "meus documentos"/certificado que
+ * só precisam de uma sessão de attendee válida, não do login em si (esse
+ * já é testado em outro arquivo). */
+export async function createAttendeeToken(app: FastifyInstance, participant: { id: string; eventId: string }) {
+  await app.ready();
+  return app.jwt.sign({ sub: participant.id, eventId: participant.eventId, type: "attendee" as const }, { expiresIn: "1h" });
+}
+
+export async function createTestCheckIn(eventId: string, participantId: string, checkedInAt = new Date("2020-01-10T14:00:00Z")) {
+  return prisma.checkIn.create({
+    data: { eventId, participantId, checkedInAt, source: "ONLINE" },
+  });
 }
 
 /** Papel bootstrap ADMINISTRADOR (isSystem = true, sempre acesso total —

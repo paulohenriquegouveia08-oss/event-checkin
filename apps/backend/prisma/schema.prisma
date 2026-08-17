@@ -43,6 +43,16 @@ enum InscriptionStatus {
   CANCELLED
 }
 
+// Ver src/modules/certificates/certificate-eligibility.service.ts —
+// LOCKED e ELIGIBLE nunca têm fileKey; o PDF só é gerado (GENERATED) sob
+// demanda, no primeiro download, depois de elegível.
+enum CertificateStatus {
+  LOCKED // evento ainda não terminou, ou presença não confirmada
+  ELIGIBLE // elegível (evento terminou + presente), PDF ainda não gerado
+  GENERATED // PDF já gerado e armazenado (fileKey preenchido)
+  REVOKED // gerado e depois revogado pelo admin — download bloqueado
+}
+
 // RBAC 100% dirigido por dados: perfis e permissões são configuráveis
 // pelo próprio ADMINISTRADOR via UI, não fixos em código. A única exceção
 // é o próprio papel "ADMINISTRADOR" (Role.isSystem = true): não pode ser
@@ -148,13 +158,21 @@ model Event {
   // (heroSubtitle, aboutText, pricingTiers etc.) e os fallbacks quando null.
   siteContent Json?
 
+  // Configuração do certificado/comprovante deste evento — carga horária,
+  // texto descritivo, signatários. Formato livre, mesmo princípio de
+  // siteContent: ver src/modules/certificates/certificate-settings.ts para
+  // o shape esperado e os fallbacks quando null. Nunca hardcoded no template.
+  certificateSettings Json?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  participants Participant[]
-  terminals    Terminal[]
-  checkIns     CheckIn[]
-  inscriptions Inscription[]
+  participants     Participant[]
+  terminals        Terminal[]
+  checkIns         CheckIn[]
+  inscriptions     Inscription[]
+  certificates     Certificate[]
+  attendanceProofs AttendanceProof[]
 
   @@map("events")
 }
@@ -179,7 +197,9 @@ model Participant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  checkIns CheckIn[]
+  checkIns         CheckIn[]
+  certificates     Certificate[]
+  attendanceProofs AttendanceProof[]
 
   @@index([eventId])
   @@map("participants")
@@ -262,4 +282,57 @@ model Inscription {
 
   @@index([eventId])
   @@map("inscriptions")
+}
+
+// Um certificado por (evento, participante) — regenerar não cria uma nova
+// linha, apenas atualiza status/fileKey (ver certificates.repository.ts).
+// verificationCode é o identificador exposto na URL pública de validação
+// (QR Code impresso no PDF): opaco e não sequencial, nunca o id da linha.
+model Certificate {
+  id            String            @id @default(uuid())
+  eventId       String
+  event         Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  participantId String
+  participant   Participant       @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  status        CertificateStatus @default(LOCKED)
+
+  verificationCode String  @unique
+  fileKey          String? // chave no storage (ver certificate-storage.ts); só preenchido quando status = GENERATED
+
+  // Snapshot da carga horária no momento da geração — se o admin mudar a
+  // configuração do evento depois, certificados já emitidos não mudam.
+  workloadHours Int?
+
+  generatedAt DateTime?
+  revokedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([eventId, participantId])
+  @@index([eventId])
+  @@index([status])
+  @@map("certificates")
+}
+
+// Comprovante de presença — independente do certificado (ver seção 8 do
+// pedido), mesmo princípio de cache: gerado uma vez, reaproveitado depois.
+model AttendanceProof {
+  id            String @id @default(uuid())
+  eventId       String
+  event         Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  verificationCode String  @unique
+  fileKey          String?
+
+  generatedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([eventId, participantId])
+  @@index([eventId])
+  @@map("attendance_proofs")
 }

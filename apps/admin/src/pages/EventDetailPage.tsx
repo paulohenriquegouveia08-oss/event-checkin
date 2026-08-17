@@ -8,8 +8,9 @@ import { StatisticsTab } from "./event/StatisticsTab";
 import { LiveMonitorTab } from "./event/LiveMonitorTab";
 import { ReportTab } from "./event/ReportTab";
 import { SiteTab } from "./event/SiteTab";
+import { CertificatesTab } from "./event/CertificatesTab";
 
-type Tab = "participants" | "terminals" | "statistics" | "monitor" | "report" | "site";
+type Tab = "participants" | "terminals" | "statistics" | "monitor" | "report" | "site" | "certificates";
 
 const TABS: { key: Tab; label: string; permission: string }[] = [
   { key: "participants", label: "Participantes", permission: "participants.view" },
@@ -17,6 +18,7 @@ const TABS: { key: Tab; label: string; permission: string }[] = [
   { key: "statistics", label: "Estatísticas", permission: "statistics.view" },
   { key: "monitor", label: "Monitor", permission: "monitor.view" },
   { key: "report", label: "Relatório", permission: "reports.view" },
+  { key: "certificates", label: "Certificados", permission: "certificates.view" },
   { key: "site", label: "Site", permission: "events.edit" },
 ];
 
@@ -206,6 +208,7 @@ export function EventDetailPage() {
       {activeTab === "statistics" ? <StatisticsTab eventId={eventId} /> : null}
       {activeTab === "monitor" ? <LiveMonitorTab eventId={eventId} /> : null}
       {activeTab === "report" ? <ReportTab eventId={eventId} /> : null}
+      {activeTab === "certificates" ? <CertificatesTab eventId={eventId} /> : null}
       {activeTab === "site" ? <SiteTab eventId={eventId} /> : null}
       {!activeTab ? <p className="muted">Você não tem permissão para ver nenhuma aba deste evento.</p> : null}
     </div>

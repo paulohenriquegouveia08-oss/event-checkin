@@ -57,6 +57,10 @@ export const PERMISSIONS: PermissionDef[] = [
   { key: "statistics.view", description: "Ver estatísticas do evento", category: "Relatórios" },
   { key: "reports.view", description: "Ver e exportar relatório de presença", category: "Relatórios" },
   { key: "monitor.view", description: "Acompanhar check-ins em tempo real", category: "Relatórios" },
+
+  // Certificados
+  { key: "certificates.view", description: "Ver status e estatísticas de certificados do evento", category: "Certificados" },
+  { key: "certificates.issue", description: "Liberar, reprocessar e revogar certificados", category: "Certificados" },
 ];
 
 export const PERMISSION_KEYS = new Set(PERMISSIONS.map((p) => p.key));

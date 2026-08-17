@@ -34,6 +34,9 @@ COPY --from=build /app/apps/backend/dist apps/backend/dist
 COPY --from=build /app/apps/backend/prisma apps/backend/prisma
 COPY --from=build /app/node_modules/.prisma node_modules/.prisma
 COPY --from=build /app/node_modules/@prisma node_modules/@prisma
+# Template visual do certificado (ver certificate-template.ts) — não passa
+# pelo build do TS, então precisa ser copiado à parte pro estágio runtime.
+COPY apps/backend/assets apps/backend/assets
 
 EXPOSE 3000
 WORKDIR /app/apps/backend

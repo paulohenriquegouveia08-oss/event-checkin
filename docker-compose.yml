@@ -49,6 +49,13 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_ADMIN_EXPIRES_IN: ${JWT_ADMIN_EXPIRES_IN}
       CORS_ORIGINS: ${CORS_ORIGINS:-}
+      # Caminho dentro do container — precisa bater com o volume abaixo,
+      # senão os PDFs gerados (certificados/comprovantes) somem a cada
+      # rebuild (ver certificate-storage.ts).
+      STORAGE_DIR: /app/apps/backend/storage
+      CERTIFICATE_VALIDATION_BASE_URL: ${CERTIFICATE_VALIDATION_BASE_URL}
+    volumes:
+      - certificates_storage:/app/apps/backend/storage
     ports:
       - "${PORT}:3000"
     healthcheck:
@@ -72,3 +79,4 @@ services:
 
 volumes:
   db_data:
+  certificates_storage:

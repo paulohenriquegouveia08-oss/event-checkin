@@ -75,7 +75,7 @@ export default function HomePage() {
 
           <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center", marginTop: 8 }}>
             {mainEvent && registrationsOpen ? (
-              <Link href={`/inscricao/${mainEvent.id}`} className="btn-primary">
+              <Link href={`/inscricao?eventId=${mainEvent.id}`} className="btn-primary">
                 Garanta sua vaga →
               </Link>
             ) : null}
@@ -145,7 +145,7 @@ export default function HomePage() {
 
           {mainEvent && registrationsOpen ? (
             <div style={{ marginTop: 32, textAlign: "center" }}>
-              <Link href={`/inscricao/${mainEvent.id}`} className="btn-primary">
+              <Link href={`/inscricao?eventId=${mainEvent.id}`} className="btn-primary">
                 Garanta sua vaga →
               </Link>
             </div>

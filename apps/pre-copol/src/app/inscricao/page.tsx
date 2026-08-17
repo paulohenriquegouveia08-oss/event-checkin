@@ -1,14 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { getEvent, createInscription, type EventData, type InscriptionInput, type PricingTier } from "@/lib/api";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 
+// Rota por query string (?eventId=...), não segmento dinâmico
+// ([eventId]) — mesmo motivo de /certificados: export estático (GitHub
+// Pages) não tem como pré-gerar uma página por evento que ainda nem
+// existe no momento do build.
 export default function InscriptionPage() {
-  const { eventId } = useParams<{ eventId: string }>();
+  return (
+    <Suspense fallback={null}>
+      <InscriptionContent />
+    </Suspense>
+  );
+}
+
+function InscriptionContent() {
+  const searchParams = useSearchParams();
+  const eventId = searchParams.get("eventId") ?? "";
   const router = useRouter();
   const [event, setEvent] = useState<EventData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -26,6 +39,10 @@ export default function InscriptionPage() {
   });
 
   useEffect(() => {
+    if (!eventId) {
+      setLoading(false);
+      return;
+    }
     getEvent(eventId)
       .then((data) => {
         setEvent(data);

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { getPublicCertificate, type PublicCertificate } from "@/lib/api";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -11,14 +11,34 @@ import { SiteFooter } from "@/components/SiteFooter";
  * "code" da URL é o verificationCode opaco do certificado, não o id da
  * linha no banco (ver seção 11 do pedido — nunca usar id sequencial numa
  * URL pública). Mostra só o mínimo necessário pra confirmar autenticidade,
- * sem dados sensíveis (sem e-mail, telefone, documento do participante). */
+ * sem dados sensíveis (sem e-mail, telefone, documento do participante).
+ *
+ * Rota por query string (?code=...), não segmento dinâmico ([code]) — o
+ * site é hospedado como export estático (GitHub Pages, sem servidor),
+ * então uma rota puramente client-side é o que evita depender de
+ * generateStaticParams() pra um valor que só existe depois do build
+ * (mesmo padrão já usado em /confirmacao). */
 export default function CertificateValidationPage() {
-  const { code } = useParams<{ code: string }>();
+  return (
+    <Suspense fallback={null}>
+      <CertificateValidationContent />
+    </Suspense>
+  );
+}
+
+function CertificateValidationContent() {
+  const searchParams = useSearchParams();
+  const code = searchParams.get("code") ?? "";
   const [certificate, setCertificate] = useState<PublicCertificate | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!code) {
+      setNotFound(true);
+      setLoading(false);
+      return;
+    }
     getPublicCertificate(code)
       .then(setCertificate)
       .catch(() => setNotFound(true))

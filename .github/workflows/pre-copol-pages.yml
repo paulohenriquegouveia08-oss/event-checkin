@@ -1,0 +1,63 @@
+name: Deploy Pré-Copol (GitHub Pages)
+
+# Build + deploy do site público (apps/pre-copol) como export estático no
+# GitHub Pages, sob o domínio copol2026.com.br (ver apps/pre-copol/public/CNAME).
+# Só dispara quando algo relevante ao pre-copol muda, pra não rebuildar o
+# site a cada commit no backend/admin/attendee.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/pre-copol/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/pre-copol-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build (export estático)
+        working-directory: apps/pre-copol
+        env:
+          # HTTPS obrigatório: o site vira uma página HTTPS (GitHub Pages
+          # com domínio próprio) e o navegador bloqueia chamada pra HTTP
+          # puro por mixed content — mesmo motivo documentado em
+          # apps/pre-copol/.env.local.example pro build da Vercel.
+          NEXT_PUBLIC_API_URL: ${{ vars.PRE_COPOL_API_URL || 'https://137-131-233-254.sslip.io' }}
+        run: npm run build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/pre-copol/out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

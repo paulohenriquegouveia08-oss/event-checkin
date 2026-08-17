@@ -20,8 +20,12 @@ async function loadParticipantOrThrow(eventId: string, participantId: string) {
   return participant;
 }
 
+// Query string (?code=...), não segmento de path (/codigo) — o site
+// pre-copol passou a ser um export estático (GitHub Pages), e uma rota
+// dinâmica de path exigiria conhecer todo código possível em build time
+// (ver apps/pre-copol/src/app/certificados/page.tsx).
 function verificationUrl(code: string): string {
-  return `${env.CERTIFICATE_VALIDATION_BASE_URL}/${code}`;
+  return `${env.CERTIFICATE_VALIDATION_BASE_URL}?code=${code}`;
 }
 
 async function computeEligibility(eventId: string, participantId: string): Promise<{ eligibility: EligibilityResult; checkIn: Awaited<ReturnType<typeof repo.findCheckIn>> }> {

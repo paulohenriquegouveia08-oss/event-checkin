@@ -168,6 +168,33 @@ export async function resolveParticipantActorEmail(eventId: string, participantI
   return participant?.email ?? `participante:${participantId}`;
 }
 
+/**
+ * Gera um PDF de certificado "de teste" pro admin conferir o template
+ * (nome, evento, data, QR) sem depender de o evento ter terminado nem de
+ * presença confirmada — ao contrário de getOrGenerateCertificatePdf, esta
+ * função NUNCA persiste nada (não cria/atualiza linha em Certificate, não
+ * grava no storage, não conta nas estatísticas). O QR aponta pra um código
+ * que nunca existirá em Certificate.verificationCode, então a página
+ * pública de validação sempre mostra "não encontrado" pra ele — correto,
+ * já que isto nunca foi de fato emitido pra ninguém.
+ */
+export async function generateTestCertificatePdf(eventId: string, participantName: string): Promise<Buffer> {
+  const event = await loadEventOrThrow(eventId);
+  const settings = resolveCertificateSettings(event.certificateSettings);
+
+  return renderCertificatePdf({
+    participantName,
+    eventName: event.name,
+    locationLabel: settings.locationLabel,
+    eventStartDate: event.startDate,
+    eventEndDate: event.endDate,
+    workloadHours: settings.workloadHours,
+    closingText: settings.closingText,
+    verificationUrl: verificationUrl("preview"),
+    templateAssetKey: settings.templateAssetKey,
+  });
+}
+
 export async function getCertificateStats(eventId: string) {
   const event = await loadEventOrThrow(eventId);
   const [totalParticipants, present, generated, revoked] = await Promise.all([

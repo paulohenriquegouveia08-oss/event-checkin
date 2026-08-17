@@ -4,7 +4,12 @@ import { ForbiddenError } from "../../shared/errors.js";
 import { ok } from "../../shared/response.js";
 import { recordAudit, recordParticipantAudit } from "../audit/audit.service.js";
 import * as certificatesService from "./certificates.service.js";
-import { certificateIdParamsSchema, eventIdParamsSchema, verificationCodeParamsSchema } from "./certificates.schema.js";
+import {
+  certificateIdParamsSchema,
+  certificatePreviewQuerySchema,
+  eventIdParamsSchema,
+  verificationCodeParamsSchema,
+} from "./certificates.schema.js";
 
 /** Garante que o :eventId da URL bate com o evento do token do attendee —
  * defesa em profundidade: o participantId já vem 100% do token (nunca de
@@ -71,6 +76,25 @@ export async function certificatesRoutes(app: FastifyInstance) {
   });
 
   // --- Administração ---
+
+  // Gera um PDF de teste (nunca persiste nada — ver generateTestCertificatePdf)
+  // pra quem tem acesso à aba de certificados conferir o template sem
+  // precisar esperar o evento terminar nem ter um participante presente.
+  app.get(
+    "/events/:eventId/certificates/preview",
+    { preHandler: requirePermission("certificates.view") },
+    async (request, reply) => {
+      const { eventId } = eventIdParamsSchema.parse(request.params);
+      const { name } = certificatePreviewQuerySchema.parse(request.query);
+      const buffer = await certificatesService.generateTestCertificatePdf(eventId, name || "Participante de Teste");
+
+      await recordAudit(request, "certificate.preview_generated", "Event", eventId);
+
+      reply.header("Content-Type", "application/pdf");
+      reply.header("Content-Disposition", "attachment; filename=certificado-teste.pdf");
+      return reply.send(buffer);
+    }
+  );
 
   app.get("/events/:eventId/certificates/stats", { preHandler: requirePermission("certificates.view") }, async (request) => {
     const { eventId } = eventIdParamsSchema.parse(request.params);

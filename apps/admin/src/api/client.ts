@@ -409,6 +409,32 @@ export function reinstateCertificate(certificateId: string) {
   return request<CertificateRow>(`/certificates/${certificateId}/reinstate`, { method: "POST" });
 }
 
+/** Baixa um PDF de teste do certificado (não gera/persiste nada de real —
+ * ver generateTestCertificatePdf no backend). Não usa request<T>() porque
+ * a resposta é application/pdf, não o envelope JSON success/data. */
+export async function previewCertificate(eventId: string, name: string): Promise<void> {
+  const token = getToken();
+  const url = `${API_URL}/events/${eventId}/certificates/preview?name=${encodeURIComponent(name)}`;
+  const response = await fetch(url, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+
+  if (!response.ok) {
+    const json = (await response.json()) as ApiFailure;
+    throw new ApiError(json.error.message, json.error.code, response.status);
+  }
+
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = "certificado-teste.pdf";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
 export function checkHealth() {
   return request<{ status: string; apiVersion: string }>("/health", { auth: false });
 }

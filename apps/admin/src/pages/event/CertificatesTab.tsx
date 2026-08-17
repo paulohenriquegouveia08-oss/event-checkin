@@ -25,6 +25,9 @@ export function CertificatesTab({ eventId }: { eventId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [releasing, setReleasing] = useState(false);
   const [busyRowId, setBusyRowId] = useState<string | null>(null);
+  const [previewName, setPreviewName] = useState("Participante de Teste");
+  const [previewing, setPreviewing] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   function reload() {
     Promise.all([api.getCertificateStats(eventId), api.listCertificates(eventId)])
@@ -39,6 +42,18 @@ export function CertificatesTab({ eventId }: { eventId: string }) {
     reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
+
+  async function handlePreview() {
+    setPreviewing(true);
+    setPreviewError(null);
+    try {
+      await api.previewCertificate(eventId, previewName.trim() || "Participante de Teste");
+    } catch (err) {
+      setPreviewError(err instanceof Error ? err.message : "Não foi possível gerar o certificado de teste");
+    } finally {
+      setPreviewing(false);
+    }
+  }
 
   async function handleRelease() {
     setReleasing(true);
@@ -91,6 +106,30 @@ export function CertificatesTab({ eventId }: { eventId: string }) {
         <StatCard label="Gerados" value={stats.generated} color="var(--success)" />
         <StatCard label="Pendentes" value={stats.pending} color="var(--warning)" />
         <StatCard label="Revogados" value={stats.revoked} color="var(--danger)" />
+      </div>
+
+      <div className="card">
+        <h2 style={{ fontSize: 15, margin: "0 0 4px" }}>Testar emissão</h2>
+        <p className="muted" style={{ margin: "0 0 12px", fontSize: 13 }}>
+          Gera e baixa um PDF de exemplo com o template atual — não depende do evento ter terminado nem de nenhuma
+          presença confirmada, e não conta nas estatísticas nem fica salvo (o QR não valida, só é ilustrativo).
+        </p>
+        <div className="row" style={{ gap: 8 }}>
+          <input
+            value={previewName}
+            onChange={(e) => setPreviewName(e.target.value)}
+            placeholder="Nome de teste"
+            style={{ flex: 1, maxWidth: 280 }}
+          />
+          <button className="btn btn-sm" onClick={handlePreview} disabled={previewing}>
+            {previewing ? "Gerando..." : "Baixar certificado de teste"}
+          </button>
+        </div>
+        {previewError && (
+          <p className="error-text" style={{ marginBottom: 0 }}>
+            {previewError}
+          </p>
+        )}
       </div>
 
       {!stats.eventEnded && (

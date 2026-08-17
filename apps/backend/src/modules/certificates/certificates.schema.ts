@@ -11,3 +11,7 @@ export const certificateIdParamsSchema = z.object({
 export const verificationCodeParamsSchema = z.object({
   code: z.string().trim().min(1).max(120),
 });
+
+export const certificatePreviewQuerySchema = z.object({
+  name: z.string().trim().min(1).max(120).optional(),
+});

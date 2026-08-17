@@ -349,6 +349,52 @@ describe("validação pública do certificado", () => {
   });
 });
 
+describe("GET /events/:eventId/certificates/preview", () => {
+  it("gera o PDF de teste mesmo com o evento em andamento e sem nenhum participante presente", async () => {
+    const event = await createTestEvent(); // não terminou
+    const adminToken = await loginAdmin();
+
+    const res = await app.inject({
+      method: "GET",
+      url: `/events/${event.id}/certificates/preview?name=${encodeURIComponent("Fulano de Teste")}`,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["content-type"]).toBe("application/pdf");
+    expect(res.rawPayload.length).toBeGreaterThan(1000);
+  });
+
+  it("não cria nenhuma linha em Certificate nem mexe nas estatísticas", async () => {
+    const event = await createTestEvent();
+    const adminToken = await loginAdmin();
+
+    await app.inject({
+      method: "GET",
+      url: `/events/${event.id}/certificates/preview`,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+
+    const count = await prisma.certificate.count({ where: { eventId: event.id } });
+    expect(count).toBe(0);
+  });
+
+  it("exige a permissão certificates.view", async () => {
+    const event = await createTestEvent();
+    const roleWithoutPermission = await createTestRole("Sem Acesso", []);
+    const { user, password } = await createTestUserWithRole(roleWithoutPermission.id, "sem-acesso@teste.com");
+    const loginRes = await app.inject({ method: "POST", url: "/auth/login", payload: { email: user.email, password } });
+    const token = loginRes.json().data.token as string;
+
+    const res = await app.inject({
+      method: "GET",
+      url: `/events/${event.id}/certificates/preview`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+});
+
 describe("administração", () => {
   it("bloqueia liberação de certificados antes do evento terminar", async () => {
     const event = await createTestEvent(); // não terminou

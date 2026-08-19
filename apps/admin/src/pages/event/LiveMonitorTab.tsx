@@ -119,8 +119,13 @@ export function LiveMonitorTab({ eventId }: { eventId: string }) {
           maxHeight: 500,
           overflowY: "auto",
           display: "flex",
+          // Faltava isso — sem flexDirection, o container caía no padrão
+          // "row" do flexbox e cada check-in (LogEntry) empilhava do lado
+          // do outro em vez de um embaixo do outro. Era por isso que
+          // parecia "não atualizar": os itens ficavam espremidos de lado.
+          flexDirection: "column",
           alignItems: events.length === 0 ? "center" : "stretch",
-          justifyContent: events.length === 0 ? "center" : "stretch",
+          justifyContent: events.length === 0 ? "center" : "flex-start",
         }}
       >
         {events.length === 0 ? (

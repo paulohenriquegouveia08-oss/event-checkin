@@ -18,6 +18,7 @@ import { rolesRoutes } from "./modules/roles/roles.routes.js";
 import { usersRoutes } from "./modules/users/users.routes.js";
 import { auditRoutes } from "./modules/audit/audit.routes.js";
 import { certificatesRoutes } from "./modules/certificates/certificates.routes.js";
+import { releasesRoutes } from "./modules/releases/releases.routes.js";
 
 // Versão da API — usada pelo app do terminal para verificar compatibilidade
 // (seção 27 da especificação). Incrementar em mudanças que quebrem contrato.
@@ -83,6 +84,7 @@ export function buildApp() {
   app.register(usersRoutes);
   app.register(auditRoutes);
   app.register(certificatesRoutes);
+  app.register(releasesRoutes);
 
   return app;
 }

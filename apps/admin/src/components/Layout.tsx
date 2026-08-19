@@ -4,6 +4,7 @@ import { useAuth } from "../auth/AuthContext";
 
 const NAV_LINKS = [
   { to: "/eventos", label: "Eventos", permission: "events.view" },
+  { to: "/apk", label: "App do terminal", permission: null },
   { to: "/usuarios", label: "Usuários", permission: "users.view" },
   { to: "/perfis", label: "Perfis", permission: "roles.view" },
   { to: "/auditoria", label: "Auditoria", permission: "audit.view" },
@@ -36,7 +37,7 @@ export function Layout() {
             PK Digital — Credenciamento
           </Link>
           <nav className="row" style={{ gap: 4 }}>
-            {NAV_LINKS.filter((link) => hasPermission(link.permission)).map((link) => {
+            {NAV_LINKS.filter((link) => link.permission === null || hasPermission(link.permission)).map((link) => {
               const active = location.pathname.startsWith(link.to);
               return (
                 <Link

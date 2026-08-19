@@ -447,6 +447,41 @@ export async function previewCertificate(eventId: string, name: string): Promise
   URL.revokeObjectURL(objectUrl);
 }
 
+// --- App do terminal (APK) ---
+export interface ApkInfo {
+  available: boolean;
+  sizeBytes: number | null;
+  updatedAt: string | null;
+}
+export function getApkInfo() {
+  return request<ApkInfo>("/apk/info");
+}
+
+/** Baixa o APK do app do terminal. Mesmo padrão de previewCertificate:
+ * não usa request<T>() porque a resposta é o binário, não o envelope
+ * JSON success/data. */
+export async function downloadApk(): Promise<void> {
+  const token = getToken();
+  const response = await fetch(`${API_URL}/apk`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+
+  if (!response.ok) {
+    const json = (await response.json()) as ApiFailure;
+    throw new ApiError(json.error.message, json.error.code, response.status);
+  }
+
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = "pk-digital-credenciamento.apk";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
 export function checkHealth() {
   return request<{ status: string; apiVersion: string }>("/health", { auth: false });
 }

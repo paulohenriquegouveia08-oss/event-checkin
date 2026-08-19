@@ -28,6 +28,7 @@ export async function synchronizationRoutes(app: FastifyInstance) {
     const results = await synchronizationService.syncCheckIns(
       request.terminal!.eventId,
       request.terminal!.terminalId,
+      request.terminal!.name,
       input
     );
 
@@ -41,7 +42,7 @@ export async function synchronizationRoutes(app: FastifyInstance) {
           participantName: result.participant?.name ?? "—",
           status: "REJECTED",
           checkedInAt: new Date().toISOString(),
-          terminalName: null,
+          terminalName: request.terminal!.name,
           terminalId: request.terminal!.terminalId,
           source: "OFFLINE_SYNC",
           errorMessage: result.message,

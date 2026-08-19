@@ -153,6 +153,34 @@ export async function performCheckIn(params: PerformCheckInParams): Promise<Chec
   }
 }
 
+/**
+ * Preenche o monitor ao vivo com o histórico recente assim que o admin
+ * conecta — sem isso, o monitor (adminCheckInBus) só mostra check-ins que
+ * acontecerem DEPOIS da conexão SSE abrir; qualquer coisa que já tinha
+ * acontecido (ou aconteceu enquanto a aba estava fechada/em outra aba)
+ * ficava invisível pra sempre, porque o bus é só em memória, sem replay.
+ * Só cobre check-ins CONFIRMADOS (a tabela check_ins só grava um registro
+ * por participante já confirmado — rejeições e duplicidade não deixam
+ * rastro em banco, só existem como evento ao vivo mesmo).
+ */
+export async function getRecentCheckInsForMonitor(eventId: string, limit = 50) {
+  const rows = await checkinsRepository.listRecentCheckInsByEvent(eventId, limit);
+  return rows.map((c) => ({
+    type: "check_in" as const,
+    eventId,
+    participantId: c.participantId,
+    participantName: c.participant.name,
+    participantEmail: c.participant.email,
+    participantPhone: c.participant.phone,
+    participantDocument: c.participant.document,
+    status: "CONFIRMED" as const,
+    checkedInAt: c.checkedInAt.toISOString(),
+    terminalName: c.terminal?.name ?? null,
+    terminalId: c.terminalId,
+    source: c.source,
+  }));
+}
+
 export async function getEventStatistics(eventId: string) {
   const [totalParticipants, totalCheckIns, byTerminal] = await Promise.all([
     participantsRepository.listParticipantsByEvent(eventId).then((rows) => rows.length),

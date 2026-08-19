@@ -20,6 +20,7 @@ export interface SyncItemResult {
 export async function syncCheckIns(
   eventId: string,
   terminalId: string,
+  terminalName: string,
   input: SyncRequestInput
 ): Promise<SyncItemResult[]> {
   const results: SyncItemResult[] = [];
@@ -30,6 +31,7 @@ export async function syncCheckIns(
         eventId,
         qrToken: item.qrToken,
         terminalId,
+        terminalName,
         source: "OFFLINE_SYNC",
         checkedInAt: item.checkedInAt,
         localCheckInId: item.localCheckInId,

@@ -102,6 +102,20 @@ export async function checkinsRoutes(app: FastifyInstance) {
 
     reply.raw.write(`data: ${JSON.stringify({ type: "connected", eventId })}\n\n`);
 
+    // Preenche com o histórico recente antes de assinar eventos ao vivo —
+    // sem isso, check-ins que já tinham acontecido (ou aconteceram enquanto
+    // o admin estava em outra aba, já que adminCheckInBus é só em memória
+    // e sem replay) nunca apareciam no monitor. Ver getRecentCheckInsForMonitor.
+    try {
+      const recent = await checkinsService.getRecentCheckInsForMonitor(eventId);
+      for (const event of recent) {
+        reply.raw.write(`data: ${JSON.stringify(event)}\n\n`);
+      }
+    } catch {
+      // Histórico é só um bônus de UX — uma falha aqui não pode derrubar a
+      // conexão SSE, que continua funcionando pros eventos ao vivo.
+    }
+
     const unsubscribe = adminCheckInBus.subscribe(eventId, (event) => {
       reply.raw.write(`data: ${JSON.stringify(event)}\n\n`);
     });

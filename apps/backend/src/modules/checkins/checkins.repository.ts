@@ -48,3 +48,21 @@ export function listCheckInsByEvent(eventId: string) {
     orderBy: { checkedInAt: "asc" },
   });
 }
+
+/** Os `limit` check-ins mais recentes do evento — usado só para preencher
+ * o histórico do monitor ao vivo quando um admin conecta (ver
+ * checkins.routes.ts). Devolve do mais antigo pro mais novo (mesma ordem
+ * em que os eventos apareceriam se o admin tivesse assistido ao vivo). */
+export function listRecentCheckInsByEvent(eventId: string, limit: number) {
+  return prisma.checkIn
+    .findMany({
+      where: { eventId },
+      include: {
+        participant: { select: { name: true, email: true, phone: true, document: true } },
+        terminal: { select: { name: true } },
+      },
+      orderBy: { checkedInAt: "desc" },
+      take: limit,
+    })
+    .then((rows) => rows.reverse());
+}

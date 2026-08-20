@@ -3,6 +3,7 @@ import { requirePermission, requireTerminal, userHasPermission } from "../../mid
 import { ForbiddenError, NotFoundError } from "../../shared/errors.js";
 import { ok } from "../../shared/response.js";
 import * as checkinsService from "./checkins.service.js";
+import * as checkinsRepository from "./checkins.repository.js";
 import { checkinEventParamsSchema, createCheckInSchema } from "./checkins.schema.js";
 import { adminCheckInBus } from "../admin/adminMonitor.events.js";
 
@@ -42,6 +43,16 @@ export async function checkinsRoutes(app: FastifyInstance) {
           checkedInAt: new Date().toISOString(),
           terminalName: request.terminal!.name,
           terminalId: request.terminal!.terminalId,
+          source: "ONLINE",
+          errorMessage: error.message,
+        });
+        // Idem checkins.service.ts: grava em checkin_attempts pra rejeição
+        // não sumir se o admin não estiver com o monitor aberto agora.
+        void checkinsRepository.createCheckInAttempt({
+          eventId,
+          terminalId: request.terminal!.terminalId,
+          terminalName: request.terminal!.name,
+          status: "REJECTED",
           source: "ONLINE",
           errorMessage: error.message,
         });

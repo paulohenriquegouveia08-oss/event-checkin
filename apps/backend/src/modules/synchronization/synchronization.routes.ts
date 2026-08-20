@@ -6,6 +6,7 @@ import * as participantsService from "../participants/participants.service.js";
 import * as synchronizationService from "./synchronization.service.js";
 import { syncRequestSchema } from "./synchronization.schema.js";
 import { adminCheckInBus } from "../admin/adminMonitor.events.js";
+import * as checkinsRepository from "../checkins/checkins.repository.js";
 
 export async function synchronizationRoutes(app: FastifyInstance) {
   // Puxado pelo terminal antes/durante o evento para cachear localmente
@@ -44,6 +45,17 @@ export async function synchronizationRoutes(app: FastifyInstance) {
           checkedInAt: new Date().toISOString(),
           terminalName: request.terminal!.name,
           terminalId: request.terminal!.terminalId,
+          source: "OFFLINE_SYNC",
+          errorMessage: result.message,
+        });
+        // Idem checkins.routes.ts: grava em checkin_attempts pra rejeição
+        // não sumir se o admin não estiver com o monitor aberto agora.
+        void checkinsRepository.createCheckInAttempt({
+          eventId: request.terminal!.eventId,
+          participantName: result.participant?.name ?? null,
+          terminalId: request.terminal!.terminalId,
+          terminalName: request.terminal!.name,
+          status: "REJECTED",
           source: "OFFLINE_SYNC",
           errorMessage: result.message,
         });

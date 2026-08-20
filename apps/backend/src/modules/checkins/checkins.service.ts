@@ -136,6 +136,25 @@ export async function performCheckIn(params: PerformCheckInParams): Promise<Chec
           source: params.source,
         });
 
+        // Também grava em checkin_attempts — sem isso, a duplicidade só
+        // existia como evento ao vivo e sumia se o admin não estivesse
+        // com o monitor aberto naquele instante exato (ver
+        // getRecentCheckInsForMonitor). Não precisa de await bloqueante
+        // aqui: createCheckInAttempt nunca lança e o resultado do
+        // check-in em si já está decidido.
+        void checkinsRepository.createCheckInAttempt({
+          eventId,
+          participantId: participant.id,
+          participantName: participant.name,
+          participantEmail: participant.email,
+          participantPhone: participant.phone,
+          participantDocument: participant.document,
+          terminalId: params.terminalId ?? null,
+          terminalName: params.terminalName ?? null,
+          status: "ALREADY_CHECKED_IN",
+          source: params.source,
+        });
+
         return {
           status: "ALREADY_CHECKED_IN",
           checkIn: existing,
@@ -155,17 +174,23 @@ export async function performCheckIn(params: PerformCheckInParams): Promise<Chec
 
 /**
  * Preenche o monitor ao vivo com o histórico recente assim que o admin
- * conecta — sem isso, o monitor (adminCheckInBus) só mostra check-ins que
- * acontecerem DEPOIS da conexão SSE abrir; qualquer coisa que já tinha
+ * conecta — sem isso, o monitor (adminCheckInBus) só mostra o que
+ * acontece DEPOIS da conexão SSE abrir; qualquer coisa que já tinha
  * acontecido (ou aconteceu enquanto a aba estava fechada/em outra aba)
  * ficava invisível pra sempre, porque o bus é só em memória, sem replay.
- * Só cobre check-ins CONFIRMADOS (a tabela check_ins só grava um registro
- * por participante já confirmado — rejeições e duplicidade não deixam
- * rastro em banco, só existem como evento ao vivo mesmo).
+ * Junta as duas fontes que alimentam o monitor: check-ins confirmados
+ * (tabela checkins) e tentativas rejeitadas/duplicadas (checkin_attempts)
+ * — pega os `limit` mais recentes de cada uma e depois corta pro total
+ * certo, pra um evento com muita duplicidade não engolir todo o espaço
+ * só com isso.
  */
 export async function getRecentCheckInsForMonitor(eventId: string, limit = 50) {
-  const rows = await checkinsRepository.listRecentCheckInsByEvent(eventId, limit);
-  return rows.map((c) => ({
+  const [checkIns, attempts] = await Promise.all([
+    checkinsRepository.listRecentCheckInsByEvent(eventId, limit),
+    checkinsRepository.listRecentCheckInAttempts(eventId, limit),
+  ]);
+
+  const confirmed = checkIns.map((c) => ({
     type: "check_in" as const,
     eventId,
     participantId: c.participantId,
@@ -179,6 +204,26 @@ export async function getRecentCheckInsForMonitor(eventId: string, limit = 50) {
     terminalId: c.terminalId,
     source: c.source,
   }));
+
+  const rejectedOrDuplicated = attempts.map((a) => ({
+    type: "check_in" as const,
+    eventId,
+    participantId: a.participantId ?? "",
+    participantName: a.participantName ?? "—",
+    participantEmail: a.participantEmail,
+    participantPhone: a.participantPhone,
+    participantDocument: a.participantDocument,
+    status: a.status,
+    checkedInAt: a.attemptedAt.toISOString(),
+    terminalName: a.terminalName,
+    terminalId: a.terminalId,
+    source: a.source,
+    errorMessage: a.errorMessage ?? undefined,
+  }));
+
+  return [...confirmed, ...rejectedOrDuplicated]
+    .sort((a, b) => new Date(a.checkedInAt).getTime() - new Date(b.checkedInAt).getTime())
+    .slice(-limit);
 }
 
 export async function getEventStatistics(eventId: string) {

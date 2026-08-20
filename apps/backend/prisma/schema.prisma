@@ -260,6 +260,45 @@ model CheckIn {
   @@map("checkins")
 }
 
+// Tentativa de check-in que NÃO virou um CheckIn (duplicidade —
+// participante já credenciado antes — ou rejeição — QR inválido/
+// participante inativo). Sem isso, esses casos só existiam como evento ao
+// vivo em memória (adminCheckInBus): se o admin não estivesse com o
+// monitor aberto no exato momento, a tentativa desaparecia pra sempre,
+// sem nenhum jeito de recuperar depois — diferente de um check-in
+// confirmado, que sempre fica visível porque vira uma linha em
+// "checkins". Esta tabela existe só pra dar essa mesma confiabilidade
+// pros dois outros casos (ver getRecentCheckInsForMonitor em
+// checkins.service.ts).
+//
+// Sem relações/FK de propósito (igual audit_logs) — é um log de eventos,
+// não um registro que precisa de integridade referencial; participantId/
+// terminalId podem não existir mais (ou nunca ter existido, no caso de QR
+// inválido) sem que isso quebre nada aqui.
+model CheckInAttempt {
+  id            String              @id @default(uuid())
+  eventId       String
+  participantId String?
+  participantName      String?
+  participantEmail     String?
+  participantPhone     String?
+  participantDocument  String?
+  terminalId    String?
+  terminalName  String?
+  status        CheckInAttemptStatus
+  source        CheckInSource
+  errorMessage  String?
+  attemptedAt   DateTime            @default(now())
+
+  @@index([eventId, attemptedAt])
+  @@map("checkin_attempts")
+}
+
+enum CheckInAttemptStatus {
+  ALREADY_CHECKED_IN
+  REJECTED
+}
+
 model Inscription {
   id            String            @id @default(uuid())
   eventId       String

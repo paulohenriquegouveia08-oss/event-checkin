@@ -14,17 +14,6 @@ import {
   type MyDocuments,
 } from "@/lib/api";
 
-// Safari no iOS não honra o atributo `download` de um <a> pra blob URL
-// (limitação conhecida do WebKit) — em vez de salvar o arquivo, só abre
-// o PDF numa aba nova. Detecta iOS (inclui iPad em "modo desktop", que se
-// identifica como Mac mas tem tela sensível ao toque) pra tratar esse
-// caso à parte no download do QR code — ver handleDownloadPdf.
-function isIOS(): boolean {
-  if (typeof navigator === "undefined") return false;
-  const ua = navigator.userAgent;
-  return /iPad|iPhone|iPod/.test(ua) || (ua.includes("Macintosh") && navigator.maxTouchPoints > 1);
-}
-
 type CheckInStatus = "CONFIRMED" | "ALREADY_CHECKED_IN" | "REJECTED" | null;
 
 interface StatusEvent {
@@ -47,14 +36,7 @@ export default function CheckInPage() {
   const [downloadingCertificate, setDownloadingCertificate] = useState(false);
   const [downloadingProof, setDownloadingProof] = useState(false);
   const [documentsError, setDocumentsError] = useState<string | null>(null);
-  const [isIOSDevice, setIsIOSDevice] = useState(false);
   const statusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Só dá pra checar o user agent no navegador — roda depois do mount pra
-  // não dar mismatch de hidratação (no servidor `navigator` não existe).
-  useEffect(() => {
-    setIsIOSDevice(isIOS());
-  }, []);
 
   const loadMyDocuments = useCallback(async (authToken: string, eventId: string) => {
     try {
@@ -223,17 +205,7 @@ export default function CheckInPage() {
     doc.setTextColor(80, 80, 80);
     doc.text("Apresente este QR code na entrada do evento", pageW / 2, 260, { align: "center" });
 
-    const filename = `qr-code-${participant.name.replace(/\s+/g, "_")}.pdf`;
-    if (isIOS()) {
-      // .save() vira um <a download> apontando pra um blob: URL — no
-      // Safari iOS isso só abre uma aba nova sem baixar nada.
-      // output('dataurlnewwindow') é o mecanismo do próprio jsPDF pra
-      // essa situação: abre o PDF como data URL, e dessa tela dá pra
-      // salvar de verdade tocando em Compartilhar → Salvar em Arquivos.
-      doc.output("dataurlnewwindow", { filename });
-    } else {
-      doc.save(filename);
-    }
+    doc.save(`qr-code-${participant.name.replace(/\s+/g, "_")}.pdf`);
   };
 
   // Comprovante e certificado são gerados/armazenados no backend (ver
@@ -460,11 +432,6 @@ export default function CheckInPage() {
             Baixar QR Code
           </button>
 
-          {isIOSDevice ? (
-            <p className="mt-2 text-xs text-[--muted-foreground]">
-              O PDF vai abrir numa nova aba — toque no ícone de compartilhar e escolha &quot;Salvar em Arquivos&quot; para baixar.
-            </p>
-          ) : null}
         </div>
 
         {/* Meus documentos */}

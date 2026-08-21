@@ -5,6 +5,7 @@ import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb, type RGB } from "pdf
 import QRCode from "qrcode";
 import { formatEventDateRange, formatEventDateRangeShort } from "../../shared/br-date.js";
 import { numberToWordsPtBr } from "../../shared/number-to-words-pt-br.js";
+import type { ParagraphSegment } from "./certificate-settings.js";
 
 // __dirname não existe em ESM — apps/backend roda com "type": "module".
 const currentDir = dirname(fileURLToPath(import.meta.url));
@@ -22,7 +23,10 @@ export interface CertificateData {
   eventStartDate: Date;
   eventEndDate: Date;
   workloadHours: number;
-  closingText: string;
+  // Parágrafo descritivo inteiro, como trechos de texto livre + tokens
+  // dinâmicos (ver certificate-settings.ts) — os tokens são resolvidos
+  // pra texto de verdade aqui dentro, em resolveParagraphTokenText().
+  paragraphSegments: ParagraphSegment[];
   verificationUrl: string;
   templateAssetKey: string;
   signatories: CertificateSignatory[];
@@ -232,8 +236,20 @@ export async function renderCertificatePdf(data: CertificateData): Promise<Buffe
 
   const helvetica = await pdf.embedFont(StandardFonts.Helvetica);
   const helveticaBold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const helveticaOblique = await pdf.embedFont(StandardFonts.HelveticaOblique);
+  const helveticaBoldOblique = await pdf.embedFont(StandardFonts.HelveticaBoldOblique);
   const timesBold = await pdf.embedFont(StandardFonts.TimesRomanBold);
   const timesItalic = await pdf.embedFont(StandardFonts.TimesRomanItalic);
+
+  // Escolhe entre as 4 variantes da Helvetica conforme negrito/itálico do
+  // segmento — é isso que permite o admin marcar qualquer trecho do
+  // parágrafo (RichTextEditor) com qualquer combinação dos dois.
+  function paragraphFont(bold?: boolean, italic?: boolean): PDFFont {
+    if (bold && italic) return helveticaBoldOblique;
+    if (bold) return helveticaBold;
+    if (italic) return helveticaOblique;
+    return helvetica;
+  }
 
   // Cor de destaque (nome, nome do evento, título do chip de data, nomes
   // dos signatários) e cor do corpo do texto — configuráveis por evento
@@ -259,18 +275,26 @@ export async function renderCertificatePdf(data: CertificateData): Promise<Buffe
   const workloadLabel = workloadWords ? `${data.workloadHours} (${workloadWords})` : `${data.workloadHours}`;
   const dateRange = formatEventDateRange(data.eventStartDate, data.eventEndDate);
 
-  const paragraphRuns: TextRun[] = [
-    { text: "Participou do ", font: helvetica, size: 15, color: textColor },
-    { text: `${data.eventName},`, font: helveticaBold, size: 15, color: primaryColor },
-    {
-      text:
-        ` realizado em ${data.locationLabel}, nos dias ${dateRange}, com carga horária total de ` +
-        `${workloadLabel} horas. ${data.closingText}`,
-      font: helvetica,
-      size: 15,
-      color: textColor,
-    },
-  ];
+  // Cada token do parágrafo (ver certificate-settings.ts) resolve pro
+  // valor de verdade deste certificado — o resto (todo trecho "text") já
+  // vem como texto livre, exatamente como o admin escreveu no editor.
+  const tokenValues: Record<string, string> = {
+    eventName: data.eventName,
+    locationLabel: data.locationLabel,
+    eventDateRange: dateRange,
+    // Só o número por extenso — a palavra "horas" fica como texto livre
+    // logo depois do token no parágrafo padrão (buildDefaultParagraphSegments
+    // em certificate-settings.ts), pra o admin poder editá-la/removê-la
+    // como qualquer outro texto.
+    workloadHours: workloadLabel,
+  };
+
+  const paragraphRuns: TextRun[] = data.paragraphSegments.map((segment) => ({
+    text: segment.type === "token" ? tokenValues[segment.key] ?? "" : segment.text,
+    font: paragraphFont(segment.bold, segment.italic),
+    size: 15,
+    color: segment.color ? hexToRgb(segment.color) : textColor,
+  }));
   const paragraphMaxWidth = toX(PARAGRAPH_BOX.xRight) - toX(PARAGRAPH_BOX.xLeft);
   const lines = wrapRuns(paragraphRuns, paragraphMaxWidth);
   let lineY = toY(PARAGRAPH_BOX.yTop);

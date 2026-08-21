@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import * as api from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
-import { ColorField, ContentSection, ListEditor, TextAreaField, TextField } from "../../components/FormFields";
+import { ColorField, ContentSection, ListEditor, TextField } from "../../components/FormFields";
+import { RichTextEditor } from "../../components/RichTextEditor";
 
 // Espelha DEFAULT_CERTIFICATE_SETTINGS do backend
 // (certificate-settings.ts) — preenche o formulário com o que já está no
@@ -14,6 +15,26 @@ const DEFAULT_SETTINGS = {
   textColor: "#1A1A1A",
 };
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+
+// Espelha buildDefaultParagraphSegments() do backend
+// (certificate-settings.ts) — reproduz o parágrafo que sempre existiu
+// ("Participou do {evento}, realizado em {local}...") pra eventos que
+// ainda não têm paragraphSegments salvo (nunca some texto customizado:
+// usa o closingText que já estava salvo, se houver).
+function buildDefaultParagraphSegments(primaryColor: string, closingText: string): api.ParagraphSegment[] {
+  return [
+    { type: "text", text: "Participou do " },
+    { type: "token", key: "eventName", bold: true, color: primaryColor },
+    { type: "text", text: ", realizado em " },
+    { type: "token", key: "locationLabel" },
+    { type: "text", text: ", nos dias " },
+    { type: "token", key: "eventDateRange" },
+    { type: "text", text: ", com carga horária total de " },
+    { type: "token", key: "workloadHours" },
+    { type: "text", text: " horas. " },
+    { type: "text", text: closingText },
+  ];
+}
 const DEFAULT_SIGNATORIES: api.CertificateSignatory[] = [
   { name: "Gustavo Nascimento De Souza Pinto", role: "Coordenador do Evento" },
   { name: "Pablo Guilherme Caldarelli", role: "Coordenador Geral do Campus Coordenador do Curso de Odontologia" },
@@ -53,11 +74,16 @@ export function CertificatesTab({ eventId }: { eventId: string }) {
   const [previewError, setPreviewError] = useState<string | null>(null);
 
   const [workloadHours, setWorkloadHours] = useState(DEFAULT_SETTINGS.workloadHours);
-  const [closingText, setClosingText] = useState(DEFAULT_SETTINGS.closingText);
   const [locationLabel, setLocationLabel] = useState(DEFAULT_SETTINGS.locationLabel);
   const [signatories, setSignatories] = useState<api.CertificateSignatory[]>(DEFAULT_SIGNATORIES);
   const [primaryColor, setPrimaryColor] = useState(DEFAULT_SETTINGS.primaryColor);
   const [textColor, setTextColor] = useState(DEFAULT_SETTINGS.textColor);
+  const [paragraphSegments, setParagraphSegments] = useState<api.ParagraphSegment[]>([]);
+  // Só monta o RichTextEditor depois que o valor real chegou do backend —
+  // ele só lê `value` na montagem (ver comentário em RichTextEditor.tsx),
+  // então montar antes disso faria ele começar vazio/com o valor padrão
+  // errado e nunca mais atualizar.
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsNotice, setSettingsNotice] = useState<string | null>(null);
@@ -72,16 +98,23 @@ export function CertificatesTab({ eventId }: { eventId: string }) {
   }
 
   function loadSettings() {
+    setSettingsLoaded(false);
     api
       .getEvent(eventId)
       .then((event) => {
         const c = event.certificateSettings ?? {};
+        const resolvedPrimaryColor = c.primaryColor || DEFAULT_SETTINGS.primaryColor;
         setWorkloadHours(c.workloadHours || DEFAULT_SETTINGS.workloadHours);
-        setClosingText(c.closingText || DEFAULT_SETTINGS.closingText);
         setLocationLabel(c.locationLabel || DEFAULT_SETTINGS.locationLabel);
         setSignatories(c.signatories && c.signatories.length > 0 ? c.signatories : DEFAULT_SIGNATORIES);
-        setPrimaryColor(c.primaryColor || DEFAULT_SETTINGS.primaryColor);
+        setPrimaryColor(resolvedPrimaryColor);
         setTextColor(c.textColor || DEFAULT_SETTINGS.textColor);
+        setParagraphSegments(
+          c.paragraphSegments && c.paragraphSegments.length > 0
+            ? c.paragraphSegments
+            : buildDefaultParagraphSegments(resolvedPrimaryColor, c.closingText || DEFAULT_SETTINGS.closingText)
+        );
+        setSettingsLoaded(true);
       })
       .catch((err) => setSettingsError(err instanceof Error ? err.message : "Falha ao carregar configurações do certificado"));
   }
@@ -130,17 +163,21 @@ export function CertificatesTab({ eventId }: { eventId: string }) {
       setSettingsError("Cor do texto inválida — use o formato #RRGGBB.");
       return;
     }
+    if (paragraphSegments.length === 0) {
+      setSettingsError("O parágrafo do certificado não pode ficar vazio.");
+      return;
+    }
 
     setSavingSettings(true);
     try {
       await api.updateEvent(eventId, {
         certificateSettings: {
           workloadHours,
-          closingText: closingText.trim() || undefined,
           locationLabel: locationLabel.trim(),
           signatories: cleanSignatories,
           primaryColor,
           textColor,
+          paragraphSegments,
         },
       });
       setSignatories(cleanSignatories);
@@ -241,16 +278,26 @@ export function CertificatesTab({ eventId }: { eventId: string }) {
         )}
       </div>
 
-      {canEditSettings && (
+      {canEditSettings && !settingsLoaded && (
+        <div className="card">
+          <p className="muted" style={{ margin: 0 }}>Carregando texto do certificado...</p>
+        </div>
+      )}
+
+      {canEditSettings && settingsLoaded && (
       <div className="card">
         <h2 style={{ fontSize: 15, margin: "0 0 4px" }}>Texto do certificado</h2>
         <p className="muted" style={{ margin: "0 0 20px", fontSize: 12 }}>
-          Nome do participante, nome do evento e as datas vêm automaticamente do evento — só o que está aqui embaixo
-          precisa ser configurado à parte. O layout (logo, título, ondas, logos de apoio) continua fixo.
+          Nome do participante vem automaticamente do evento — o resto do parágrafo é editável abaixo, igual num
+          editor de texto: selecione um trecho pra formatar (negrito, itálico, cor). O layout (logo, título, ondas,
+          logos de apoio) continua fixo.
         </p>
 
         <div className="stack" style={{ gap: 24 }}>
-          <ContentSection title="Parágrafo descritivo">
+          <ContentSection title="Local e carga horária">
+            <p className="muted" style={{ margin: "0 0 4px", fontSize: 12 }}>
+              Usados no chip de data do certificado e nos blocos "Local"/"Carga horária" do parágrafo abaixo.
+            </p>
             <div className="row" style={{ gap: 12, alignItems: "flex-end" }}>
               <TextField label="Local (ex.: Cidade/UF)" value={locationLabel} onChange={setLocationLabel} />
               <div style={{ flex: "0 0 140px" }}>
@@ -266,12 +313,10 @@ export function CertificatesTab({ eventId }: { eventId: string }) {
                 />
               </div>
             </div>
-            <TextAreaField
-              label='Texto de fechamento (depois de "...carga horária total de X horas.")'
-              value={closingText}
-              onChange={setClosingText}
-              rows={2}
-            />
+          </ContentSection>
+
+          <ContentSection title="Parágrafo descritivo">
+            <RichTextEditor key={eventId} value={paragraphSegments} onChange={setParagraphSegments} defaultColor={textColor} />
           </ContentSection>
 
           <ContentSection title="Signatários (até 3, aparecem no rodapé)">

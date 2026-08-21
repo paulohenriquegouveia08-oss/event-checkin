@@ -208,17 +208,31 @@ export interface CertificateSignatory {
   name: string;
   role: string;
 }
+
+// Espelha ParagraphTokenKey/ParagraphSegment do backend
+// (certificate-settings.ts) — cada token é um valor dinâmico do
+// certificado (nome do evento, local, datas, carga horária), inserido
+// como um "chip" protegido no RichTextEditor, nunca texto livre.
+export type ParagraphTokenKey = "eventName" | "locationLabel" | "eventDateRange" | "workloadHours";
+export type ParagraphSegment =
+  | { type: "text"; text: string; bold?: boolean; italic?: boolean; color?: string }
+  | { type: "token"; key: ParagraphTokenKey; bold?: boolean; italic?: boolean; color?: string };
+
 export interface CertificateSettings {
   workloadHours?: number;
   closingText?: string;
   locationLabel?: string;
   signatories?: CertificateSignatory[];
   templateAssetKey?: string;
-  // Hex "#RRGGBB". primaryColor = nome do participante, nome do evento em
-  // destaque, título do chip de data, nomes dos signatários. textColor =
-  // corpo do parágrafo, local do chip de data, cargo dos signatários.
+  // Hex "#RRGGBB". primaryColor = nome do participante, título do chip de
+  // data, nomes dos signatários, e cor padrão de token no parágrafo.
+  // textColor = corpo do parágrafo (padrão), local do chip de data, cargo
+  // dos signatários.
   primaryColor?: string;
   textColor?: string;
+  // O parágrafo descritivo inteiro, editável trecho a trecho — ver
+  // RichTextEditor.tsx e CertificatesTab.tsx.
+  paragraphSegments?: ParagraphSegment[];
 }
 export interface EventRecord {
   id: string;

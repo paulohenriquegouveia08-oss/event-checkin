@@ -26,6 +26,24 @@ export interface CertificateData {
   verificationUrl: string;
   templateAssetKey: string;
   signatories: CertificateSignatory[];
+  // Hex "#RRGGBB" — vem de CertificateSettings (certificate-settings.ts),
+  // sempre já resolvido (nunca undefined) por resolveCertificateSettings.
+  primaryColor: string;
+  textColor: string;
+}
+
+/** Converte "#RRGGBB" pra RGB 0–1 do pdf-lib. Nunca deveria receber algo
+ * fora desse formato (certificateSettingsSchema já valida na entrada),
+ * mas cai num cinza neutro em vez de quebrar a geração do PDF se vier
+ * algo inesperado. */
+function hexToRgb(hex: string): RGB {
+  const match = /^#?([0-9a-fA-F]{6})$/.exec(hex);
+  if (!match) return rgb(0.1, 0.1, 0.1);
+  const value = match[1];
+  const r = parseInt(value.slice(0, 2), 16) / 255;
+  const g = parseInt(value.slice(2, 4), 16) / 255;
+  const b = parseInt(value.slice(4, 6), 16) / 255;
+  return rgb(r, g, b);
 }
 
 // Coordenadas em pixel da imagem-base (1491×1055 — ver
@@ -36,8 +54,6 @@ export interface CertificateData {
 // fornecido, como pedido ("não altere a identidade visual").
 const IMG_W = 1491;
 const IMG_H = 1055;
-const TEAL: RGB = rgb(4 / 255, 69 / 255, 68 / 255);
-const INK: RGB = rgb(0.1, 0.1, 0.1);
 
 const NAME_BOX = { xLeft: 478, xRight: 1351, yBaseline: 372 }; // acima do traço em y≈406
 const PARAGRAPH_BOX = { xLeft: 478, xRight: 1330, yTop: 470, lineHeight: 40 };
@@ -219,6 +235,12 @@ export async function renderCertificatePdf(data: CertificateData): Promise<Buffe
   const timesBold = await pdf.embedFont(StandardFonts.TimesRomanBold);
   const timesItalic = await pdf.embedFont(StandardFonts.TimesRomanItalic);
 
+  // Cor de destaque (nome, nome do evento, título do chip de data, nomes
+  // dos signatários) e cor do corpo do texto — configuráveis por evento
+  // (ver certificate-settings.ts); antes eram valores fixos aqui no código.
+  const primaryColor = hexToRgb(data.primaryColor);
+  const textColor = hexToRgb(data.textColor);
+
   // --- Nome do participante ---
   const nameMaxWidthPx = NAME_BOX.xRight - NAME_BOX.xLeft;
   const nameFontSize = fitFontSize(data.participantName, timesBold, toX(nameMaxWidthPx) - toX(0), 30, 16);
@@ -229,7 +251,7 @@ export async function renderCertificatePdf(data: CertificateData): Promise<Buffe
     y: toY(NAME_BOX.yBaseline),
     size: nameFontSize,
     font: timesBold,
-    color: TEAL,
+    color: primaryColor,
   });
 
   // --- Parágrafo descritivo (evento/local/data/carga horária dinâmicos) ---
@@ -238,15 +260,15 @@ export async function renderCertificatePdf(data: CertificateData): Promise<Buffe
   const dateRange = formatEventDateRange(data.eventStartDate, data.eventEndDate);
 
   const paragraphRuns: TextRun[] = [
-    { text: "Participou do ", font: helvetica, size: 15, color: INK },
-    { text: `${data.eventName},`, font: helveticaBold, size: 15, color: TEAL },
+    { text: "Participou do ", font: helvetica, size: 15, color: textColor },
+    { text: `${data.eventName},`, font: helveticaBold, size: 15, color: primaryColor },
     {
       text:
         ` realizado em ${data.locationLabel}, nos dias ${dateRange}, com carga horária total de ` +
         `${workloadLabel} horas. ${data.closingText}`,
       font: helvetica,
       size: 15,
-      color: INK,
+      color: textColor,
     },
   ];
   const paragraphMaxWidth = toX(PARAGRAPH_BOX.xRight) - toX(PARAGRAPH_BOX.xLeft);
@@ -269,7 +291,7 @@ export async function renderCertificatePdf(data: CertificateData): Promise<Buffe
     y: toY(DATE_CHIP.yLine1),
     size: dateChipSize,
     font: helveticaBold,
-    color: TEAL,
+    color: primaryColor,
   });
   const locationSize = fitFontSize(data.locationLabel, helvetica, dateChipMaxWidth, 11, 8);
   page.drawText(data.locationLabel, {
@@ -277,7 +299,7 @@ export async function renderCertificatePdf(data: CertificateData): Promise<Buffe
     y: toY(DATE_CHIP.yLine2),
     size: locationSize,
     font: helvetica,
-    color: INK,
+    color: textColor,
   });
 
   // --- Signatários (até 3 colunas fixas na imagem-base) ---
@@ -288,7 +310,7 @@ export async function renderCertificatePdf(data: CertificateData): Promise<Buffe
 
     drawCenteredBlock(page, signatory.name, {
       font: helveticaBold,
-      color: TEAL,
+      color: primaryColor,
       preferredSize: 13,
       minSize: 9,
       maxLines: SIGNATORY_NAME_BOX.maxLines,
@@ -300,7 +322,7 @@ export async function renderCertificatePdf(data: CertificateData): Promise<Buffe
 
     drawCenteredBlock(page, signatory.role, {
       font: timesItalic,
-      color: INK,
+      color: textColor,
       preferredSize: 11,
       minSize: 8,
       maxLines: SIGNATORY_ROLE_BOX.maxLines,

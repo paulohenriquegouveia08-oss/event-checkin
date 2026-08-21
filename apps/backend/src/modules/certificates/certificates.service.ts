@@ -100,6 +100,8 @@ export async function getOrGenerateCertificatePdf(eventId: string, participantId
     verificationUrl: verificationUrl(certificate.verificationCode),
     templateAssetKey: settings.templateAssetKey,
     signatories: settings.signatories,
+    primaryColor: settings.primaryColor,
+    textColor: settings.textColor,
   });
 
   await certificateStorage.save(fileKey, buffer);
@@ -198,6 +200,8 @@ export async function generateTestCertificatePdf(eventId: string, participantNam
     verificationUrl: verificationUrl("preview"),
     templateAssetKey: settings.templateAssetKey,
     signatories: settings.signatories,
+    primaryColor: settings.primaryColor,
+    textColor: settings.textColor,
   });
 }
 

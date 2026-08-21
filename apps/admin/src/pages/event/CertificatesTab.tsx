@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import * as api from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
-import { ContentSection, ListEditor, TextAreaField, TextField } from "../../components/FormFields";
+import { ColorField, ContentSection, ListEditor, TextAreaField, TextField } from "../../components/FormFields";
 
 // Espelha DEFAULT_CERTIFICATE_SETTINGS do backend
 // (certificate-settings.ts) — preenche o formulário com o que já está no
@@ -10,7 +10,10 @@ const DEFAULT_SETTINGS = {
   workloadHours: 16,
   closingText: "O evento proporcionou atualização científica e integração entre profissionais e acadêmicos da odontologia.",
   locationLabel: "Londrina/PR",
+  primaryColor: "#044544",
+  textColor: "#1A1A1A",
 };
+const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 const DEFAULT_SIGNATORIES: api.CertificateSignatory[] = [
   { name: "Gustavo Nascimento De Souza Pinto", role: "Coordenador do Evento" },
   { name: "Pablo Guilherme Caldarelli", role: "Coordenador Geral do Campus Coordenador do Curso de Odontologia" },
@@ -53,6 +56,8 @@ export function CertificatesTab({ eventId }: { eventId: string }) {
   const [closingText, setClosingText] = useState(DEFAULT_SETTINGS.closingText);
   const [locationLabel, setLocationLabel] = useState(DEFAULT_SETTINGS.locationLabel);
   const [signatories, setSignatories] = useState<api.CertificateSignatory[]>(DEFAULT_SIGNATORIES);
+  const [primaryColor, setPrimaryColor] = useState(DEFAULT_SETTINGS.primaryColor);
+  const [textColor, setTextColor] = useState(DEFAULT_SETTINGS.textColor);
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsNotice, setSettingsNotice] = useState<string | null>(null);
@@ -75,6 +80,8 @@ export function CertificatesTab({ eventId }: { eventId: string }) {
         setClosingText(c.closingText || DEFAULT_SETTINGS.closingText);
         setLocationLabel(c.locationLabel || DEFAULT_SETTINGS.locationLabel);
         setSignatories(c.signatories && c.signatories.length > 0 ? c.signatories : DEFAULT_SIGNATORIES);
+        setPrimaryColor(c.primaryColor || DEFAULT_SETTINGS.primaryColor);
+        setTextColor(c.textColor || DEFAULT_SETTINGS.textColor);
       })
       .catch((err) => setSettingsError(err instanceof Error ? err.message : "Falha ao carregar configurações do certificado"));
   }
@@ -115,6 +122,14 @@ export function CertificatesTab({ eventId }: { eventId: string }) {
       setSettingsError("Configure pelo menos um signatário.");
       return;
     }
+    if (!HEX_COLOR_RE.test(primaryColor)) {
+      setSettingsError("Cor de destaque inválida — use o formato #RRGGBB.");
+      return;
+    }
+    if (!HEX_COLOR_RE.test(textColor)) {
+      setSettingsError("Cor do texto inválida — use o formato #RRGGBB.");
+      return;
+    }
 
     setSavingSettings(true);
     try {
@@ -124,6 +139,8 @@ export function CertificatesTab({ eventId }: { eventId: string }) {
           closingText: closingText.trim() || undefined,
           locationLabel: locationLabel.trim(),
           signatories: cleanSignatories,
+          primaryColor,
+          textColor,
         },
       });
       setSignatories(cleanSignatories);
@@ -285,6 +302,18 @@ export function CertificatesTab({ eventId }: { eventId: string }) {
                 </div>
               ))}
             </ListEditor>
+          </ContentSection>
+
+          <ContentSection title="Cores do texto">
+            <p className="muted" style={{ margin: "0 0 4px", fontSize: 12 }}>
+              Cor de destaque no nome do participante, no nome do evento (em negrito), no título do chip de data e
+              nos nomes dos signatários — e cor do restante do texto (parágrafo, local do chip, cargo dos
+              signatários).
+            </p>
+            <div className="row" style={{ gap: 12 }}>
+              <ColorField label="Cor de destaque" value={primaryColor} onChange={setPrimaryColor} />
+              <ColorField label="Cor do texto" value={textColor} onChange={setTextColor} />
+            </div>
           </ContentSection>
 
           {settingsError && <p className="error-text" style={{ margin: 0 }}>{settingsError}</p>}

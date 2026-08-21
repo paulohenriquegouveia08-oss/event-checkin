@@ -214,6 +214,11 @@ export interface CertificateSettings {
   locationLabel?: string;
   signatories?: CertificateSignatory[];
   templateAssetKey?: string;
+  // Hex "#RRGGBB". primaryColor = nome do participante, nome do evento em
+  // destaque, título do chip de data, nomes dos signatários. textColor =
+  // corpo do parágrafo, local do chip de data, cargo dos signatários.
+  primaryColor?: string;
+  textColor?: string;
 }
 export interface EventRecord {
   id: string;

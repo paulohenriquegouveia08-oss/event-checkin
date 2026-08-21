@@ -14,6 +14,8 @@ export const signatorySchema = z.object({
   role: z.string().trim().min(1).max(200),
 });
 
+const hexColor = z.string().trim().regex(/^#[0-9A-Fa-f]{6}$/, "Cor inválida — use o formato #RRGGBB");
+
 export const certificateSettingsSchema = z.object({
   // Carga horária total exibida no certificado.
   workloadHours: z.coerce.number().int().min(1).max(1000).optional(),
@@ -31,6 +33,15 @@ export const certificateSettingsSchema = z.object({
   // Chave do asset de fundo em apps/backend/assets/certificates/ — permite
   // no futuro outro evento usar outro template sem mudar código.
   templateAssetKey: z.string().trim().max(60).optional(),
+
+  // Cor de destaque (nome do participante, nome do evento em negrito,
+  // título do chip de data, nomes dos signatários) — era um teal fixo
+  // (#044544) no código; agora configurável por evento.
+  primaryColor: hexColor.optional(),
+
+  // Cor do corpo do texto (parágrafo descritivo, local do chip de data,
+  // cargo dos signatários) — era um cinza-escuro fixo (#1A1A1A).
+  textColor: hexColor.optional(),
 });
 
 export type CertificateSettings = z.infer<typeof certificateSettingsSchema>;
@@ -46,6 +57,10 @@ export const DEFAULT_CERTIFICATE_SETTINGS: ResolvedCertificateSettings = {
     { name: "Amanda Vessoni Barbosa Kasuya", role: "Coordenador Adjunta do Curso de Odontologia." },
   ],
   templateAssetKey: "copol-2026",
+  // Mesmas cores que já estavam fixas em certificate-template.ts (TEAL/INK)
+  // — evento existente continua idêntico até alguém trocar pela UI.
+  primaryColor: "#044544",
+  textColor: "#1A1A1A",
 };
 
 export function resolveCertificateSettings(stored: unknown): ResolvedCertificateSettings {
@@ -58,5 +73,7 @@ export function resolveCertificateSettings(stored: unknown): ResolvedCertificate
     signatories:
       content.signatories && content.signatories.length > 0 ? content.signatories : DEFAULT_CERTIFICATE_SETTINGS.signatories,
     templateAssetKey: content.templateAssetKey || DEFAULT_CERTIFICATE_SETTINGS.templateAssetKey,
+    primaryColor: content.primaryColor || DEFAULT_CERTIFICATE_SETTINGS.primaryColor,
+    textColor: content.textColor || DEFAULT_CERTIFICATE_SETTINGS.textColor,
   };
 }

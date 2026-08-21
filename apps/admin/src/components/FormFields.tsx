@@ -45,6 +45,48 @@ export function TextField({
   );
 }
 
+/** Seletor de cor (swatch nativo + hex editável à mão) — usado hoje nas
+ * cores do certificado (CertificatesTab), mas genérico o bastante pra
+ * qualquer outro campo de cor futuro. */
+export function ColorField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const id = useId();
+  const isValidHex = /^#[0-9a-fA-F]{6}$/.test(value);
+  return (
+    <div style={{ flex: "0 0 170px" }}>
+      <label htmlFor={id} className="muted" style={{ display: "block", fontSize: 12, marginBottom: 4 }}>
+        {label}
+      </label>
+      <div className="row" style={{ gap: 6 }}>
+        <input
+          id={id}
+          type="color"
+          // O <input type="color"> nativo exige um #RRGGBB válido — se o
+          // admin estiver no meio de digitar o hex à mão (ex.: "#04"),
+          // mantém o swatch no último valor válido em vez de quebrar.
+          value={isValidHex ? value : "#000000"}
+          onChange={(e) => onChange(e.target.value)}
+          style={{ width: 36, height: 32, padding: 2, cursor: "pointer", flexShrink: 0 }}
+        />
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          maxLength={7}
+          placeholder="#000000"
+          style={{ flex: 1, minWidth: 0, fontFamily: "monospace" }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function TextAreaField({
   label,
   value,

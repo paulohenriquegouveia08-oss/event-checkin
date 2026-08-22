@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { requireAttendee, requirePermission } from "../../middleware/auth.js";
-import { ForbiddenError } from "../../shared/errors.js";
+import { ForbiddenError, UnauthorizedError } from "../../shared/errors.js";
 import { ok } from "../../shared/response.js";
 import { recordAudit, recordParticipantAudit } from "../audit/audit.service.js";
 import * as certificatesService from "./certificates.service.js";
@@ -8,6 +8,9 @@ import {
   certificateIdParamsSchema,
   certificatePreviewQuerySchema,
   eventIdParamsSchema,
+  signatureImageParamsSchema,
+  signatureImageQuerySchema,
+  uploadSignatureImageSchema,
   verificationCodeParamsSchema,
 } from "./certificates.schema.js";
 
@@ -95,6 +98,45 @@ export async function certificatesRoutes(app: FastifyInstance) {
       return reply.send(buffer);
     }
   );
+
+  // Upload de imagem de assinatura pra um signatário (ver
+  // certificate-settings.ts). O admin manda base64 em vez de multipart —
+  // simples o bastante pra não precisar de uma dependência nova só pra
+  // isso, e o arquivo é pequeno (assinatura, não foto). Mesma permissão
+  // que já protege salvar as configurações do certificado.
+  app.post(
+    "/certificates/signature-image",
+    { preHandler: requirePermission("events.edit"), bodyLimit: 4 * 1024 * 1024 },
+    async (request) => {
+      const { mimeType, dataBase64 } = uploadSignatureImageSchema.parse(request.body);
+      const result = await certificatesService.uploadSignatureImage(mimeType, dataBase64);
+      await recordAudit(request, "certificate.signature_image_uploaded", "Event", null);
+      return ok(result);
+    }
+  );
+
+  // Serve a imagem de volta pro <img> do admin mostrar o preview — token
+  // via query string porque um <img src> não manda header Authorization
+  // (mesmo padrão do SSE de monitor em checkins.routes.ts).
+  app.get("/signatures/:filename", async (request, reply) => {
+    const { filename } = signatureImageParamsSchema.parse(request.params);
+    const { token } = signatureImageQuerySchema.parse(request.query);
+
+    let payload: { sub: string; type: string };
+    try {
+      payload = app.jwt.verify(token);
+    } catch {
+      throw new UnauthorizedError("Token inválido ou expirado");
+    }
+    if (payload.type !== "admin") {
+      throw new ForbiddenError("Acesso negado");
+    }
+
+    const { buffer, mimeType } = await certificatesService.getSignatureImage(filename);
+    reply.header("Content-Type", mimeType);
+    reply.header("Cache-Control", "private, max-age=3600");
+    return reply.send(buffer);
+  });
 
   app.get("/events/:eventId/certificates/stats", { preHandler: requirePermission("certificates.view") }, async (request) => {
     const { eventId } = eventIdParamsSchema.parse(request.params);

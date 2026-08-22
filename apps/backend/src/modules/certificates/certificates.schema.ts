@@ -15,3 +15,18 @@ export const verificationCodeParamsSchema = z.object({
 export const certificatePreviewQuerySchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
 });
+
+export const uploadSignatureImageSchema = z.object({
+  mimeType: z.string().trim().min(1).max(60),
+  // Base64 puro (sem o prefixo "data:image/png;base64,") — o admin já
+  // separa isso no cliente antes de mandar, ver api/client.ts do admin.
+  dataBase64: z.string().min(1),
+});
+
+export const signatureImageParamsSchema = z.object({
+  filename: z.string().trim().regex(/^[a-f0-9-]{36}\.(png|jpe?g)$/i, "Nome de arquivo inválido"),
+});
+
+export const signatureImageQuerySchema = z.object({
+  token: z.string().trim().min(1),
+});

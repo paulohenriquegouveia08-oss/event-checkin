@@ -69,3 +69,13 @@ export function certificateFileKey(eventId: string, participantId: string): stri
 export function attendanceProofFileKey(eventId: string, participantId: string): string {
   return join("attendance-proofs", eventId, `${participantId}.pdf`);
 }
+
+/** Diferente das chaves acima, esta é usada também para LER um arquivo a
+ * partir de um valor que veio do cliente (GET /signatures/:filename, ver
+ * certificates.routes.ts) — a defesa contra path traversal em
+ * resolveKey() acima é o que garante que isso continua seguro; o
+ * filename em si (sem barras, gerado por randomUUID) nunca aponta pra
+ * fora de STORAGE_DIR/signatures. */
+export function signatureImageKey(filename: string): string {
+  return join("signatures", filename);
+}

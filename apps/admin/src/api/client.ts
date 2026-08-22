@@ -207,6 +207,9 @@ export interface SiteContent {
 export interface CertificateSignatory {
   name: string;
   role: string;
+  // Chave de storage da imagem de assinatura já enviada (ver
+  // uploadSignatureImage/signatureImageUrl abaixo) — ausente = sem imagem.
+  signatureImageKey?: string;
 }
 
 // Espelha ParagraphTokenKey/ParagraphSegment do backend
@@ -464,6 +467,34 @@ export async function previewCertificate(eventId: string, name: string): Promise
   link.click();
   link.remove();
   URL.revokeObjectURL(objectUrl);
+}
+
+/** Envia a imagem de assinatura de um signatário — base64 em JSON, não
+ * multipart (arquivo pequeno, evita puxar uma dependência só pra isso no
+ * backend). Devolve a chave de storage, que entra em
+ * CertificateSignatory.signatureImageKey pra ser salva junto do resto das
+ * configurações do certificado (PATCH /events/:eventId). */
+export async function uploadSignatureImage(file: File): Promise<{ key: string }> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error ?? new Error("Falha ao ler o arquivo"));
+    reader.readAsDataURL(file);
+  });
+  const dataBase64 = dataUrl.split(",")[1] ?? "";
+  return request<{ key: string }>("/certificates/signature-image", {
+    method: "POST",
+    body: { mimeType: file.type, dataBase64 },
+  });
+}
+
+/** Monta a URL pra um <img> mostrar uma assinatura já enviada — token via
+ * query string, mesmo padrão do SSE de monitor (um <img src> não manda
+ * header Authorization). */
+export function signatureImageUrl(key: string): string {
+  const filename = key.split("/").pop() ?? key;
+  const token = getToken();
+  return `${API_URL}/signatures/${encodeURIComponent(filename)}?token=${encodeURIComponent(token ?? "")}`;
 }
 
 // --- App do terminal (APK) ---

@@ -87,6 +87,8 @@ export function CertificatesTab({ eventId }: { eventId: string }) {
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsNotice, setSettingsNotice] = useState<string | null>(null);
+  const [uploadingSignatureIndex, setUploadingSignatureIndex] = useState<number | null>(null);
+  const [signatureUploadError, setSignatureUploadError] = useState<string | null>(null);
 
   function reload() {
     Promise.all([api.getCertificateStats(eventId), api.listCertificates(eventId)])
@@ -134,6 +136,23 @@ export function CertificatesTab({ eventId }: { eventId: string }) {
   }
   function removeSignatory(index: number) {
     setSignatories((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  async function handleSignatureUpload(index: number, file: File) {
+    setSignatureUploadError(null);
+    setUploadingSignatureIndex(index);
+    try {
+      const { key } = await api.uploadSignatureImage(file);
+      updateSignatory(index, "signatureImageKey", key);
+    } catch (err) {
+      setSignatureUploadError(err instanceof Error ? err.message : "Falha ao enviar a imagem da assinatura");
+    } finally {
+      setUploadingSignatureIndex(null);
+    }
+  }
+
+  function removeSignatureImage(index: number) {
+    updateSignatory(index, "signatureImageKey", undefined);
   }
 
   async function handleSaveSettings() {
@@ -320,9 +339,49 @@ export function CertificatesTab({ eventId }: { eventId: string }) {
           </ContentSection>
 
           <ContentSection title="Signatários (até 3, aparecem no rodapé)">
+            <p className="muted" style={{ margin: "0 0 4px", fontSize: 12 }}>
+              A imagem da assinatura aparece acima do nome, exatamente como se a pessoa tivesse assinado ali. PNG ou
+              JPEG, até 2MB — opcional, sem imagem o certificado sai só com nome e cargo, como sempre foi.
+            </p>
             <ListEditor label="Signatários" onAdd={addSignatory} addDisabled={signatories.length >= MAX_SIGNATORIES}>
               {signatories.map((signatory, i) => (
                 <div key={i} className="row" style={{ gap: 8, alignItems: "flex-start" }}>
+                  <div style={{ flex: "0 0 92px", textAlign: "center" }}>
+                    {signatory.signatureImageKey ? (
+                      <div className="stack" style={{ gap: 4 }}>
+                        <img
+                          src={api.signatureImageUrl(signatory.signatureImageKey)}
+                          alt={`Assinatura de ${signatory.name || "signatário"}`}
+                          style={{
+                            width: "100%",
+                            height: 46,
+                            objectFit: "contain",
+                            background: "#fff",
+                            borderRadius: 4,
+                            border: "1px solid var(--border)",
+                          }}
+                        />
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={() => removeSignatureImage(i)}>
+                          Remover
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="btn btn-secondary btn-sm" style={{ display: "block", cursor: "pointer" }}>
+                        {uploadingSignatureIndex === i ? "Enviando..." : "+ Assinatura"}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg"
+                          style={{ display: "none" }}
+                          disabled={uploadingSignatureIndex !== null}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            e.target.value = "";
+                            if (file) handleSignatureUpload(i, file);
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
                   <div className="stack" style={{ gap: 6, flex: 1 }}>
                     <input
                       value={signatory.name}
@@ -347,6 +406,11 @@ export function CertificatesTab({ eventId }: { eventId: string }) {
                 </div>
               ))}
             </ListEditor>
+            {signatureUploadError && (
+              <p className="error-text" style={{ margin: "8px 0 0" }}>
+                {signatureUploadError}
+              </p>
+            )}
           </ContentSection>
 
           <ContentSection title="Cores do texto">

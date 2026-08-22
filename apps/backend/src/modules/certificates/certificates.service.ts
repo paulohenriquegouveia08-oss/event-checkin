@@ -1,12 +1,89 @@
+import { randomUUID } from "node:crypto";
 import { env } from "../../config/env.js";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../shared/errors.js";
 import { hasEventEnded } from "../../shared/br-date.js";
 import * as repo from "./certificates.repository.js";
-import { certificateFileKey, attendanceProofFileKey, certificateStorage } from "./certificate-storage.js";
-import { renderCertificatePdf } from "./certificate-template.js";
+import { certificateFileKey, attendanceProofFileKey, certificateStorage, signatureImageKey } from "./certificate-storage.js";
+import { renderCertificatePdf, validateEmbeddableImage, type CertificateSignatory } from "./certificate-template.js";
 import { renderAttendanceProofPdf } from "./attendance-proof-template.js";
 import { isEligible, resolveDisplayStatus, type EligibilityResult } from "./certificate-eligibility.service.js";
-import { resolveCertificateSettings } from "./certificate-settings.js";
+import { resolveCertificateSettings, type CertificateSettings } from "./certificate-settings.js";
+
+// --- Imagens de assinatura dos signatários ---
+
+const SIGNATURE_IMAGE_FORMATS: Record<string, "png" | "jpeg"> = {
+  "image/png": "png",
+  "image/jpeg": "jpeg",
+};
+const SIGNATURE_IMAGE_EXTENSIONS: Record<"png" | "jpeg", string> = { png: "png", jpeg: "jpg" };
+const MAX_SIGNATURE_IMAGE_BYTES = 2 * 1024 * 1024;
+
+/** Recebe a imagem em base64 (o admin não manda multipart — ver
+ * certificates.routes.ts), valida formato/tamanho e que os bytes
+ * realmente decodificam como imagem (senão só quebraria muito depois, na
+ * hora de gerar um certificado de verdade), e salva no mesmo storage já
+ * usado pros PDFs gerados. */
+export async function uploadSignatureImage(mimeType: string, dataBase64: string): Promise<{ key: string }> {
+  const format = SIGNATURE_IMAGE_FORMATS[mimeType];
+  if (!format) {
+    throw new ValidationError("Formato de imagem não suportado — envie PNG ou JPEG.");
+  }
+
+  const buffer = Buffer.from(dataBase64, "base64");
+  if (buffer.length === 0) {
+    throw new ValidationError("Arquivo de imagem vazio.");
+  }
+  if (buffer.length > MAX_SIGNATURE_IMAGE_BYTES) {
+    throw new ValidationError("Imagem muito grande — o limite é 2MB.");
+  }
+  try {
+    await validateEmbeddableImage(buffer, format);
+  } catch {
+    throw new ValidationError("Não foi possível ler essa imagem — verifique se o arquivo não está corrompido.");
+  }
+
+  const filename = `${randomUUID()}.${SIGNATURE_IMAGE_EXTENSIONS[format]}`;
+  const key = signatureImageKey(filename);
+  await certificateStorage.save(key, buffer);
+  return { key };
+}
+
+/** Serve de volta uma imagem já enviada — usada pelo <img> do admin pra
+ * mostrar o preview de assinaturas já salvas (ver certificates.routes.ts,
+ * autenticação por token na query string, mesmo padrão do SSE de
+ * monitor, porque um <img src> não manda header Authorization). */
+export async function getSignatureImage(filename: string): Promise<{ buffer: Buffer; mimeType: string }> {
+  const ext = filename.split(".").pop()?.toLowerCase();
+  const format = ext === "png" ? "png" : ext === "jpg" || ext === "jpeg" ? "jpeg" : null;
+  if (!format) throw new NotFoundError("Imagem não encontrada");
+
+  const key = signatureImageKey(filename);
+  if (!(await certificateStorage.exists(key))) throw new NotFoundError("Imagem não encontrada");
+  const buffer = await certificateStorage.read(key);
+  return { buffer, mimeType: format === "png" ? "image/png" : "image/jpeg" };
+}
+
+/** Carrega os bytes da imagem de assinatura de cada signatário (quando
+ * tiver) pra passar pro template — mantém certificate-template.ts sem
+ * nenhuma dependência de I/O, só recebe bytes prontos. Um arquivo que
+ * sumiu do disco por fora do fluxo normal não pode derrubar a geração do
+ * certificado inteiro: só sai sem a imagem desse signatário. */
+async function resolveSignatoryImages(
+  signatories: CertificateSettings["signatories"] & {}
+): Promise<CertificateSignatory[]> {
+  return Promise.all(
+    (signatories ?? []).map(async (s): Promise<CertificateSignatory> => {
+      if (!s.signatureImageKey) return { name: s.name, role: s.role };
+      try {
+        const buffer = await certificateStorage.read(s.signatureImageKey);
+        const format: "png" | "jpeg" = s.signatureImageKey.toLowerCase().endsWith(".png") ? "png" : "jpeg";
+        return { name: s.name, role: s.role, signatureImageBytes: buffer, signatureImageFormat: format };
+      } catch {
+        return { name: s.name, role: s.role };
+      }
+    })
+  );
+}
 
 async function loadEventOrThrow(eventId: string) {
   const event = await repo.findEventById(eventId);
@@ -99,7 +176,7 @@ export async function getOrGenerateCertificatePdf(eventId: string, participantId
     paragraphSegments: settings.paragraphSegments,
     verificationUrl: verificationUrl(certificate.verificationCode),
     templateAssetKey: settings.templateAssetKey,
-    signatories: settings.signatories,
+    signatories: await resolveSignatoryImages(settings.signatories),
     primaryColor: settings.primaryColor,
     textColor: settings.textColor,
   });
@@ -199,7 +276,7 @@ export async function generateTestCertificatePdf(eventId: string, participantNam
     paragraphSegments: settings.paragraphSegments,
     verificationUrl: verificationUrl("preview"),
     templateAssetKey: settings.templateAssetKey,
-    signatories: settings.signatories,
+    signatories: await resolveSignatoryImages(settings.signatories),
     primaryColor: settings.primaryColor,
     textColor: settings.textColor,
   });

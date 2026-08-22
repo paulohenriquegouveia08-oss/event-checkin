@@ -12,6 +12,10 @@ import { z } from "zod";
 export const signatorySchema = z.object({
   name: z.string().trim().min(1).max(120),
   role: z.string().trim().min(1).max(200),
+  // Chave de storage (ver certificate-storage.ts) da imagem de assinatura
+  // enviada pelo admin — "signatures/<uuid>.<ext>". Ausente = certificado
+  // continua mostrando só nome/cargo, como sempre foi (imagem é opcional).
+  signatureImageKey: z.string().trim().max(300).optional(),
 });
 
 const hexColor = z.string().trim().regex(/^#[0-9A-Fa-f]{6}$/, "Cor inválida — use o formato #RRGGBB");

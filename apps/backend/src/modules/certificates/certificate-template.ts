@@ -14,6 +14,23 @@ const ASSETS_DIR = join(currentDir, "..", "..", "..", "assets", "certificates");
 export interface CertificateSignatory {
   name: string;
   role: string;
+  // Bytes já carregados do disco (ver resolveSignatoryImages em
+  // certificates.service.ts) — este módulo nunca faz I/O sozinho, só
+  // desenha o que recebe. Ausente = certificado sai só com nome/cargo,
+  // como sempre foi.
+  signatureImageBytes?: Buffer;
+  signatureImageFormat?: "png" | "jpeg";
+}
+
+/** Confirma que os bytes realmente decodificam como PNG/JPEG antes de
+ * salvar um upload — sem isso, um arquivo corrompido só falharia (e sem
+ * avisar ninguém, ver captura de erro em resolveSignatoryImages) na hora
+ * de gerar um certificado de verdade, bem depois do admin já ter saído
+ * da tela de upload. */
+export async function validateEmbeddableImage(buffer: Buffer, format: "png" | "jpeg"): Promise<void> {
+  const doc = await PDFDocument.create();
+  if (format === "png") await doc.embedPng(buffer);
+  else await doc.embedJpg(buffer);
 }
 
 export interface CertificateData {
@@ -77,6 +94,12 @@ const SIGNATORY_COLUMNS = [
 ];
 const SIGNATORY_NAME_BOX = { yTop: 727, lineHeight: 27, maxLines: 2 };
 const SIGNATORY_ROLE_BOX = { yTop: 808, lineHeight: 22, maxLines: 3 };
+// Espaço em branco entre o parágrafo descritivo e o nome do signatário —
+// é onde a imagem de assinatura entra, encostada por cima do nome (igual
+// se a pessoa tivesse assinado ali de próprio punho). yBottom é a borda
+// de baixo da imagem; a largura máxima é 70% da coluna, centralizada,
+// preservando a proporção original do arquivo enviado.
+const SIGNATORY_IMAGE_BOX = { yBottom: 715, maxHeight: 55 };
 
 async function loadBackground(templateAssetKey: string): Promise<Buffer> {
   const path = join(ASSETS_DIR, `${templateAssetKey}-base.png`);
@@ -327,10 +350,34 @@ export async function renderCertificatePdf(data: CertificateData): Promise<Buffe
   });
 
   // --- Signatários (até 3 colunas fixas na imagem-base) ---
-  data.signatories.slice(0, SIGNATORY_COLUMNS.length).forEach((signatory, i) => {
+  for (const [i, signatory] of data.signatories.slice(0, SIGNATORY_COLUMNS.length).entries()) {
     const column = SIGNATORY_COLUMNS[i];
     const columnXLeftPt = toX(column.xLeft);
     const columnXRightPt = toX(column.xRight);
+
+    if (signatory.signatureImageBytes && signatory.signatureImageFormat) {
+      try {
+        const embedded =
+          signatory.signatureImageFormat === "png"
+            ? await pdf.embedPng(signatory.signatureImageBytes)
+            : await pdf.embedJpg(signatory.signatureImageBytes);
+        const maxWidthPt = (columnXRightPt - columnXLeftPt) * 0.7;
+        const maxHeightPt = SIGNATORY_IMAGE_BOX.maxHeight * scaleY;
+        const scale = Math.min(maxWidthPt / embedded.width, maxHeightPt / embedded.height);
+        const drawWidth = embedded.width * scale;
+        const drawHeight = embedded.height * scale;
+        page.drawImage(embedded, {
+          x: (columnXLeftPt + columnXRightPt) / 2 - drawWidth / 2,
+          y: toY(SIGNATORY_IMAGE_BOX.yBottom),
+          width: drawWidth,
+          height: drawHeight,
+        });
+      } catch {
+        // Bytes salvos não decodificam mais (arquivo trocado por fora do
+        // fluxo normal, por exemplo) — não pode derrubar o certificado
+        // inteiro, só sai sem a imagem desse signatário.
+      }
+    }
 
     drawCenteredBlock(page, signatory.name, {
       font: helveticaBold,
@@ -355,7 +402,7 @@ export async function renderCertificatePdf(data: CertificateData): Promise<Buffe
       yTopPt: toY(SIGNATORY_ROLE_BOX.yTop),
       lineHeightPt: SIGNATORY_ROLE_BOX.lineHeight * scaleY,
     });
-  });
+  }
 
   // --- QR Code de validação pública ---
   const qrPngDataUrl = await QRCode.toDataURL(data.verificationUrl, { margin: 0, width: 300 });

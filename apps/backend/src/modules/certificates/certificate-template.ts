@@ -82,24 +82,46 @@ const PARAGRAPH_BOX = { xLeft: 478, xRight: 1330, yTop: 470, lineHeight: 40 };
 const DATE_CHIP = { x: 508, xRight: 722, yLine1: 973, yLine2: 1000 };
 const QR_BOX = { xLeft: 1206, yTop: 946, size: 88 };
 
-// As 3 colunas de signatários — nome (linhas 720-784) e cargo (793-878),
-// preservando as linhas divisórias verticais (x≈749/1091) e o tracinho fixo
-// sob o nome (y≈785-788), que ficam intactos na imagem-base (ver
-// assets/certificates/README.md). O nome sempre fica acima do tracinho e
-// o cargo sempre abaixo — não importa quantas linhas cada um ocupar.
-const SIGNATORY_COLUMNS = [
-  { xLeft: 475, xRight: 735 },
-  { xLeft: 760, xRight: 1080 },
-  { xLeft: 1100, xRight: 1385 },
-];
-const SIGNATORY_NAME_BOX = { yTop: 727, lineHeight: 27, maxLines: 2 };
-const SIGNATORY_ROLE_BOX = { yTop: 808, lineHeight: 22, maxLines: 3 };
-// Espaço em branco entre o parágrafo descritivo e o nome do signatário —
-// é onde a imagem de assinatura entra, encostada por cima do nome (igual
-// se a pessoa tivesse assinado ali de próprio punho). yBottom é a borda
-// de baixo da imagem; a largura máxima é 70% da coluna, centralizada,
-// preservando a proporção original do arquivo enviado.
-const SIGNATORY_IMAGE_BOX = { yBottom: 715, maxHeight: 55 };
+// Faixa onde os signatários são desenhados — dividida em N colunas iguais
+// (N = quantidade de signatários cadastrados) na hora de gerar cada
+// certificado, com linha de assinatura e divisórias desenhadas por código
+// (a imagem-base NÃO tem mais essas linhas fixas — antes só cabiam 3
+// signatários porque elas eram pixel-a-pixel fixas na imagem; ver
+// assets/certificates/README.md e o histórico de git deste arquivo).
+const SIGNATORY_ROW = { xLeft: 475, xRight: 1385, columnGap: 25 };
+const SIGNATORY_DIVIDER = { yTop: 715, yBottom: 908 };
+const SIGNATORY_LINE_Y = 786; // mesma altura da linha curta que era fixa na imagem
+// Nome pequeno e colado no cargo, os dois logo abaixo da linha — cargo já
+// identifica quem é, o destaque fica pra assinatura. Antes o nome ficava
+// (maior) acima da linha, longe do cargo. O cargo começa logo depois do
+// nome de verdade (calculado em runtime conforme o nome usar 1 ou 2
+// linhas — ver SIGNATORY_ROLE_GAP), não numa posição fixa: um nome de 2
+// linhas nunca empurra o cargo pra cima dele.
+const SIGNATORY_NAME_BOX = { yTop: 806, lineHeight: 15, maxLines: 2 };
+const SIGNATORY_ROLE_BOX = { lineHeight: 14, maxLines: 2 };
+const SIGNATORY_ROLE_GAP = 10; // px entre a última linha do nome e o cargo
+// Espaço acima da linha pra imagem de assinatura — bem maior que o nome/
+// cargo abaixo dela, já que agora é o elemento em destaque do bloco.
+// yBottom é a borda de baixo da imagem (colada na linha); a largura
+// máxima é 70% da coluna, centralizada, preservando a proporção original
+// do arquivo enviado.
+const SIGNATORY_IMAGE_BOX = { yBottom: 778, maxHeight: 115 };
+// Certificado tem 910px de largura útil pra signatários (475 a 1385) —
+// acima de 6 colunas cada uma fica estreita demais pra caber nome/cargo
+// com folga; 6 já é mais que o dobro do limite anterior (3).
+export const MAX_SIGNATORIES_ON_CERTIFICATE = 6;
+
+/** Divide SIGNATORY_ROW em `count` colunas iguais, com o mesmo espaçamento
+ * entre elas — substitui as 3 posições fixas que existiam antes. */
+function computeSignatoryColumns(count: number): { xLeft: number; xRight: number }[] {
+  if (count <= 0) return [];
+  const totalWidth = SIGNATORY_ROW.xRight - SIGNATORY_ROW.xLeft;
+  const columnWidth = (totalWidth - SIGNATORY_ROW.columnGap * (count - 1)) / count;
+  return Array.from({ length: count }, (_, i) => {
+    const xLeft = SIGNATORY_ROW.xLeft + i * (columnWidth + SIGNATORY_ROW.columnGap);
+    return { xLeft, xRight: xLeft + columnWidth };
+  });
+}
 
 async function loadBackground(templateAssetKey: string): Promise<Buffer> {
   const path = join(ASSETS_DIR, `${templateAssetKey}-base.png`);
@@ -197,7 +219,17 @@ function wrapPlainText(text: string, font: PDFFont, size: number, maxWidth: numb
 
 /** Desenha texto centralizado horizontalmente numa coluna, quebrado em até
  * `maxLines` linhas, encolhendo a fonte se necessário pra respeitar esse
- * limite (evita estourar o espaço fixo entre nome/cargo/rodapé). */
+ * limite (evita estourar o espaço fixo entre nome/cargo/rodapé). Devolve
+ * quantas linhas foram desenhadas de verdade — quem chama usa isso pra
+ * encaixar o próximo bloco logo depois, sem espaço fixo demais quando o
+ * texto coube em menos linhas (ver uso em signatários, nome→cargo).
+ *
+ * IMPORTANTE: `maxLines` só reduz o tamanho da fonte até caber nesse
+ * número de linhas — nunca corta/descarta linha nenhuma. Cortar aqui já
+ * causou um nome de signatário sair faltando um sobrenome no certificado;
+ * se nem no `minSize` o texto coube no limite, ele desenha todas as
+ * linhas mesmo assim (ultrapassando o espaço "ideal") em vez de esconder
+ * parte do nome de alguém. */
 function drawCenteredBlock(
   page: PDFPage,
   text: string,
@@ -212,7 +244,7 @@ function drawCenteredBlock(
     yTopPt: number;
     lineHeightPt: number;
   }
-) {
+): number {
   const maxWidth = opts.columnXRightPt - opts.columnXLeftPt;
   const centerX = (opts.columnXLeftPt + opts.columnXRightPt) / 2;
 
@@ -222,7 +254,6 @@ function drawCenteredBlock(
     size -= 1;
     lines = wrapPlainText(text, opts.font, size, maxWidth);
   }
-  lines = lines.slice(0, opts.maxLines);
 
   let y = opts.yTopPt;
   for (const line of lines) {
@@ -230,6 +261,7 @@ function drawCenteredBlock(
     page.drawText(line, { x: centerX - width / 2, y, size, font: opts.font, color: opts.color });
     y -= opts.lineHeightPt;
   }
+  return lines.length;
 }
 
 /**
@@ -349,9 +381,34 @@ export async function renderCertificatePdf(data: CertificateData): Promise<Buffe
     color: textColor,
   });
 
-  // --- Signatários (até 3 colunas fixas na imagem-base) ---
-  for (const [i, signatory] of data.signatories.slice(0, SIGNATORY_COLUMNS.length).entries()) {
-    const column = SIGNATORY_COLUMNS[i];
+  // --- Signatários (colunas calculadas conforme a quantidade cadastrada) ---
+  const signatories = data.signatories.slice(0, MAX_SIGNATORIES_ON_CERTIFICATE);
+  const columns = computeSignatoryColumns(signatories.length);
+
+  // Divisórias entre colunas — uma a menos que o número de colunas, no
+  // meio de cada espaço entre elas. Linha de assinatura — uma por coluna,
+  // na largura inteira dela. As duas eram fixas na imagem-base; agora são
+  // desenhadas aqui pra funcionar com qualquer quantidade de signatários.
+  for (let i = 0; i < columns.length - 1; i++) {
+    const dividerXPx = (columns[i].xRight + columns[i + 1].xLeft) / 2;
+    page.drawLine({
+      start: { x: toX(dividerXPx), y: toY(SIGNATORY_DIVIDER.yTop) },
+      end: { x: toX(dividerXPx), y: toY(SIGNATORY_DIVIDER.yBottom) },
+      thickness: 1,
+      color: primaryColor,
+    });
+  }
+  for (const column of columns) {
+    page.drawLine({
+      start: { x: toX(column.xLeft), y: toY(SIGNATORY_LINE_Y) },
+      end: { x: toX(column.xRight), y: toY(SIGNATORY_LINE_Y) },
+      thickness: 1,
+      color: primaryColor,
+    });
+  }
+
+  for (const [i, signatory] of signatories.entries()) {
+    const column = columns[i];
     const columnXLeftPt = toX(column.xLeft);
     const columnXRightPt = toX(column.xRight);
 
@@ -379,27 +436,33 @@ export async function renderCertificatePdf(data: CertificateData): Promise<Buffe
       }
     }
 
-    drawCenteredBlock(page, signatory.name, {
+    const nameLineHeightPt = SIGNATORY_NAME_BOX.lineHeight * scaleY;
+    const nameLinesUsed = drawCenteredBlock(page, signatory.name, {
       font: helveticaBold,
       color: primaryColor,
-      preferredSize: 13,
-      minSize: 9,
+      preferredSize: 10,
+      minSize: 7,
       maxLines: SIGNATORY_NAME_BOX.maxLines,
       columnXLeftPt,
       columnXRightPt,
       yTopPt: toY(SIGNATORY_NAME_BOX.yTop),
-      lineHeightPt: SIGNATORY_NAME_BOX.lineHeight * scaleY,
+      lineHeightPt: nameLineHeightPt,
     });
+
+    // Cargo começa logo depois da última linha do nome de verdade — nome
+    // de 1 linha mantém o cargo colado nele; nome de 2 linhas empurra o
+    // cargo só o necessário, nunca sobrepõe.
+    const roleYTopPt = toY(SIGNATORY_NAME_BOX.yTop) - nameLinesUsed * nameLineHeightPt - SIGNATORY_ROLE_GAP * scaleY;
 
     drawCenteredBlock(page, signatory.role, {
       font: timesItalic,
       color: textColor,
-      preferredSize: 11,
-      minSize: 8,
+      preferredSize: 9,
+      minSize: 6,
       maxLines: SIGNATORY_ROLE_BOX.maxLines,
       columnXLeftPt,
       columnXRightPt,
-      yTopPt: toY(SIGNATORY_ROLE_BOX.yTop),
+      yTopPt: roleYTopPt,
       lineHeightPt: SIGNATORY_ROLE_BOX.lineHeight * scaleY,
     });
   }

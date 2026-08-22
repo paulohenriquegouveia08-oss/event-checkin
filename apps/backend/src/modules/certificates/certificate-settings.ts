@@ -57,7 +57,10 @@ export const certificateSettingsSchema = z.object({
   // do Event.location completo.
   locationLabel: z.string().trim().max(120).optional(),
 
-  signatories: z.array(signatorySchema).max(3).optional(),
+  // Limite espelha MAX_SIGNATORIES_ON_CERTIFICATE em certificate-template.ts
+  // (colunas calculadas dinamicamente conforme a quantidade — antes era um
+  // limite fixo de 3, casado com 3 posições fixas na imagem-base).
+  signatories: z.array(signatorySchema).max(6).optional(),
 
   // Chave do asset de fundo em apps/backend/assets/certificates/ — permite
   // no futuro outro evento usar outro template sem mudar código.

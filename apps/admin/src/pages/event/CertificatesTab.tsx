@@ -40,7 +40,10 @@ const DEFAULT_SIGNATORIES: api.CertificateSignatory[] = [
   { name: "Pablo Guilherme Caldarelli", role: "Coordenador Geral do Campus Coordenador do Curso de Odontologia" },
   { name: "Amanda Vessoni Barbosa Kasuya", role: "Coordenador Adjunta do Curso de Odontologia." },
 ];
-const MAX_SIGNATORIES = 3;
+// Espelha MAX_SIGNATORIES_ON_CERTIFICATE em certificate-template.ts — as
+// colunas do certificado agora são calculadas dinamicamente conforme a
+// quantidade cadastrada (antes só cabiam 3, com posições fixas na imagem).
+const MAX_SIGNATORIES = 6;
 
 const STATUS_LABEL: Record<api.CertificateRowStatus, string> = {
   LOCKED: "Bloqueado",
@@ -338,7 +341,7 @@ export function CertificatesTab({ eventId }: { eventId: string }) {
             <RichTextEditor key={eventId} value={paragraphSegments} onChange={setParagraphSegments} defaultColor={textColor} />
           </ContentSection>
 
-          <ContentSection title="Signatários (até 3, aparecem no rodapé)">
+          <ContentSection title="Signatários (até 6, aparecem no rodapé)">
             <p className="muted" style={{ margin: "0 0 4px", fontSize: 12 }}>
               A imagem da assinatura aparece acima do nome, exatamente como se a pessoa tivesse assinado ali. PNG ou
               JPEG, até 2MB — opcional, sem imagem o certificado sai só com nome e cargo, como sempre foi.

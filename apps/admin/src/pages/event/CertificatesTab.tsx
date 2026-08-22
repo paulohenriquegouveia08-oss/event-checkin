@@ -168,7 +168,7 @@ export function CertificatesTab({ eventId }: { eventId: string }) {
       return;
     }
     const cleanSignatories = signatories
-      .map((s) => ({ name: s.name.trim(), role: s.role.trim() }))
+      .map((s) => ({ name: s.name.trim(), role: s.role.trim(), signatureImageKey: s.signatureImageKey }))
       .filter((s) => s.name && s.role);
     if (cleanSignatories.length === 0) {
       setSettingsError("Configure pelo menos um signatário.");

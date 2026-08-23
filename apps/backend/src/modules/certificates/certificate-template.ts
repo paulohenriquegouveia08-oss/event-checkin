@@ -84,28 +84,34 @@ const QR_BOX = { xLeft: 1206, yTop: 946, size: 88 };
 
 // Faixa onde os signatários são desenhados — dividida em N colunas iguais
 // (N = quantidade de signatários cadastrados) na hora de gerar cada
-// certificado, com linha de assinatura e divisórias desenhadas por código
-// (a imagem-base NÃO tem mais essas linhas fixas — antes só cabiam 3
+// certificado, com a linha de assinatura de cada coluna desenhada por
+// código (a imagem-base NÃO tem mais linhas fixas — antes só cabiam 3
 // signatários porque elas eram pixel-a-pixel fixas na imagem; ver
 // assets/certificates/README.md e o histórico de git deste arquivo).
+// Sem divisória vertical entre colunas — cada assinatura já fica isolada
+// pelo próprio espaçamento (columnGap) entre elas, sem precisar de linha
+// separando uma pessoa da outra.
 const SIGNATORY_ROW = { xLeft: 475, xRight: 1385, columnGap: 25 };
-const SIGNATORY_DIVIDER = { yTop: 715, yBottom: 908 };
-const SIGNATORY_LINE_Y = 786; // mesma altura da linha curta que era fixa na imagem
+const SIGNATORY_LINE_Y = 812; // mesma altura da linha curta que era fixa na imagem
 // Nome pequeno e colado no cargo, os dois logo abaixo da linha — cargo já
 // identifica quem é, o destaque fica pra assinatura. Antes o nome ficava
 // (maior) acima da linha, longe do cargo. O cargo começa logo depois do
 // nome de verdade (calculado em runtime conforme o nome usar 1 ou 2
 // linhas — ver SIGNATORY_ROLE_GAP), não numa posição fixa: um nome de 2
-// linhas nunca empurra o cargo pra cima dele.
-const SIGNATORY_NAME_BOX = { yTop: 806, lineHeight: 15, maxLines: 2 };
+// linhas nunca empurra o cargo pra cima dele. yTop é propositalmente
+// próximo do rodapé (linha longa em y≈909) — com maxLines:2 nos dois
+// (nome e cargo), o pior caso (2+2 linhas) ainda cabe com folga, mas o
+// caso comum (1 linha em cada) não sobra o espaço em branco enorme que
+// sobrava antes entre o cargo e o rodapé.
+const SIGNATORY_NAME_BOX = { yTop: 828, lineHeight: 15, maxLines: 2 };
 const SIGNATORY_ROLE_BOX = { lineHeight: 14, maxLines: 2 };
 const SIGNATORY_ROLE_GAP = 10; // px entre a última linha do nome e o cargo
 // Espaço acima da linha pra imagem de assinatura — bem maior que o nome/
-// cargo abaixo dela, já que agora é o elemento em destaque do bloco.
-// yBottom é a borda de baixo da imagem (colada na linha); a largura
-// máxima é 70% da coluna, centralizada, preservando a proporção original
-// do arquivo enviado.
-const SIGNATORY_IMAGE_BOX = { yBottom: 778, maxHeight: 115 };
+// cargo abaixo dela, já que é o elemento em destaque do bloco. yBottom é
+// a borda de baixo da imagem (colada na linha); a largura máxima é 82%
+// da coluna, centralizada, preservando a proporção original do arquivo
+// enviado.
+const SIGNATORY_IMAGE_BOX = { yBottom: SIGNATORY_LINE_Y - 8, maxHeight: 150 };
 // Certificado tem 910px de largura útil pra signatários (475 a 1385) —
 // acima de 6 colunas cada uma fica estreita demais pra caber nome/cargo
 // com folga; 6 já é mais que o dobro do limite anterior (3).
@@ -385,19 +391,10 @@ export async function renderCertificatePdf(data: CertificateData): Promise<Buffe
   const signatories = data.signatories.slice(0, MAX_SIGNATORIES_ON_CERTIFICATE);
   const columns = computeSignatoryColumns(signatories.length);
 
-  // Divisórias entre colunas — uma a menos que o número de colunas, no
-  // meio de cada espaço entre elas. Linha de assinatura — uma por coluna,
-  // na largura inteira dela. As duas eram fixas na imagem-base; agora são
-  // desenhadas aqui pra funcionar com qualquer quantidade de signatários.
-  for (let i = 0; i < columns.length - 1; i++) {
-    const dividerXPx = (columns[i].xRight + columns[i + 1].xLeft) / 2;
-    page.drawLine({
-      start: { x: toX(dividerXPx), y: toY(SIGNATORY_DIVIDER.yTop) },
-      end: { x: toX(dividerXPx), y: toY(SIGNATORY_DIVIDER.yBottom) },
-      thickness: 1,
-      color: primaryColor,
-    });
-  }
+  // Linha de assinatura — uma por coluna, na largura inteira dela (era
+  // fixa na imagem-base; agora é desenhada aqui pra funcionar com
+  // qualquer quantidade de signatários). Sem divisória vertical entre
+  // colunas — o espaçamento entre elas já separa uma pessoa da outra.
   for (const column of columns) {
     page.drawLine({
       start: { x: toX(column.xLeft), y: toY(SIGNATORY_LINE_Y) },
@@ -418,7 +415,7 @@ export async function renderCertificatePdf(data: CertificateData): Promise<Buffe
           signatory.signatureImageFormat === "png"
             ? await pdf.embedPng(signatory.signatureImageBytes)
             : await pdf.embedJpg(signatory.signatureImageBytes);
-        const maxWidthPt = (columnXRightPt - columnXLeftPt) * 0.7;
+        const maxWidthPt = (columnXRightPt - columnXLeftPt) * 0.82;
         const maxHeightPt = SIGNATORY_IMAGE_BOX.maxHeight * scaleY;
         const scale = Math.min(maxWidthPt / embedded.width, maxHeightPt / embedded.height);
         const drawWidth = embedded.width * scale;

@@ -98,6 +98,47 @@ describe("Autorização", () => {
   });
 });
 
+describe("POST /events/:eventId/terminals — sequência de identificadores", () => {
+  it("continua criando terminais depois de um do meio da sequência ser apagado", async () => {
+    // Regressão de um 500 em produção: o identificador vinha de
+    // `count + 1`, então apagar um terminal do meio deixava um buraco e
+    // o próximo cálculo colidia com um identificador já existente. Como
+    // a geração era determinística, todas as tentativas de retry
+    // repetiam o mesmo valor e a criação ficava quebrada para sempre.
+    const adminToken = await loginAsAdmin();
+    const event = await createTestEvent();
+
+    const create = (name: string) =>
+      app.inject({
+        method: "POST",
+        url: `/events/${event.id}/terminals`,
+        headers: { authorization: `Bearer ${adminToken}` },
+        payload: { name },
+      });
+
+    const first = await create("Terminal 1");
+    const second = await create("Terminal 2");
+    const third = await create("Terminal 3");
+    expect(first.json().data.identifier).toBe("TERM-001");
+    expect(second.json().data.identifier).toBe("TERM-002");
+    expect(third.json().data.identifier).toBe("TERM-003");
+
+    // Abre o buraco no meio — é isso que quebrava o cálculo antigo.
+    await app.inject({
+      method: "DELETE",
+      url: `/events/${event.id}/terminals/${second.json().data.id}`,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+
+    const fourth = await create("Terminal 4");
+    expect(fourth.statusCode).toBe(201);
+    // Continua a partir do MAIOR sufixo (003), sem reaproveitar o 002
+    // que ficou vago: reciclar identificador faria um terminal novo
+    // herdar a identidade de um que foi removido.
+    expect(fourth.json().data.identifier).toBe("TERM-004");
+  });
+});
+
 describe("Ativação de terminal", () => {
   it("troca o código de ativação por um token e invalida o código", async () => {
     const adminToken = await loginAsAdmin();

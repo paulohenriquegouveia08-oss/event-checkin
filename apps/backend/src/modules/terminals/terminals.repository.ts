@@ -5,8 +5,13 @@ export function createTerminal(data: Prisma.TerminalUncheckedCreateInput) {
   return prisma.terminal.create({ data });
 }
 
-export function countTerminals() {
-  return prisma.terminal.count();
+/** Só a coluna `identifier` de todos os terminais, para calcular o
+ * próximo número livre da sequência (ver nextIdentifierNumber em
+ * terminals.service.ts). A tabela é pequena — terminais são criados
+ * manualmente por um admin — então ler todos é mais barato e muito
+ * mais simples do que manter uma sequência dedicada. */
+export function listTerminalIdentifiers() {
+  return prisma.terminal.findMany({ select: { identifier: true } });
 }
 
 export function findTerminalByActivationCode(activationCode: string) {

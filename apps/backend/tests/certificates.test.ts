@@ -13,6 +13,7 @@ import {
   resetDatabase,
 } from "./helpers.js";
 import { isEligible, resolveDisplayStatus } from "../src/modules/certificates/certificate-eligibility.service.js";
+import { certificateFileKey, certificateStorage } from "../src/modules/certificates/certificate-storage.js";
 
 const app = buildApp();
 
@@ -165,6 +166,146 @@ describe("download do certificado", () => {
     const logs = await prisma.auditLog.findMany({ where: { entityType: "Certificate" }, orderBy: { createdAt: "asc" } });
     expect(logs.filter((l) => l.action === "certificate.generated")).toHaveLength(1);
     expect(logs.filter((l) => l.action === "certificate.downloaded")).toHaveLength(2);
+  });
+
+  it("regenera automaticamente quando o admin muda a configuração do certificado depois do primeiro download", async () => {
+    const event = await createEndedTestEvent();
+    const participant = await createTestParticipant(event.id);
+    await createTestCheckIn(event.id, participant.id);
+    const token = await createAttendeeToken(app, participant);
+
+    const first = await app.inject({
+      method: "GET",
+      url: `/events/${event.id}/certificates/download`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(first.statusCode).toBe(200);
+    const afterFirst = await prisma.certificate.findUniqueOrThrow({
+      where: { eventId_participantId: { eventId: event.id, participantId: participant.id } },
+    });
+    expect(afterFirst.workloadHours).toBe(16); // default (ver DEFAULT_CERTIFICATE_SETTINGS)
+    expect(afterFirst.settingsSnapshotHash).not.toBeNull();
+
+    // Admin edita a configuração do certificado no painel — mesmo participante,
+    // sem novo check-in nem nada além do PATCH.
+    const adminToken = await loginAdmin();
+    await app.inject({
+      method: "PATCH",
+      url: `/events/${event.id}`,
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { certificateSettings: { workloadHours: 32, locationLabel: "Curitiba/PR" } },
+    });
+
+    const second = await app.inject({
+      method: "GET",
+      url: `/events/${event.id}/certificates/download`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(second.statusCode).toBe(200);
+    // PDF de verdade mudou de tamanho/conteúdo — não é bit-a-bit igual ao anterior.
+    expect(second.rawPayload.equals(first.rawPayload)).toBe(false);
+
+    const afterSecond = await prisma.certificate.findUniqueOrThrow({
+      where: { eventId_participantId: { eventId: event.id, participantId: participant.id } },
+    });
+    expect(afterSecond.workloadHours).toBe(32); // snapshot atualizado pra nova configuração
+    expect(afterSecond.settingsSnapshotHash).not.toBe(afterFirst.settingsSnapshotHash);
+    expect(afterSecond.generatedAt!.getTime()).toBeGreaterThan(afterFirst.generatedAt!.getTime());
+    // verificationCode (usado no QR e na validação pública) não muda — mesmo certificado, só reemitido.
+    expect(afterSecond.verificationCode).toBe(afterFirst.verificationCode);
+
+    // Auditoria: "certificate.generated" disparou de novo na regeneração.
+    const logs = await prisma.auditLog.findMany({ where: { entityType: "Certificate" }, orderBy: { createdAt: "asc" } });
+    expect(logs.filter((l) => l.action === "certificate.generated")).toHaveLength(2);
+    expect(logs.filter((l) => l.action === "certificate.downloaded")).toHaveLength(2);
+  });
+
+  it("não regenera à toa quando o admin salva a mesma configuração de novo (hash idêntico)", async () => {
+    const event = await createEndedTestEvent();
+    const participant = await createTestParticipant(event.id);
+    await createTestCheckIn(event.id, participant.id);
+    const token = await createAttendeeToken(app, participant);
+    const adminToken = await loginAdmin();
+
+    await app.inject({
+      method: "PATCH",
+      url: `/events/${event.id}`,
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { certificateSettings: { workloadHours: 20 } },
+    });
+
+    const first = await app.inject({
+      method: "GET",
+      url: `/events/${event.id}/certificates/download`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const afterFirst = await prisma.certificate.findUniqueOrThrow({
+      where: { eventId_participantId: { eventId: event.id, participantId: participant.id } },
+    });
+
+    // Reenvia exatamente a mesma configuração (ex.: admin clicou "Salvar" sem mudar nada).
+    await app.inject({
+      method: "PATCH",
+      url: `/events/${event.id}`,
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { certificateSettings: { workloadHours: 20 } },
+    });
+
+    const second = await app.inject({
+      method: "GET",
+      url: `/events/${event.id}/certificates/download`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(second.rawPayload.equals(first.rawPayload)).toBe(true);
+
+    const afterSecond = await prisma.certificate.findUniqueOrThrow({
+      where: { eventId_participantId: { eventId: event.id, participantId: participant.id } },
+    });
+    expect(afterSecond.generatedAt?.getTime()).toBe(afterFirst.generatedAt?.getTime());
+
+    const logs = await prisma.auditLog.findMany({ where: { entityType: "Certificate" }, orderBy: { createdAt: "asc" } });
+    expect(logs.filter((l) => l.action === "certificate.generated")).toHaveLength(1);
+  });
+
+  it("um certificado gerado antes desta funcionalidade (sem hash salvo) regenera no primeiro download seguinte", async () => {
+    const event = await createEndedTestEvent();
+    const participant = await createTestParticipant(event.id);
+    await createTestCheckIn(event.id, participant.id);
+    const token = await createAttendeeToken(app, participant);
+
+    // Simula um certificado GENERATED por uma versão anterior do código,
+    // sem settingsSnapshotHash — cenário real logo após este deploy, pra
+    // qualquer certificado emitido antes dele.
+    const fileKey = certificateFileKey(event.id, participant.id);
+    await certificateStorage.save(fileKey, Buffer.from("%PDF-1.4 arquivo antigo simulado"));
+    const legacyCertificate = await prisma.certificate.create({
+      data: {
+        eventId: event.id,
+        participantId: participant.id,
+        status: "GENERATED",
+        verificationCode: "cert_legado_teste",
+        fileKey,
+        workloadHours: 16,
+        settingsSnapshotHash: null,
+        generatedAt: new Date("2026-01-01T00:00:00Z"),
+      },
+    });
+
+    const res = await app.inject({
+      method: "GET",
+      url: `/events/${event.id}/certificates/download`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(200);
+    // Não é mais o placeholder salvo manualmente — foi regenerado de verdade.
+    expect(res.rawPayload.equals(Buffer.from("%PDF-1.4 arquivo antigo simulado"))).toBe(false);
+    expect(res.rawPayload.length).toBeGreaterThan(1000);
+
+    const after = await prisma.certificate.findUniqueOrThrow({ where: { id: legacyCertificate.id } });
+    expect(after.settingsSnapshotHash).not.toBeNull();
+    expect(after.generatedAt!.getTime()).toBeGreaterThan(legacyCertificate.generatedAt!.getTime());
+    // verificationCode de um certificado já emitido nunca muda numa regeneração.
+    expect(after.verificationCode).toBe("cert_legado_teste");
   });
 
   it("um participante nunca consegue baixar o certificado de outro (id sempre vem do token)", async () => {

@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import { env } from "../../config/env.js";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../shared/errors.js";
 import { hasEventEnded } from "../../shared/br-date.js";
@@ -85,6 +85,27 @@ async function resolveSignatoryImages(
   );
 }
 
+/** Resume tudo que influencia o conteúdo visual do certificado (exceto o
+ * nome do participante, que é individual) num hash — nome/datas do
+ * evento e o certificateSettings já resolvido (com os defaults
+ * aplicados, ver resolveCertificateSettings). Comparado contra o hash
+ * salvo em Certificate.settingsSnapshotHash na hora do download: se o
+ * admin mudou qualquer coisa (texto, signatário, cor, carga horária...)
+ * desde a última geração, o hash não bate mais e o PDF em cache é
+ * considerado desatualizado — ver getOrGenerateCertificatePdf. */
+function computeCertificateContentHash(
+  event: { name: string; startDate: Date; endDate: Date },
+  settings: ReturnType<typeof resolveCertificateSettings>
+): string {
+  const payload = JSON.stringify({
+    eventName: event.name,
+    startDate: event.startDate.toISOString(),
+    endDate: event.endDate.toISOString(),
+    settings,
+  });
+  return createHash("sha256").update(payload).digest("hex");
+}
+
 async function loadEventOrThrow(eventId: string) {
   const event = await repo.findEventById(eventId);
   if (!event) throw new NotFoundError("Evento não encontrado");
@@ -138,10 +159,11 @@ export async function getMyDocuments(eventId: string, participantId: string) {
   };
 }
 
-/** Gera (na primeira vez) ou reaproveita (nas seguintes) o PDF do
- * certificado — nunca regenera um arquivo já existente em storage (ver
- * seção 9 do pedido). Lança ForbiddenError se não elegível ou revogado; a
- * rota nunca aceita eventId/participantId de fora do token verificado. */
+/** Gera (na primeira vez), regenera (se a configuração do certificado
+ * mudou desde a última geração — ver computeCertificateContentHash) ou
+ * reaproveita (se nada mudou) o PDF do certificado. Lança ForbiddenError
+ * se não elegível ou revogado; a rota nunca aceita eventId/participantId
+ * de fora do token verificado. */
 export async function getOrGenerateCertificatePdf(eventId: string, participantId: string): Promise<{ buffer: Buffer; certificateId: string; regenerated: boolean }> {
   const event = await loadEventOrThrow(eventId);
   const participant = await loadParticipantOrThrow(eventId, participantId);
@@ -158,13 +180,17 @@ export async function getOrGenerateCertificatePdf(eventId: string, participantId
     throw new ForbiddenError(message);
   }
 
+  const settings = resolveCertificateSettings(event.certificateSettings);
+  const currentHash = computeCertificateContentHash(event, settings);
+
   const fileKey = certificateFileKey(eventId, participantId);
-  if (existing?.status === "GENERATED" && (await certificateStorage.exists(fileKey))) {
+  const cacheIsFresh =
+    existing?.status === "GENERATED" && existing.settingsSnapshotHash === currentHash && (await certificateStorage.exists(fileKey));
+  if (cacheIsFresh) {
     return { buffer: await certificateStorage.read(fileKey), certificateId: existing.id, regenerated: false };
   }
 
   const certificate = await repo.ensureCertificate(eventId, participantId);
-  const settings = resolveCertificateSettings(event.certificateSettings);
 
   const buffer = await renderCertificatePdf({
     participantName: participant.name,
@@ -182,7 +208,7 @@ export async function getOrGenerateCertificatePdf(eventId: string, participantId
   });
 
   await certificateStorage.save(fileKey, buffer);
-  await repo.markCertificateGenerated(certificate.id, fileKey, settings.workloadHours);
+  await repo.markCertificateGenerated(certificate.id, fileKey, settings.workloadHours, currentHash);
 
   return { buffer, certificateId: certificate.id, regenerated: true };
 }

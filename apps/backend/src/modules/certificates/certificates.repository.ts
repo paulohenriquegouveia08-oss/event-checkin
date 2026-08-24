@@ -48,10 +48,15 @@ export async function ensureCertificate(eventId: string, participantId: string) 
   });
 }
 
-export function markCertificateGenerated(certificateId: string, fileKey: string, workloadHours: number) {
+export function markCertificateGenerated(
+  certificateId: string,
+  fileKey: string,
+  workloadHours: number,
+  settingsSnapshotHash: string
+) {
   return prisma.certificate.update({
     where: { id: certificateId },
-    data: { status: "GENERATED", fileKey, workloadHours, generatedAt: new Date() },
+    data: { status: "GENERATED", fileKey, workloadHours, settingsSnapshotHash, generatedAt: new Date() },
   });
 }
 

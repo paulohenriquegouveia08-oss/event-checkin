@@ -338,9 +338,19 @@ model Certificate {
   verificationCode String  @unique
   fileKey          String? // chave no storage (ver certificate-storage.ts); só preenchido quando status = GENERATED
 
-  // Snapshot da carga horária no momento da geração — se o admin mudar a
-  // configuração do evento depois, certificados já emitidos não mudam.
+  // Carga horária vigente no momento da última geração — acompanha o PDF
+  // em cache (ver settingsSnapshotHash abaixo): se o admin muda a
+  // configuração do certificado depois, o próximo download detecta e
+  // regenera, e este campo é atualizado junto.
   workloadHours Int?
+
+  // Hash (sha256) do que influencia o conteúdo do PDF no momento da
+  // geração — nome/datas do evento + certificateSettings resolvido (ver
+  // computeCertificateContentHash em certificates.service.ts). No
+  // próximo download, se o hash atual não bater com este, o certificado
+  // em cache está desatualizado e é regenerado automaticamente antes de
+  // servir — sem exigir ação manual do admin nem "aviso de nova versão".
+  settingsSnapshotHash String?
 
   generatedAt DateTime?
   revokedAt   DateTime?

@@ -8,6 +8,14 @@ export const certificateIdParamsSchema = z.object({
   certificateId: z.string().uuid("certificateId inválido"),
 });
 
+/** Rotas de certificado por participante usadas pelo painel do admin
+ * (liberação manual e download). O participantId aqui vem da URL, não de
+ * um token de attendee — quem protege é requirePermission na rota. */
+export const eventParticipantParamsSchema = z.object({
+  eventId: z.string().uuid("eventId inválido"),
+  participantId: z.string().uuid("participantId inválido"),
+});
+
 export const verificationCodeParamsSchema = z.object({
   code: z.string().trim().min(1).max(120),
 });

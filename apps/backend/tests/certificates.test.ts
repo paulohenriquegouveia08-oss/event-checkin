@@ -614,6 +614,170 @@ describe("PATCH /events/:eventId — certificateSettings (texto do certificado)"
   });
 });
 
+describe("liberação manual de certificado (painel do admin)", () => {
+  it("libera para quem NÃO tem check-in e o participante consegue baixar", async () => {
+    // O caso que motivou a feature: a pessoa participou, mas o check-in
+    // não foi registrado (terminal falhou, fila etc.), então a regra
+    // automática a reprova para sempre.
+    const event = await createEndedTestEvent();
+    const participant = await createTestParticipant(event.id);
+    const attendeeToken = await createAttendeeToken(app, participant);
+    const adminToken = await loginAdmin();
+
+    // Antes: bloqueado, download proibido.
+    const before = await app.inject({
+      method: "GET",
+      url: `/events/${event.id}/certificates/download`,
+      headers: { authorization: `Bearer ${attendeeToken}` },
+    });
+    expect(before.statusCode).toBe(403);
+
+    const released = await app.inject({
+      method: "POST",
+      url: `/events/${event.id}/participants/${participant.id}/certificate/release`,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    expect(released.statusCode).toBe(200);
+
+    // Depois: o participante baixa normalmente, sem nunca ter check-in.
+    const after = await app.inject({
+      method: "GET",
+      url: `/events/${event.id}/certificates/download`,
+      headers: { authorization: `Bearer ${attendeeToken}` },
+    });
+    expect(after.statusCode).toBe(200);
+    expect(after.headers["content-type"]).toBe("application/pdf");
+
+    const checkIn = await prisma.checkIn.findUnique({
+      where: { eventId_participantId: { eventId: event.id, participantId: participant.id } },
+    });
+    expect(checkIn).toBeNull();
+  });
+
+  it("libera mesmo antes de o evento terminar", async () => {
+    const event = await createTestEvent(); // ainda em andamento
+    const participant = await createTestParticipant(event.id);
+    const adminToken = await loginAdmin();
+
+    const released = await app.inject({
+      method: "POST",
+      url: `/events/${event.id}/participants/${participant.id}/certificate/release`,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    expect(released.statusCode).toBe(200);
+
+    const attendeeToken = await createAttendeeToken(app, participant);
+    const download = await app.inject({
+      method: "GET",
+      url: `/events/${event.id}/certificates/download`,
+      headers: { authorization: `Bearer ${attendeeToken}` },
+    });
+    expect(download.statusCode).toBe(200);
+  });
+
+  it("cancelar a liberação volta a bloquear o participante", async () => {
+    const event = await createEndedTestEvent();
+    const participant = await createTestParticipant(event.id);
+    const adminToken = await loginAdmin();
+    const attendeeToken = await createAttendeeToken(app, participant);
+
+    await app.inject({
+      method: "POST",
+      url: `/events/${event.id}/participants/${participant.id}/certificate/release`,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+
+    const undone = await app.inject({
+      method: "DELETE",
+      url: `/events/${event.id}/participants/${participant.id}/certificate/release`,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    expect(undone.statusCode).toBe(200);
+
+    const blocked = await app.inject({
+      method: "GET",
+      url: `/events/${event.id}/certificates/download`,
+      headers: { authorization: `Bearer ${attendeeToken}` },
+    });
+    expect(blocked.statusCode).toBe(403);
+  });
+
+  it("admin baixa o certificado do participante, com o nome dele no arquivo", async () => {
+    const event = await createEndedTestEvent();
+    const participant = await createTestParticipant(event.id, { name: "José da Conceição" });
+    await createTestCheckIn(event.id, participant.id);
+    const adminToken = await loginAdmin();
+
+    const download = await app.inject({
+      method: "GET",
+      url: `/events/${event.id}/participants/${participant.id}/certificate/download`,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+
+    expect(download.statusCode).toBe(200);
+    expect(download.headers["content-type"]).toBe("application/pdf");
+    expect(download.rawPayload.length).toBeGreaterThan(1000);
+    // Acentos viram ASCII para o nome do arquivo não quebrar no header.
+    expect(download.headers["content-disposition"]).toContain("certificado-jose-da-conceicao.pdf");
+
+    // O download pelo admin materializa o certificado, igual ao do
+    // participante — não é um preview descartável.
+    const certificate = await prisma.certificate.findUniqueOrThrow({
+      where: { eventId_participantId: { eventId: event.id, participantId: participant.id } },
+    });
+    expect(certificate.status).toBe("GENERATED");
+  });
+
+  it("liberar exige certificates.issue (certificates.view não basta)", async () => {
+    const event = await createEndedTestEvent();
+    const participant = await createTestParticipant(event.id);
+    const viewOnlyRole = await createTestRole("Somente leitura de certificados", ["certificates.view"]);
+    const { user, password } = await createTestUserWithRole(viewOnlyRole.id, "leitor-cert@teste.com");
+    const loginRes = await app.inject({ method: "POST", url: "/auth/login", payload: { email: user.email, password } });
+    const token = loginRes.json().data.token as string;
+
+    const res = await app.inject({
+      method: "POST",
+      url: `/events/${event.id}/participants/${participant.id}/certificate/release`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it("lista o status de TODOS os participantes, inclusive quem não tem certificado", async () => {
+    const event = await createEndedTestEvent();
+    const presente = await createTestParticipant(event.id, { name: "Presente" });
+    const ausente = await createTestParticipant(event.id, { name: "Ausente" });
+    await createTestCheckIn(event.id, presente.id);
+    const adminToken = await loginAdmin();
+
+    const res = await app.inject({
+      method: "GET",
+      url: `/events/${event.id}/participants/certificates`,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    expect(res.statusCode).toBe(200);
+
+    const rows = res.json().data as Array<{
+      participantId: string;
+      status: string;
+      hasCheckIn: boolean;
+      canDownload: boolean;
+    }>;
+    expect(rows).toHaveLength(2);
+
+    const rowPresente = rows.find((r) => r.participantId === presente.id)!;
+    const rowAusente = rows.find((r) => r.participantId === ausente.id)!;
+    expect(rowPresente.status).toBe("ELIGIBLE");
+    expect(rowPresente.canDownload).toBe(true);
+    // Quem não tem certificado ainda aparece — é justamente quem precisa
+    // da liberação manual.
+    expect(rowAusente.status).toBe("LOCKED");
+    expect(rowAusente.hasCheckIn).toBe(false);
+    expect(rowAusente.canDownload).toBe(false);
+  });
+});
+
 describe("administração", () => {
   it("bloqueia liberação de certificados antes do evento terminar", async () => {
     const event = await createTestEvent(); // não terminou

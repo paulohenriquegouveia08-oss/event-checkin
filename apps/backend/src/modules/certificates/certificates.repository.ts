@@ -74,6 +74,51 @@ export function markCertificateReinstated(certificateId: string) {
   });
 }
 
+export function markCertificateManuallyReleased(certificateId: string, releasedByUserId: string) {
+  return prisma.certificate.update({
+    where: { id: certificateId },
+    data: { manuallyReleasedAt: new Date(), manuallyReleasedBy: releasedByUserId },
+  });
+}
+
+/** Desfaz a liberação manual. Não mexe em `status`: se o participante já
+ * chegou a baixar (GENERATED), quem tira o acesso é a revogação — este
+ * caminho só remove o "atalho" que tornava a pessoa elegível sem
+ * cumprir a regra automática. */
+export function clearCertificateManualRelease(certificateId: string) {
+  return prisma.certificate.update({
+    where: { id: certificateId },
+    data: { manuallyReleasedAt: null, manuallyReleasedBy: null },
+  });
+}
+
+/** Participantes do evento + o certificado de cada um (quando existe) e
+ * se têm check-in. Alimenta a coluna "Certificado" da aba de
+ * participantes do admin, que precisa mostrar o estado de TODO mundo —
+ * inclusive de quem não tem linha em Certificate ainda, que é
+ * exatamente quem costuma precisar da liberação manual. */
+export function listParticipantsWithCertificate(eventId: string) {
+  return prisma.participant.findMany({
+    where: { eventId },
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      name: true,
+      certificates: {
+        where: { eventId },
+        select: {
+          id: true,
+          status: true,
+          generatedAt: true,
+          manuallyReleasedAt: true,
+        },
+        take: 1,
+      },
+      checkIns: { where: { eventId }, select: { id: true }, take: 1 },
+    },
+  });
+}
+
 export function listCertificatesByEvent(eventId: string) {
   return prisma.certificate.findMany({
     where: { eventId },

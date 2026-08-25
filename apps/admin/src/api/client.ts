@@ -435,6 +435,66 @@ export function releaseCertificates(eventId: string) {
   return request<{ createdCount: number }>(`/events/${eventId}/certificates/release`, { method: "POST" });
 }
 
+/** Estado do certificado por participante, para a coluna "Certificado" da
+ * aba de participantes. Diferente de listCertificates(), cobre TODOS os
+ * participantes — inclusive quem ainda não tem certificado, que é
+ * justamente quem precisa da liberação manual. */
+export interface ParticipantCertificateStatus {
+  participantId: string;
+  certificateId: string | null;
+  status: CertificateRowStatus;
+  generatedAt: string | null;
+  manuallyReleased: boolean;
+  hasCheckIn: boolean;
+  canDownload: boolean;
+}
+
+export function listParticipantCertificates(eventId: string) {
+  return request<ParticipantCertificateStatus[]>(`/events/${eventId}/participants/certificates`);
+}
+
+export function releaseParticipantCertificate(eventId: string, participantId: string) {
+  return request<unknown>(`/events/${eventId}/participants/${participantId}/certificate/release`, {
+    method: "POST",
+  });
+}
+
+export function undoReleaseParticipantCertificate(eventId: string, participantId: string) {
+  return request<unknown>(`/events/${eventId}/participants/${participantId}/certificate/release`, {
+    method: "DELETE",
+  });
+}
+
+/** Baixa o certificado de um participante pelo painel. Mesmo padrão de
+ * previewCertificate: não usa request<T>() porque a resposta é o PDF
+ * binário, não o envelope JSON success/data. O nome do arquivo vem do
+ * servidor (Content-Disposition), que já inclui o nome da pessoa. */
+export async function downloadParticipantCertificate(eventId: string, participantId: string): Promise<void> {
+  const token = getToken();
+  const response = await fetch(
+    `${API_URL}/events/${eventId}/participants/${participantId}/certificate/download`,
+    { headers: token ? { Authorization: `Bearer ${token}` } : undefined }
+  );
+
+  if (!response.ok) {
+    const json = (await response.json()) as ApiFailure;
+    throw new ApiError(json.error.message, json.error.code, response.status);
+  }
+
+  const filename =
+    /filename=([^;]+)/.exec(response.headers.get("Content-Disposition") ?? "")?.[1]?.trim() ?? "certificado.pdf";
+
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
 export function revokeCertificate(certificateId: string) {
   return request<CertificateRow>(`/certificates/${certificateId}/revoke`, { method: "POST" });
 }

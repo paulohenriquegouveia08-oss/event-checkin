@@ -352,6 +352,16 @@ model Certificate {
   // servir — sem exigir ação manual do admin nem "aviso de nova versão".
   settingsSnapshotHash String?
 
+  // Liberação manual pelo admin. Preenchido, vale como critério de
+  // elegibilidade por si só (ver isEligible em
+  // certificate-eligibility.service.ts) — é o caminho para entregar o
+  // certificado a quem o fluxo automático não cobre: faltou registrar o
+  // check-in, a pessoa participou mas o terminal falhou, o evento ainda
+  // não encerrou formalmente, etc. `manuallyReleasedBy` guarda o User.id
+  // de quem liberou, para auditoria (nunca é exibido ao participante).
+  manuallyReleasedAt DateTime?
+  manuallyReleasedBy String?
+
   generatedAt DateTime?
   revokedAt   DateTime?
 

@@ -129,7 +129,15 @@ function verificationUrl(code: string): string {
 async function computeEligibility(eventId: string, participantId: string): Promise<{ eligibility: EligibilityResult; checkIn: Awaited<ReturnType<typeof repo.findCheckIn>> }> {
   const event = await loadEventOrThrow(eventId);
   const checkIn = await repo.findCheckIn(eventId, participantId);
-  const eligibility = isEligible({ event, hasCheckIn: !!checkIn });
+  // A liberação manual é um critério de elegibilidade como qualquer
+  // outro (ver isEligible), então é lida aqui — assim todo caminho que
+  // já passa por computeEligibility a respeita de graça.
+  const certificate = await repo.findCertificate(eventId, participantId);
+  const eligibility = isEligible({
+    event,
+    hasCheckIn: !!checkIn,
+    manuallyReleased: !!certificate?.manuallyReleasedAt,
+  });
   return { eligibility, checkIn };
 }
 
@@ -334,6 +342,83 @@ export async function listCertificates(eventId: string) {
     generatedAt: row.generatedAt,
     revokedAt: row.revokedAt,
   }));
+}
+
+/** Estado do certificado de cada participante do evento, para a coluna
+ * "Certificado" da aba de participantes. Diferente de listCertificates(),
+ * lista TODOS os participantes — inclusive quem ainda não tem linha em
+ * Certificate, que é justamente quem precisa da liberação manual. */
+export async function listParticipantsCertificateStatus(eventId: string) {
+  const event = await loadEventOrThrow(eventId);
+  const rows = await repo.listParticipantsWithCertificate(eventId);
+
+  return rows.map((row) => {
+    const certificate = row.certificates[0] ?? null;
+    const eligibility = isEligible({
+      event,
+      hasCheckIn: row.checkIns.length > 0,
+      manuallyReleased: !!certificate?.manuallyReleasedAt,
+    });
+    return {
+      participantId: row.id,
+      certificateId: certificate?.id ?? null,
+      status: resolveDisplayStatus({ eligibility, persistedStatus: certificate?.status ?? null }),
+      generatedAt: certificate?.generatedAt ?? null,
+      manuallyReleased: !!certificate?.manuallyReleasedAt,
+      hasCheckIn: row.checkIns.length > 0,
+      // O admin só consegue baixar o que o participante também
+      // conseguiria — mesma regra, uma fonte de verdade só.
+      canDownload: eligibility.eligible && certificate?.status !== "REVOKED",
+    };
+  });
+}
+
+/** Libera o certificado de UM participante na mão, atropelando a regra
+ * automática (ver isEligible). Para quando o fluxo normal não cobre a
+ * realidade: a pessoa participou mas o check-in não foi registrado, o
+ * terminal falhou, o evento ainda não encerrou formalmente.
+ *
+ * Não gera o PDF aqui — mantém a mesma disciplina do release em lote: a
+ * geração acontece sob demanda, no primeiro download (do participante ou
+ * do admin). */
+export async function manuallyReleaseCertificate(eventId: string, participantId: string, actorUserId: string) {
+  await loadEventOrThrow(eventId);
+  await loadParticipantOrThrow(eventId, participantId);
+
+  const certificate = await repo.ensureCertificate(eventId, participantId);
+  if (certificate.status === "REVOKED") {
+    throw new ConflictError(
+      "CERTIFICATE_REVOKED",
+      "Este certificado está revogado. Restaure-o antes de liberar novamente."
+    );
+  }
+
+  return repo.markCertificateManuallyReleased(certificate.id, actorUserId);
+}
+
+/** Desfaz a liberação manual — a pessoa volta a depender da regra
+ * automática. Existe porque a liberação manual ignora a checagem de
+ * presença: sem desfazer, um clique errado daria certificado a quem não
+ * participou e só a revogação (que exige o PDF já gerado) resolveria. */
+export async function undoManualCertificateRelease(eventId: string, participantId: string) {
+  await loadEventOrThrow(eventId);
+  const certificate = await repo.findCertificate(eventId, participantId);
+  if (!certificate?.manuallyReleasedAt) {
+    throw new NotFoundError("Este certificado não foi liberado manualmente");
+  }
+  return repo.clearCertificateManualRelease(certificate.id);
+}
+
+/** Baixa o certificado de um participante pelo painel do admin, para
+ * reenviar por e-mail/WhatsApp quando a pessoa não consegue baixar
+ * sozinha. Delega para o MESMO gerador que atende o participante
+ * (getOrGenerateCertificatePdf), então o arquivo é idêntico ao que ela
+ * receberia — inclusive o QR de validação e a regeneração automática
+ * quando as configurações do certificado mudaram. */
+export async function getCertificatePdfForAdmin(eventId: string, participantId: string) {
+  const participant = await loadParticipantOrThrow(eventId, participantId);
+  const { buffer, certificateId, regenerated } = await getOrGenerateCertificatePdf(eventId, participantId);
+  return { buffer, certificateId, regenerated, participantName: participant.name };
 }
 
 /** "Liberar certificados" no admin: só marca quem já está presente como

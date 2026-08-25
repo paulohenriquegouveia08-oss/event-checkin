@@ -8,6 +8,7 @@ import {
   certificateIdParamsSchema,
   certificatePreviewQuerySchema,
   eventIdParamsSchema,
+  eventParticipantParamsSchema,
   signatureImageParamsSchema,
   signatureImageQuerySchema,
   uploadSignatureImageSchema,
@@ -158,6 +159,94 @@ export async function certificatesRoutes(app: FastifyInstance) {
       const result = await certificatesService.releaseEligibleCertificates(eventId);
       await recordAudit(request, "certificate.released", "Event", eventId, result);
       return ok(result);
+    }
+  );
+
+  // --- Certificado de um participante específico (painel do admin) ---
+  //
+  // Complementam o release em lote acima, que só alcança quem tem
+  // check-in e só depois do evento encerrar. Estas rotas são a saída
+  // para os casos que a regra automática não cobre.
+
+  app.get(
+    "/events/:eventId/participants/certificates",
+    { preHandler: requirePermission("certificates.view") },
+    async (request) => {
+      const { eventId } = eventIdParamsSchema.parse(request.params);
+      const rows = await certificatesService.listParticipantsCertificateStatus(eventId);
+      return ok(rows);
+    }
+  );
+
+  app.post(
+    "/events/:eventId/participants/:participantId/certificate/release",
+    { preHandler: requirePermission("certificates.issue") },
+    async (request) => {
+      const { eventId, participantId } = eventParticipantParamsSchema.parse(request.params);
+      const certificate = await certificatesService.manuallyReleaseCertificate(
+        eventId,
+        participantId,
+        request.admin!.userId
+      );
+      await recordAudit(request, "certificate.manually_released", "Certificate", certificate.id, {
+        eventId,
+        participantId,
+      });
+      return ok(certificate);
+    }
+  );
+
+  app.delete(
+    "/events/:eventId/participants/:participantId/certificate/release",
+    { preHandler: requirePermission("certificates.issue") },
+    async (request) => {
+      const { eventId, participantId } = eventParticipantParamsSchema.parse(request.params);
+      const certificate = await certificatesService.undoManualCertificateRelease(eventId, participantId);
+      await recordAudit(request, "certificate.manual_release_undone", "Certificate", certificate.id, {
+        eventId,
+        participantId,
+      });
+      return ok(certificate);
+    }
+  );
+
+  // Baixa o PDF do participante pelo painel — para o admin reenviar
+  // quando a pessoa não consegue baixar sozinha. Gera na hora se ainda
+  // não existir (mesmo caminho do download do participante), por isso
+  // exige certificates.issue e não apenas .view.
+  app.get(
+    "/events/:eventId/participants/:participantId/certificate/download",
+    { preHandler: requirePermission("certificates.issue") },
+    async (request, reply) => {
+      const { eventId, participantId } = eventParticipantParamsSchema.parse(request.params);
+      const { buffer, certificateId, regenerated, participantName } =
+        await certificatesService.getCertificatePdfForAdmin(eventId, participantId);
+
+      if (regenerated) {
+        await recordAudit(request, "certificate.generated", "Certificate", certificateId, { eventId, participantId });
+      }
+      await recordAudit(request, "certificate.downloaded_by_admin", "Certificate", certificateId, {
+        eventId,
+        participantId,
+      });
+
+      // Nome do arquivo com o nome da pessoa: o admin costuma baixar
+      // vários seguidos para reenviar, e "certificado.pdf (1)(2)(3)" na
+      // pasta de downloads seria impossível de distinguir.
+      // NFD separa "e-acento" em "e" + marca combinante; a marca vira
+      // nao-ASCII e o filtro abaixo a remove, sobrando o "e" puro. Se a
+      // ordem fosse invertida, a marca viraria "-" e "Jose" sairia
+      // "jos-e". Regex so com ASCII de proposito: combinantes literais
+      // no fonte sao invisiveis no editor e faceis de corromper.
+      const safeName = participantName
+        .normalize("NFD")
+        .replace(/[^\x00-\x7F]/g, "")
+        .replace(/[^a-zA-Z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .toLowerCase();
+      reply.header("Content-Type", "application/pdf");
+      reply.header("Content-Disposition", `attachment; filename=certificado-${safeName || "participante"}.pdf`);
+      return reply.send(buffer);
     }
   );
 

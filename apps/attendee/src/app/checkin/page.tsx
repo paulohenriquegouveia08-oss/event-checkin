@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
+import { CreditosParceiros } from "@/components/CreditosParceiros";
 import { jsPDF } from "jspdf";
 import {
   getParticipantMe,
@@ -562,6 +563,8 @@ export default function CheckInPage() {
         <p className="text-center text-xs text-[--muted-foreground] pt-4">
           Copol | LSPK Tecnology
         </p>
+
+        <CreditosParceiros className="border-t border-[--border] pt-6 mt-2" />
       </div>
     </div>
   );

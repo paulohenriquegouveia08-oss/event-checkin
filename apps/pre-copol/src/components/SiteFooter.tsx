@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { CreditosParceiros } from "./CreditosParceiros";
 
 interface Props {
   text?: string;
@@ -28,6 +29,19 @@ export function SiteFooter({ text = "3º COPOL — Congresso Odontológico Posit
         <p style={{ margin: 0, fontSize: 12, color: "var(--muted-foreground)", opacity: 0.7 }}>
           Copol | LSPK Tecnology
         </p>
+
+        {/* Créditos de quem desenvolveu e de quem apoiou. Separado por
+            uma linha fina para não competir com o nome do evento acima. */}
+        <div
+          style={{
+            width: "100%",
+            marginTop: 8,
+            paddingTop: 24,
+            borderTop: "1px solid var(--border)",
+          }}
+        >
+          <CreditosParceiros />
+        </div>
       </div>
     </footer>
   );

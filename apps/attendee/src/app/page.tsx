@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { loginAttendee, selectEvent, type ParticipantData } from "@/lib/api";
+import { CreditosParceiros } from "@/components/CreditosParceiros";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -146,6 +147,8 @@ export default function LoginPage() {
             </button>
           </div>
         )}
+
+        <CreditosParceiros className="border-t border-[--border] pt-6 mt-8" />
       </div>
     </div>
   );

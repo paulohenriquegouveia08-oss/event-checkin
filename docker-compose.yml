@@ -69,10 +69,17 @@ services:
       context: .
       dockerfile: apps/admin/Dockerfile
       args:
-        # Precisa ser um endereço alcançável pelo NAVEGADOR do admin (não
-        # o nome do serviço docker "backend") — por isso usa
-        # PUBLIC_API_URL, não a URL interna da rede docker.
-        VITE_API_URL: ${PUBLIC_API_URL}
+        # Caminho relativo, de propósito. O nginx do próprio admin faz o
+        # proxy de /api/ para o backend (ver apps/admin/nginx.conf), então
+        # o painel chama a API na MESMA origem por onde foi servido.
+        #
+        # Antes isto era ${PUBLIC_API_URL}, um endereço absoluto compilado
+        # dentro do bundle. Amarrava o painel a um host e uma porta: aberto
+        # por qualquer outro endereço, a tela carregava e toda requisição
+        # falhava, porque o JavaScript seguia chamando o endereço antigo.
+        # Com caminho relativo, funciona de onde quer que seja servido —
+        # túnel, domínio novo, rede interna — sem recompilar.
+        VITE_API_URL: /api
     restart: unless-stopped
     ports:
       - "${ADMIN_PORT}:80"

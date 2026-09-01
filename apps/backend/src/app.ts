@@ -8,6 +8,8 @@ import { errorHandler } from "./middleware/error-handler.js";
 import { ok } from "./shared/response.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { eventsRoutes } from "./modules/events/events.routes.js";
+import { eventConfigRoutes } from "./modules/event-config/event-config.routes.js";
+import { submissionsRoutes } from "./modules/submissions/submissions.routes.js";
 import { participantsRoutes } from "./modules/participants/participants.routes.js";
 import { terminalsRoutes } from "./modules/terminals/terminals.routes.js";
 import { checkinsRoutes } from "./modules/checkins/checkins.routes.js";
@@ -58,7 +60,12 @@ export function buildApp() {
     credentials: true,
   });
   app.register(rateLimit, {
-    max: 100,
+    // Em teste, todas as requisições vêm de 127.0.0.1 e a suíte inteira
+    // conta como um cliente só — o limite de produção derrubava testes do
+    // meio da suíte para frente, com erro de login que não tinha nada a
+    // ver com o que estava sendo testado. O limite continua valendo em
+    // desenvolvimento e produção, que é onde ele protege alguma coisa.
+    max: env.NODE_ENV === "test" ? 10_000 : 100,
     timeWindow: "1 minute",
     keyGenerator: (request) => {
       // Don't rate-limit SSE connections by the same key
@@ -74,6 +81,8 @@ export function buildApp() {
 
   app.register(authRoutes);
   app.register(eventsRoutes);
+  app.register(eventConfigRoutes);
+  app.register(submissionsRoutes);
   app.register(participantsRoutes);
   app.register(terminalsRoutes);
   app.register(checkinsRoutes);

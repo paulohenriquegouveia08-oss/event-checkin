@@ -5,6 +5,13 @@ import { hashPassword } from "../src/shared/passwords.js";
 import { syncPermissions } from "../src/shared/permissions.js";
 
 export async function resetDatabase() {
+  // Ordem importa: filhos antes dos pais, senão a FK recusa.
+  await prisma.submissionAuthor.deleteMany();
+  await prisma.submission.deleteMany();
+  await prisma.submissionModality.deleteMany();
+  await prisma.submissionTopic.deleteMany();
+  await prisma.submissionSettings.deleteMany();
+  await prisma.eventModule.deleteMany();
   await prisma.certificate.deleteMany();
   await prisma.attendanceProof.deleteMany();
   await prisma.checkIn.deleteMany();

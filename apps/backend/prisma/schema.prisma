@@ -16,6 +16,33 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// Quem enxerga o evento.
+///
+/// PRIVATE é o padrão de propósito: a migração não pode tornar público
+/// um evento que já existe. Publicar é decisão de alguém, sempre.
+/// Ciclo de vida de um trabalho submetido.
+///
+/// DRAFT existe porque o autor monta a submissão em etapas (dados, depois
+/// coautores, depois o arquivo) e pode fechar o navegador no meio. Sem ele,
+/// só haveria "existe" e "não existe", e uma submissão pela metade contaria
+/// como enviada.
+///
+/// WITHDRAWN é do autor; REJECTED é da comissão. Guardar os dois separados
+/// responde "por que este trabalho não está nos anais?" sem ambiguidade.
+enum SubmissionStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+enum EventVisibility {
+  PUBLIC
+  PRIVATE
+}
+
 enum EventStatus {
   ACTIVE
   CLOSED
@@ -156,6 +183,15 @@ model Event {
   // Conteúdo do site pre-copol 100% editável pelo admin — formato livre,
   // ver src/modules/events/site-content.ts para o shape esperado
   // (heroSubtitle, aboutText, pricingTiers etc.) e os fallbacks quando null.
+  /// Identificador curto para a URL pública (copol-2026 → /e/copol-2026).
+  /// Opcional porque os eventos que já existem não têm; único porque vira endereço.
+  slug       String?         @unique
+  /// IANA. Tudo é gravado em UTC; isto define como a data aparece para
+  /// o organizador e nos e-mails do evento.
+  timezone   String          @default("America/Sao_Paulo")
+  language   String          @default("pt-BR")
+  visibility EventVisibility @default(PRIVATE)
+
   siteContent Json?
 
   // Configuração do certificado/comprovante deste evento — carga horária,
@@ -171,10 +207,196 @@ model Event {
   terminals        Terminal[]
   checkIns         CheckIn[]
   inscriptions     Inscription[]
+  modules          EventModule[]
+  submissionSettings SubmissionSettings?
+  submissionModalities SubmissionModality[]
+  submissionTopics     SubmissionTopic[]
+  submissions          Submission[]
   certificates     Certificate[]
   attendanceProofs AttendanceProof[]
 
   @@map("events")
+}
+
+/// Módulos ligados neste evento.
+///
+/// Tabela, e não colunas booleanas nem um campo Json, por três motivos:
+/// cada linha guarda QUEM ligou e QUANDO (o AuditLog registra a ação, mas
+/// não o estado); módulo novo não exige migração, só uma linha; e a
+/// consulta "quais eventos usam submissão" vira um WHERE em vez de varrer
+/// JSON.
+///
+/// Ausência de linha significa DESLIGADO. Assim, aplicar esta migração não
+/// muda o comportamento de nenhum evento existente — todos continuam
+/// exatamente como estão até alguém ligar algo no painel.
+///
+/// O catálogo do que cada chave significa fica no código
+/// (src/shared/event-modules.ts), não aqui: módulo sem tela seria uma
+/// linha apontando para lugar nenhum.
+model EventModule {
+  id      String @id @default(uuid())
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  /// Chave do catálogo: inscription, submission, review, schedule,
+  /// checkin, certificate.
+  module String
+
+  enabledAt DateTime @default(now())
+  /// User.id de quem ligou. Null quando veio de um padrão do sistema —
+  /// é o que separa "alguém decidiu" de "o sistema deu".
+  enabledBy String?
+
+  @@unique([eventId, module])
+  @@index([eventId])
+  @@map("event_modules")
+}
+
+/// Regras da chamada de trabalhos deste evento.
+///
+/// Tabela separada, e não colunas em Event, porque só existe para eventos
+/// que abrem chamada — a maioria não abre. Em Event, seriam seis colunas
+/// nulas em todo evento que é só palestra.
+model SubmissionSettings {
+  id      String @id @default(uuid())
+  eventId String @unique
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  /// Janela de envio. Null em qualquer um dos dois = aquele lado não
+  /// limita. Fora da janela o sistema recusa envio novo, mas continua
+  /// aceitando que o autor edite o que já mandou até a data de fechamento.
+  opensAt  DateTime?
+  closesAt DateTime?
+
+  /// Se o autor paga taxa de submissão. Só registra a regra — não há
+  /// cobrança implementada, e nada é bloqueado por falta de pagamento.
+  authorFeeRequired Boolean  @default(false)
+  authorFeeAmount   Decimal? @db.Decimal(10, 2)
+
+  maxFileSizeMb Int @default(10)
+
+  /// Quantos pareceres são necessários para decidir um trabalho.
+  /// Usado pelo módulo de avaliação.
+  minReviewsToDecide Int @default(2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("submission_settings")
+}
+
+/// Formato do trabalho: pôster, comunicação oral, relato de caso.
+/// Cadastrável pelo organizador porque cada congresso nomeia o seu.
+model SubmissionModality {
+  id          String  @id @default(uuid())
+  eventId     String
+  event       Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  active      Boolean @default(true)
+  position    Int     @default(0)
+
+  submissions Submission[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([eventId, name])
+  @@index([eventId])
+  @@map("submission_modalities")
+}
+
+/// Área temática: Ortodontia, Periodontia, Saúde Coletiva.
+/// É o que determina para qual parecerista o trabalho vai.
+model SubmissionTopic {
+  id       String  @id @default(uuid())
+  eventId  String
+  event    Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name     String
+  active   Boolean @default(true)
+  position Int     @default(0)
+
+  submissions Submission[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([eventId, name])
+  @@index([eventId])
+  @@map("submission_topics")
+}
+
+model Submission {
+  id      String @id @default(uuid())
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  /// Protocolo curto que o autor usa para falar do trabalho ("COPOL-0042").
+  /// Existe porque ninguém dita um uuid por telefone.
+  code String @unique
+
+  /// Restrict, não Cascade: apagar uma modalidade que tem trabalhos
+  /// deixaria os trabalhos sem classificação, ou os apagaria junto. As
+  /// duas coisas são piores do que o organizador receber um erro dizendo
+  /// que precisa mover os trabalhos antes.
+  modalityId String
+  modality   SubmissionModality @relation(fields: [modalityId], references: [id], onDelete: Restrict)
+  topicId    String
+  topic      SubmissionTopic    @relation(fields: [topicId], references: [id], onDelete: Restrict)
+
+  title    String
+  abstract String   @db.Text
+  keywords String[]
+
+  /// Chave no storage (mesma abstração dos certificados). Null enquanto o
+  /// autor não anexou — a submissão pode existir em DRAFT sem arquivo.
+  fileKey       String?
+  fileName      String?
+  fileSizeBytes Int?
+
+  status SubmissionStatus @default(DRAFT)
+
+  submittedAt DateTime?
+  withdrawnAt DateTime?
+  decidedAt   DateTime?
+
+  /// Similaridade com os OUTROS trabalhos do mesmo evento, de 0 a 1.
+  /// Calculada internamente (pg_trgm), sem serviço externo. Null = ainda
+  /// não verificado. Não é detecção de plágio contra a web nem contra
+  /// bases acadêmicas — isso depende de fornecedor contratado.
+  similarityScore     Float?
+  similarityCheckedAt DateTime?
+
+  authors SubmissionAuthor[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([eventId, status])
+  @@index([modalityId])
+  @@index([topicId])
+  @@map("submissions")
+}
+
+/// Autores de um trabalho, em ordem.
+///
+/// Não referencia User nem Participant: coautor de artigo frequentemente
+/// não tem conta no sistema e nunca vai ao evento. Guardar nome e e-mail
+/// soltos é o que reflete a realidade de uma submissão acadêmica.
+model SubmissionAuthor {
+  id           String     @id @default(uuid())
+  submissionId String
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  name        String
+  email       String
+  institution String?
+
+  /// Quem apresenta no evento. A comissão precisa saber para montar a
+  /// grade, e é quem recebe o certificado de apresentação.
+  isPresenter Boolean @default(false)
+  position    Int     @default(0)
+
+  @@index([submissionId])
+  @@map("submission_authors")
 }
 
 model Participant {

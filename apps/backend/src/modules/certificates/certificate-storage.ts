@@ -76,6 +76,18 @@ export function attendanceProofFileKey(eventId: string, participantId: string): 
  * resolveKey() acima é o que garante que isso continua seguro; o
  * filename em si (sem barras, gerado por randomUUID) nunca aponta pra
  * fora de STORAGE_DIR/signatures. */
+/**
+ * Onde o PDF de um trabalho submetido é guardado.
+ *
+ * Fica sob o mesmo STORAGE_DIR dos certificados, e a chave é montada aqui
+ * (nunca vem do cliente) — o nome que o autor deu ao arquivo entra só como
+ * metadado no banco, jamais no caminho. Nome de arquivo vindo de fora é a
+ * porta de entrada clássica para escrever fora do diretório.
+ */
+export function submissionFileKey(eventId: string, submissionId: string): string {
+  return `submissions/${eventId}/${submissionId}.pdf`;
+}
+
 export function signatureImageKey(filename: string): string {
   return join("signatures", filename);
 }

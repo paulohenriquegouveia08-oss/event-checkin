@@ -595,3 +595,190 @@ export async function downloadApk(): Promise<void> {
 export function checkHealth() {
   return request<{ status: string; apiVersion: string }>("/health", { auth: false });
 }
+
+// --- Configuração do evento (endereço público, fuso, módulos) ---
+export interface EventModuleInfo {
+  key: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  enabledAt: string | null;
+  requires: string[];
+}
+export interface EventConfig {
+  id: string;
+  name: string;
+  slug: string | null;
+  timezone: string;
+  language: string;
+  visibility: "PUBLIC" | "PRIVATE";
+  modules: EventModuleInfo[];
+}
+
+export function getEventConfig(eventId: string) {
+  return request<EventConfig>(`/events/${eventId}/config`);
+}
+export function updateEventConfig(
+  eventId: string,
+  body: Partial<Pick<EventConfig, "slug" | "timezone" | "language" | "visibility">>
+) {
+  return request<EventConfig>(`/events/${eventId}/config`, { method: "PATCH", body });
+}
+export function toggleEventModule(eventId: string, moduleKey: string, enabled: boolean) {
+  return request<{ module: string; enabled: boolean; alsoDisabled: string[] }>(
+    `/events/${eventId}/modules/${moduleKey}`,
+    { method: "PUT", body: { enabled } }
+  );
+}
+
+// --- Submissão de trabalhos ---
+export interface SubmissionSettings {
+  opensAt: string | null;
+  closesAt: string | null;
+  authorFeeRequired: boolean;
+  authorFeeAmount: number | null;
+  maxFileSizeMb: number;
+  minReviewsToDecide: number;
+}
+export interface CatalogItem {
+  id: string;
+  name: string;
+  description?: string | null;
+  active: boolean;
+  position: number;
+  submissionCount: number;
+}
+export type SubmissionStatus =
+  | "DRAFT" | "SUBMITTED" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" | "WITHDRAWN";
+export interface SubmissionAuthorRecord {
+  id: string;
+  name: string;
+  email: string;
+  institution: string | null;
+  isPresenter: boolean;
+  position: number;
+}
+export interface SubmissionRecord {
+  id: string;
+  code: string;
+  title: string;
+  abstract: string;
+  keywords: string[];
+  status: SubmissionStatus;
+  fileName: string | null;
+  fileSizeBytes: number | null;
+  submittedAt: string | null;
+  decidedAt: string | null;
+  modality: { id: string; name: string };
+  topic: { id: string; name: string };
+  authors: SubmissionAuthorRecord[];
+}
+
+export function getSubmissionSettings(eventId: string) {
+  return request<SubmissionSettings>(`/events/${eventId}/submissions/settings`);
+}
+export function updateSubmissionSettings(eventId: string, body: Partial<SubmissionSettings>) {
+  return request<SubmissionSettings>(`/events/${eventId}/submissions/settings`, {
+    method: "PATCH",
+    body,
+  });
+}
+export function listModalities(eventId: string) {
+  return request<CatalogItem[]>(`/events/${eventId}/submissions/modalities`);
+}
+export function createModality(eventId: string, name: string) {
+  return request<CatalogItem>(`/events/${eventId}/submissions/modalities`, {
+    method: "POST",
+    body: { name },
+  });
+}
+export function deleteModality(eventId: string, id: string) {
+  return request<{ deleted: true }>(`/events/${eventId}/submissions/modalities/${id}`, {
+    method: "DELETE",
+  });
+}
+export function listTopics(eventId: string) {
+  return request<CatalogItem[]>(`/events/${eventId}/submissions/topics`);
+}
+export function createTopic(eventId: string, name: string) {
+  return request<CatalogItem>(`/events/${eventId}/submissions/topics`, {
+    method: "POST",
+    body: { name },
+  });
+}
+export function deleteTopic(eventId: string, id: string) {
+  return request<{ deleted: true }>(`/events/${eventId}/submissions/topics/${id}`, {
+    method: "DELETE",
+  });
+}
+export function listSubmissions(
+  eventId: string,
+  params: { status?: string; search?: string; page?: number } = {}
+) {
+  const q = new URLSearchParams();
+  if (params.status) q.set("status", params.status);
+  if (params.search) q.set("search", params.search);
+  if (params.page) q.set("page", String(params.page));
+  const qs = q.toString();
+  return request<{
+    total: number;
+    page: number;
+    pageSize: number;
+    items: SubmissionRecord[];
+  }>(`/events/${eventId}/submissions${qs ? `?${qs}` : ""}`);
+}
+export function createSubmission(
+  eventId: string,
+  body: {
+    modalityId: string;
+    topicId: string;
+    title: string;
+    abstract: string;
+    keywords: string[];
+    authors: { name: string; email: string; institution?: string | null; isPresenter?: boolean }[];
+  }
+) {
+  return request<SubmissionRecord>(`/events/${eventId}/submissions`, { method: "POST", body });
+}
+export function uploadSubmissionFile(
+  eventId: string,
+  submissionId: string,
+  fileName: string,
+  dataBase64: string
+) {
+  return request<{ id: string; fileName: string; fileSizeBytes: number }>(
+    `/events/${eventId}/submissions/${submissionId}/file`,
+    { method: "POST", body: { fileName, dataBase64 } }
+  );
+}
+export function submitSubmission(eventId: string, submissionId: string) {
+  return request<SubmissionRecord>(`/events/${eventId}/submissions/${submissionId}/submit`, {
+    method: "POST",
+  });
+}
+export function withdrawSubmission(eventId: string, submissionId: string) {
+  return request<SubmissionRecord>(`/events/${eventId}/submissions/${submissionId}/withdraw`, {
+    method: "POST",
+  });
+}
+export function decideSubmission(
+  eventId: string,
+  submissionId: string,
+  decision: "APPROVED" | "REJECTED",
+  reason?: string
+) {
+  return request<SubmissionRecord>(`/events/${eventId}/submissions/${submissionId}/decide`, {
+    method: "POST",
+    body: { decision, reason },
+  });
+}
+/** URL do PDF para abrir em nova aba. O token vai no header, então o
+ *  link direto não serve — quem chama precisa buscar e criar um blob. */
+export async function fetchSubmissionFile(eventId: string, submissionId: string): Promise<Blob> {
+  const token = getToken();
+  const res = await fetch(`${API_URL}/events/${eventId}/submissions/${submissionId}/file`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new ApiError("Não consegui abrir o arquivo", "file_error", res.status);
+  return res.blob();
+}

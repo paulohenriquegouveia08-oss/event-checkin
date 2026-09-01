@@ -41,6 +41,10 @@ export const PERMISSIONS: PermissionDef[] = [
   { key: "events.view", description: "Ver eventos", category: "Eventos" },
   { key: "events.create", description: "Criar evento", category: "Eventos" },
   { key: "events.edit", description: "Editar evento (dados, status, conteúdo do site, inscrições)", category: "Eventos" },
+  // Separada de events.edit de propósito: publicar torna o evento visível
+  // para fora e ligar/desligar módulo muda o que a equipe inteira enxerga.
+  // Quem edita a descrição não precisa poder fazer nem uma coisa nem outra.
+  { key: "events.configure", description: "Definir endereço público, fuso, idioma, visibilidade e módulos ativos", category: "Eventos" },
 
   // Participantes
   { key: "participants.view", description: "Ver participantes de um evento", category: "Participantes" },
@@ -57,6 +61,13 @@ export const PERMISSIONS: PermissionDef[] = [
   { key: "statistics.view", description: "Ver estatísticas do evento", category: "Relatórios" },
   { key: "reports.view", description: "Ver e exportar relatório de presença", category: "Relatórios" },
   { key: "monitor.view", description: "Acompanhar check-ins em tempo real", category: "Relatórios" },
+
+  // Submissão de trabalhos
+  { key: "submissions.view", description: "Ver trabalhos submetidos", category: "Submissão" },
+  { key: "submissions.configure", description: "Definir modalidades, áreas temáticas e prazo da chamada", category: "Submissão" },
+  // Separada de configure: mexer no trabalho de outra pessoa (mudar área,
+  // retirar da chamada) é diferente de organizar o catálogo.
+  { key: "submissions.manage", description: "Editar, retirar e decidir sobre trabalhos submetidos", category: "Submissão" },
 
   // Certificados
   { key: "certificates.view", description: "Ver status e estatísticas de certificados do evento", category: "Certificados" },

@@ -1,0 +1,71 @@
+name: Deploy na VPS (Copol)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**'
+      - '.github/workflows/pre-copol-pages.yml'
+
+concurrency:
+  group: deploy-copol-vps
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Publicar na VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      VPS_HOST: ${{ vars.VPS_HOST || '137.131.233.254' }}
+      VPS_USER: 'ubuntu'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar chave SSH
+        env:
+          CHAVE: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          if [ -z "$CHAVE" ]; then
+            echo "::error::O segredo VPS_SSH_KEY não está configurado no repositório."
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "$CHAVE" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Executar deploy na VPS
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new "$VPS_USER@$VPS_HOST" "bash -s" << 'EOF'
+            set -euo pipefail
+            
+            # Localizar diretório do projeto na VPS
+            if [ -d "$HOME/event-checkin" ]; then
+              cd "$HOME/event-checkin"
+            elif [ -d "/opt/event-checkin" ]; then
+              cd "/opt/event-checkin"
+            else
+              echo "Diretório do event-checkin não encontrado em ~/event-checkin nem em /opt/event-checkin"
+              exit 1
+            fi
+
+            echo "==> Atualizando código do repositório..."
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "==> Reconstruindo containers e aplicando migrations..."
+            docker compose up -d --build
+
+            echo "==> Verificando saúde dos serviços..."
+            sleep 5
+            docker compose ps
+          EOF
+
+      - name: Limpar chave
+        if: always()
+        run: rm -f ~/.ssh/id_rsa

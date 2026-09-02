@@ -6,11 +6,16 @@ export interface CreateInscriptionParams {
   name: string;
   email: string;
   document: string;
-  phone?: string;
-  institution?: string;
+  phone?: string | null;
+  institution?: string | null;
   category: string;
   amount: number;
-  notes?: string;
+  batchId?: string | null;
+  notes?: string | null;
+  paymentUrl?: string | null;
+  qrCodeBase64?: string | null;
+  qrCodeContent?: string | null;
+  paymentExpiresAt?: Date | null;
 }
 
 export function createInscription(params: CreateInscriptionParams) {
@@ -24,18 +29,45 @@ export function createInscription(params: CreateInscriptionParams) {
       institution: params.institution ?? null,
       category: params.category,
       amount: params.amount,
+      batchId: params.batchId ?? null,
       notes: params.notes ?? null,
+      paymentUrl: params.paymentUrl ?? null,
+      qrCodeBase64: params.qrCodeBase64 ?? null,
+      qrCodeContent: params.qrCodeContent ?? null,
+      paymentExpiresAt: params.paymentExpiresAt ?? null,
     },
   });
 }
 
 export function findInscriptionById(id: string) {
-  return prisma.inscription.findUnique({ where: { id } });
+  return prisma.inscription.findUnique({
+    where: { id },
+    include: {
+      event: true,
+      batch: true,
+    },
+  });
+}
+
+export function updateInscriptionPayment(
+  id: string,
+  data: {
+    paymentUrl?: string | null;
+    qrCodeBase64?: string | null;
+    qrCodeContent?: string | null;
+    paymentExpiresAt?: Date | null;
+  }
+) {
+  return prisma.inscription.update({
+    where: { id },
+    data,
+  });
 }
 
 export function listInscriptionsByEvent(eventId: string) {
   return prisma.inscription.findMany({
     where: { eventId },
+    include: { batch: true },
     orderBy: { createdAt: "desc" },
   });
 }

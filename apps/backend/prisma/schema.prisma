@@ -214,6 +214,8 @@ model Event {
   submissions          Submission[]
   certificates     Certificate[]
   attendanceProofs AttendanceProof[]
+  batches          EventBatch[]
+  scheduleItems    EventScheduleItem[]
 
   @@map("events")
 }
@@ -537,12 +539,60 @@ model Inscription {
   amount        Decimal           @db.Decimal(10, 2)
   status        InscriptionStatus @default(PENDING)
   paymentId     String?
-  notes         String?
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  notes            String?
+  paymentUrl       String?
+  qrCodeBase64     String?           @db.Text
+  qrCodeContent    String?           @db.Text
+  paymentExpiresAt DateTime?
+  batchId          String?
+  batch            EventBatch?       @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 
   @@index([eventId])
+  @@index([batchId])
   @@map("inscriptions")
+}
+
+model EventBatch {
+  id          String        @id @default(uuid())
+  eventId     String
+  event       Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  batchNumber Int
+  name        String        @db.VarChar(100)
+  price       Decimal       @db.Decimal(10, 2)
+  maxQuantity Int?
+  endDate     DateTime?
+  isActive    Boolean       @default(false)
+  isClosed    Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  inscriptions Inscription[]
+
+  @@unique([eventId, batchNumber])
+  @@index([eventId])
+  @@map("event_batches")
+}
+
+model EventScheduleItem {
+  id          String   @id @default(uuid())
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  date        DateTime @db.Date
+  startTime   String   @db.VarChar(10) // ex: "08:00"
+  endTime     String?  @db.VarChar(10) // ex: "09:00"
+  title       String   @db.VarChar(200)
+  speaker     String?  @db.VarChar(150)
+  location    String?  @db.VarChar(150)
+  description String?  @db.Text
+  type        String?  @db.VarChar(50) // ex: "palestra", "credenciamento", "intervalo"
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([eventId, date, order])
+  @@map("event_schedule_items")
 }
 
 // Um certificado por (evento, participante) — regenerar não cria uma nova

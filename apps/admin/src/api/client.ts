@@ -782,3 +782,99 @@ export async function fetchSubmissionFile(eventId: string, submissionId: string)
   if (!res.ok) throw new ApiError("Não consegui abrir o arquivo", "file_error", res.status);
   return res.blob();
 }
+
+// --- Lotes Automáticos ---
+export interface BatchItem {
+  id: string;
+  batchNumber: number;
+  name: string;
+  price: number;
+  maxQuantity: number | null;
+  confirmedCount: number;
+  endDate: string | null;
+  status: "ACTIVE" | "CLOSED" | "UPCOMING" | "FINISHED";
+  isActive: boolean;
+}
+
+export function getBatches(eventId: string) {
+  return request<{ batches: BatchItem[]; activeBatch: BatchItem | null }>(`/events/${eventId}/batches`);
+}
+
+// --- Programação do Evento ---
+export interface ScheduleItem {
+  id: string;
+  eventId: string;
+  date: string;
+  startTime: string;
+  endTime?: string | null;
+  title: string;
+  speaker?: string | null;
+  location?: string | null;
+  description?: string | null;
+  type?: string | null;
+  order: number;
+}
+
+export interface CreateScheduleInput {
+  date: string;
+  startTime: string;
+  endTime?: string | null;
+  title: string;
+  speaker?: string | null;
+  location?: string | null;
+  description?: string | null;
+  type?: string | null;
+  order?: number;
+}
+
+export function getSchedule(eventId: string) {
+  return request<ScheduleItem[]>(`/events/${eventId}/schedule`);
+}
+
+export function createScheduleItem(eventId: string, body: CreateScheduleInput) {
+  return request<ScheduleItem>(`/events/${eventId}/schedule`, {
+    method: "POST",
+    body,
+  });
+}
+
+export function updateScheduleItem(id: string, body: Partial<CreateScheduleInput>) {
+  return request<ScheduleItem>(`/schedule/${id}`, {
+    method: "PUT",
+    body,
+  });
+}
+
+export function deleteScheduleItem(id: string) {
+  return request<{ deleted: boolean }>(`/schedule/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export function reorderSchedule(eventId: string, itemIds: string[]) {
+  return request<ScheduleItem[]>(`/events/${eventId}/schedule/reorder`, {
+    method: "POST",
+    body: { itemIds },
+  });
+}
+
+// --- Relatório de Inscritos ---
+export interface InscriptionReportItem {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  document: string;
+  institution: string | null;
+  category: string;
+  amount: number;
+  status: "PENDING" | "CONFIRMED" | "CANCELLED";
+  paymentId: string | null;
+  participantId: string | null;
+  createdAt: string;
+}
+
+export function getInscriptionsReport(eventId: string) {
+  return request<InscriptionReportItem[]>(`/events/${eventId}/inscriptions/report`);
+}
+

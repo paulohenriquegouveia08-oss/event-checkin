@@ -3,14 +3,17 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { getEvent, createInscription, type EventData, type InscriptionInput, type PricingTier } from "@/lib/api";
+import {
+  getEvent,
+  getBatches,
+  createInscription,
+  type EventData,
+  type BatchItem,
+  type InscriptionInput,
+} from "@/lib/api";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 
-// Rota por query string (?eventId=...), não segmento dinâmico
-// ([eventId]) — mesmo motivo de /certificados: export estático (GitHub
-// Pages) não tem como pré-gerar uma página por evento que ainda nem
-// existe no momento do build.
 export default function InscriptionPage() {
   return (
     <Suspense fallback={null}>
@@ -24,6 +27,7 @@ function InscriptionContent() {
   const eventId = searchParams.get("eventId") ?? "";
   const router = useRouter();
   const [event, setEvent] = useState<EventData | null>(null);
+  const [activeBatch, setActiveBatch] = useState<BatchItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +37,6 @@ function InscriptionContent() {
     email: "",
     document: "",
     phone: "",
-    category: "",
     institution: "",
     notes: "",
   });
@@ -43,11 +46,11 @@ function InscriptionContent() {
       setLoading(false);
       return;
     }
-    getEvent(eventId)
-      .then((data) => {
-        setEvent(data);
-        const firstTier = data.siteContent.pricingTiers[0];
-        if (firstTier) setForm((prev) => ({ ...prev, category: firstTier.key }));
+
+    Promise.all([getEvent(eventId), getBatches(eventId).catch(() => ({ batches: [], activeBatch: null }))])
+      .then(([eventData, batchData]) => {
+        setEvent(eventData);
+        setActiveBatch(batchData.activeBatch);
       })
       .catch(() => setError("Evento não encontrado"))
       .finally(() => setLoading(false));
@@ -72,9 +75,6 @@ function InscriptionContent() {
     }
     return digits.replace(/(\d{2})(\d)/, "($1) $2").replace(/(\d{5})(\d)/, "$1-$2");
   }
-
-  const tiers: PricingTier[] = event?.siteContent.pricingTiers ?? [];
-  const selectedTier = tiers.find((t) => t.key === form.category);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -117,10 +117,21 @@ function InscriptionContent() {
     );
   }
 
-  if (!event.registrationsOpen) {
+  if (!event.registrationsOpen || (activeBatch && activeBatch.status === "CLOSED")) {
     return (
       <PageShell>
-        <div className="card" style={{ textAlign: "center", padding: 40, maxWidth: 440, display: "flex", flexDirection: "column", gap: 12, alignItems: "center" }}>
+        <div
+          className="card"
+          style={{
+            textAlign: "center",
+            padding: 40,
+            maxWidth: 440,
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
+            alignItems: "center",
+          }}
+        >
           <span
             style={{
               display: "inline-flex",
@@ -137,7 +148,7 @@ function InscriptionContent() {
           </span>
           <h1 style={{ margin: "8px 0 0", fontSize: 22 }}>{event.name}</h1>
           <p style={{ margin: 0, color: "var(--muted-foreground)", fontSize: 14 }}>
-            As inscrições para este evento não estão mais disponíveis.
+            As inscrições para este evento não estão mais disponíveis no momento.
           </p>
           <Link href="/" className="btn-secondary" style={{ marginTop: 8 }}>
             ← Voltar
@@ -158,9 +169,52 @@ function InscriptionContent() {
             ← Voltar
           </Link>
           <h1 style={{ margin: "12px 0 4px", fontSize: "clamp(24px, 4vw, 32px)" }}>Inscrição</h1>
-          <p style={{ margin: "0 0 32px", color: "var(--muted-foreground)" }}>{event.name}</p>
+          <p style={{ margin: "0 0 24px", color: "var(--muted-foreground)" }}>{event.name}</p>
 
-          <form onSubmit={handleSubmit} className="card animate-fade-up" style={{ padding: 28, display: "flex", flexDirection: "column", gap: 18 }}>
+          {/* Banner do Lote Ativo */}
+          <div
+            className="animate-fade-up"
+            style={{
+              background: "rgba(200, 162, 97, 0.08)",
+              border: "1px solid rgba(200, 162, 97, 0.3)",
+              borderRadius: 14,
+              padding: "20px 24px",
+              marginBottom: 24,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 16,
+            }}
+          >
+            <div>
+              <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "1.5px", color: "var(--gold)", fontWeight: 700 }}>
+                LOTE ATUAL VIGENTE
+              </span>
+              <h3 style={{ margin: "4px 0 0", fontSize: 19, fontWeight: 800, color: "var(--foreground)" }}>
+                {activeBatch?.name || "Inscrição Geral"}
+              </h3>
+              {activeBatch?.maxQuantity && (
+                <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--muted-foreground)" }}>
+                  {activeBatch.confirmedCount} de {activeBatch.maxQuantity} vagas preenchidas
+                </p>
+              )}
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: "clamp(24px, 5vw, 28px)", fontWeight: 800, color: "var(--gold)", lineHeight: 1 }}>
+                {activeBatch ? `R$ ${activeBatch.price.toFixed(2).replace(".", ",")}` : "R$ 100,00"}
+              </div>
+              <span style={{ fontSize: 11, color: "var(--muted-foreground)", display: "block", marginTop: 4 }}>
+                Inscrição única
+              </span>
+            </div>
+          </div>
+
+          <form
+            onSubmit={handleSubmit}
+            className="card animate-fade-up"
+            style={{ padding: 28, display: "flex", flexDirection: "column", gap: 18 }}
+          >
             <Field label="Nome completo *">
               <input
                 type="text"
@@ -194,107 +248,65 @@ function InscriptionContent() {
               />
             </Field>
 
-            <Field label="Telefone">
+            <Field label="Telefone com DDD *">
               <input
                 type="text"
                 value={form.phone}
                 onChange={(e) => updateField("phone", formatPhone(e.target.value))}
                 placeholder="(00) 00000-0000"
+                required
                 style={inputStyle}
               />
-            </Field>
-
-            <Field label="Categoria *">
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {tiers.map((tier) => (
-                  <label
-                    key={tier.key}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      padding: "14px 16px",
-                      background: form.category === tier.key ? "rgba(45, 212, 191, 0.08)" : "var(--background)",
-                      border: `1px solid ${form.category === tier.key ? "var(--primary)" : "var(--border)"}`,
-                      borderRadius: 12,
-                      cursor: "pointer",
-                      fontSize: 14,
-                      transition: "border-color 0.15s ease, background 0.15s ease",
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name="category"
-                      value={tier.key}
-                      checked={form.category === tier.key}
-                      onChange={(e) => updateField("category", e.target.value)}
-                      style={{ accentColor: "var(--primary)" }}
-                    />
-                    <span style={{ flex: 1 }}>{tier.label}</span>
-                    <strong style={{ color: "var(--primary)" }}>R$ {tier.amount.toFixed(2).replace(".", ",")}</strong>
-                  </label>
-                ))}
-              </div>
             </Field>
 
             <Field label="Instituição de ensino (opcional)">
               <input
                 type="text"
-                value={form.institution}
+                value={form.institution ?? ""}
                 onChange={(e) => updateField("institution", e.target.value)}
-                placeholder="Nome da instituição"
+                placeholder="Ex: Universidade Positivo, UEL, etc."
                 style={inputStyle}
               />
             </Field>
 
             <Field label="Observações (opcional)">
               <textarea
-                value={form.notes}
+                value={form.notes ?? ""}
                 onChange={(e) => updateField("notes", e.target.value)}
-                placeholder="Alguma informação adicional..."
+                placeholder="Alguma necessidade especial ou observação para a organização?"
                 rows={3}
-                style={{ ...inputStyle, resize: "vertical" }}
+                style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }}
               />
             </Field>
 
-            <div
-              style={{
-                background: "var(--background)",
-                border: "1px solid var(--border)",
-                borderRadius: 12,
-                padding: 18,
-                fontSize: 14,
-              }}
+            {error && (
+              <div
+                style={{
+                  padding: "12px 16px",
+                  background: "rgba(239, 68, 68, 0.12)",
+                  border: "1px solid rgba(239, 68, 68, 0.3)",
+                  borderRadius: 8,
+                  color: "var(--destructive)",
+                  fontSize: 14,
+                }}
+              >
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="btn-primary"
+              style={{ width: "100%", padding: 14, fontSize: 16, marginTop: 8 }}
             >
-              <p style={{ margin: "0 0 8px", fontWeight: 700 }}>Resumo</p>
-              <p style={{ margin: "0 0 4px", color: "var(--muted-foreground)" }}>Evento: {event.name}</p>
-              <p style={{ margin: "0 0 10px", color: "var(--muted-foreground)" }}>Categoria: {selectedTier?.label}</p>
-              <p style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "var(--primary)" }}>
-                R$ {selectedTier ? selectedTier.amount.toFixed(2).replace(".", ",") : "—"}
-              </p>
-            </div>
-
-            {error ? <p style={{ color: "var(--destructive)", fontSize: 14, margin: 0 }}>{error}</p> : null}
-
-            <button type="submit" disabled={submitting} className="btn-primary" style={{ width: "100%" }}>
-              {submitting ? "Enviando..." : "Finalizar Inscrição"}
+              {submitting ? "Gerando cobrança..." : "Avançar para Pagamento →"}
             </button>
           </form>
         </div>
       </main>
 
-      <SiteFooter text={event.siteContent.footerText} />
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label style={{ display: "block", fontSize: 13, color: "var(--muted-foreground)", marginBottom: 6, fontWeight: 600 }}>
-        {label}
-      </label>
-      {children}
+      <SiteFooter />
     </div>
   );
 }
@@ -303,7 +315,15 @@ function PageShell({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <SiteHeader />
-      <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      <main
+        style={{
+          flex: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 24,
+        }}
+      >
         {children}
       </main>
       <SiteFooter />
@@ -311,13 +331,22 @@ function PageShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 14, fontWeight: 500 }}>
+      <span>{label}</span>
+      {children}
+    </label>
+  );
+}
+
 const inputStyle: React.CSSProperties = {
-  width: "100%",
   padding: "12px 14px",
-  fontSize: 14,
   background: "var(--background)",
   border: "1px solid var(--border)",
   borderRadius: 10,
+  fontSize: 15,
   color: "var(--foreground)",
   outline: "none",
+  transition: "border-color 0.15s ease",
 };

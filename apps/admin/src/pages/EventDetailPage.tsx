@@ -11,15 +11,33 @@ import { SiteTab } from "./event/SiteTab";
 import { CertificatesTab } from "./event/CertificatesTab";
 import { ConfigTab } from "./event/ConfigTab";
 import { SubmissionsTab } from "./event/SubmissionsTab";
+import { InscriptionsReportTab } from "./event/InscriptionsReportTab";
+import { BatchesTab } from "./event/BatchesTab";
+import { ScheduleTab } from "./event/ScheduleTab";
 
-type Tab = "participants" | "terminals" | "statistics" | "monitor" | "report" | "site" | "certificates" | "submissions" | "config";
+type Tab =
+  | "participants"
+  | "inscriptions"
+  | "batches"
+  | "schedule"
+  | "terminals"
+  | "statistics"
+  | "monitor"
+  | "report"
+  | "site"
+  | "certificates"
+  | "submissions"
+  | "config";
 
 const TABS: { key: Tab; label: string; permission: string }[] = [
   { key: "participants", label: "Participantes", permission: "participants.view" },
+  { key: "inscriptions", label: "Inscritos", permission: "participants.view" },
+  { key: "batches", label: "Lotes", permission: "events.view" },
+  { key: "schedule", label: "Programação", permission: "events.view" },
   { key: "terminals", label: "Terminais", permission: "terminals.view" },
   { key: "statistics", label: "Estatísticas", permission: "statistics.view" },
   { key: "monitor", label: "Monitor", permission: "monitor.view" },
-  { key: "report", label: "Relatório", permission: "reports.view" },
+  { key: "report", label: "Relatório Presença", permission: "reports.view" },
   { key: "certificates", label: "Certificados", permission: "certificates.view" },
   { key: "submissions", label: "Trabalhos", permission: "submissions.view" },
   { key: "site", label: "Site", permission: "events.edit" },
@@ -210,6 +228,9 @@ export function EventDetailPage() {
       ) : null}
 
       {activeTab === "participants" ? <ParticipantsTab eventId={eventId} /> : null}
+      {activeTab === "inscriptions" ? <InscriptionsReportTab eventId={eventId} /> : null}
+      {activeTab === "batches" ? <BatchesTab eventId={eventId} /> : null}
+      {activeTab === "schedule" ? <ScheduleTab eventId={eventId} /> : null}
       {activeTab === "terminals" ? <TerminalsTab eventId={eventId} /> : null}
       {activeTab === "statistics" ? <StatisticsTab eventId={eventId} /> : null}
       {activeTab === "monitor" ? <LiveMonitorTab eventId={eventId} /> : null}

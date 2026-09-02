@@ -20,6 +20,18 @@ const envSchema = z.object({
   // "https://precopol.lspktecnology.com.br/certificados"). Sem barra no
   // final.
   CERTIFICATE_VALIDATION_BASE_URL: z.string().min(1).default("http://localhost:3002/certificados"),
+
+  // Integração PicPay E-Commerce
+  PICPAY_TOKEN: z.string().optional().default(""),
+  PICPAY_SELLER_TOKEN: z.string().optional().default(""),
+
+  // Envio de e-mails via Resend
+  RESEND_API_KEY: z.string().optional().default(""),
+  EMAIL_FROM: z.string().default("COPOL 2026 <contato@copol2026.com.br>"),
+
+  // URLs públicas do sistema
+  PRE_COPOL_BASE_URL: z.string().default("https://copol2026.com.br"),
+  BACKEND_PUBLIC_URL: z.string().default("http://137.131.233.254:3000"),
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -45,7 +45,7 @@ export interface InscriptionInput {
   email: string;
   document: string;
   phone: string;
-  category: string;
+  category?: string;
   institution?: string;
   notes?: string;
 }
@@ -58,6 +58,55 @@ export interface InscriptionResult {
   status: string;
   amount: number;
   category: string;
+  paymentUrl?: string | null;
+  qrCodeBase64?: string | null;
+  qrCodeContent?: string | null;
+  expiresAt?: string | null;
+}
+
+export interface InscriptionPaymentStatus {
+  id: string;
+  status: "PENDING" | "CONFIRMED" | "CANCELLED";
+  amount: number;
+  category: string;
+  paymentUrl: string | null;
+  qrCodeBase64: string | null;
+  qrCodeContent: string | null;
+  paymentExpiresAt: string | null;
+  participantId: string | null;
+  qrToken: string | null;
+  attendeePortalUrl: string | null;
+}
+
+export interface BatchItem {
+  id: string;
+  batchNumber: number;
+  name: string;
+  price: number;
+  maxQuantity: number | null;
+  confirmedCount: number;
+  endDate: string | null;
+  status: "ACTIVE" | "CLOSED" | "UPCOMING" | "FINISHED";
+  isActive: boolean;
+}
+
+export interface BatchesResponse {
+  batches: BatchItem[];
+  activeBatch: BatchItem | null;
+}
+
+export interface ScheduleItem {
+  id: string;
+  eventId: string;
+  date: string;
+  startTime: string;
+  endTime?: string | null;
+  title: string;
+  speaker?: string | null;
+  location?: string | null;
+  description?: string | null;
+  type?: string | null;
+  order: number;
 }
 
 async function request<T>(path: string, options: { method?: string; body?: unknown } = {}): Promise<T> {
@@ -88,6 +137,18 @@ export function createInscription(eventId: string, input: InscriptionInput) {
     method: "POST",
     body: input,
   });
+}
+
+export function getPaymentStatus(id: string) {
+  return request<InscriptionPaymentStatus>(`/inscriptions/${id}/payment-status`);
+}
+
+export function getBatches(eventId: string) {
+  return request<BatchesResponse>(`/events/${eventId}/batches`);
+}
+
+export function getSchedule(eventId: string) {
+  return request<ScheduleItem[]>(`/events/${eventId}/schedule`);
 }
 
 export interface PublicCertificate {

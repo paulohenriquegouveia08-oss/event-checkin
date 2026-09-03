@@ -141,7 +141,7 @@ export function SiteTab({ eventId }: { eventId: string }) {
     stepsTitle: "Da inscrição ao credenciamento",
     pricingTitle: "Escolha sua categoria",
     partnersTitle: "Realização e apoio",
-    partnersText: "Universidade Positivo e parceiros apoiam o evento.",
+    partnersText: "Universidade Positivo, Ecohub e LSPK Tecnology apoiam o Pré-Copol 2026.",
     footerText: "3º COPOL — Todos os direitos reservados",
   });
 
@@ -187,7 +187,12 @@ export function SiteTab({ eventId }: { eventId: string }) {
         stepsTitle: c.stepsTitle || "Da inscrição ao credenciamento",
         pricingTitle: c.pricingTitle || "Escolha sua categoria",
         partnersTitle: c.partnersTitle || "Realização e apoio",
-        partnersText: c.partnersText || "Universidade Positivo e parceiros apoiam o evento.",
+        partnersText:
+          c.partnersText &&
+          c.partnersText !== "Universidade Positivo e parceiros apoiam o evento." &&
+          c.partnersText !== "Universidade Positivo e LSPK Tecnology apoiam o Pré-Copol 2026."
+            ? c.partnersText
+            : "Universidade Positivo, Ecohub e LSPK Tecnology apoiam o Pré-Copol 2026.",
         footerText: c.footerText || "3º COPOL — Todos os direitos reservados",
       });
     } catch (err) {
@@ -804,7 +809,23 @@ export function SiteTab({ eventId }: { eventId: string }) {
 
               {activeSection.type === "partners" && (
                 <div className="stack" style={{ gap: 10 }}>
-                  <div className="spread" style={{ alignItems: "center" }}>
+                  <label className="stack" style={{ gap: 2, fontSize: 11 }}>
+                    <span>Título da Seção</span>
+                    <input
+                      type="text"
+                      value={textFields.partnersTitle}
+                      onChange={(e) => setTextFields({ ...textFields, partnersTitle: e.target.value })}
+                    />
+                  </label>
+                  <label className="stack" style={{ gap: 2, fontSize: 11 }}>
+                    <span>Frase de Apoio</span>
+                    <textarea
+                      rows={2}
+                      value={textFields.partnersText}
+                      onChange={(e) => setTextFields({ ...textFields, partnersText: e.target.value })}
+                    />
+                  </label>
+                  <div className="spread" style={{ alignItems: "center", marginTop: 4 }}>
                     <span style={{ fontSize: 12, fontWeight: 600 }}>Marcas e Parceiros</span>
                     <button type="button" className="btn btn-secondary btn-sm" onClick={addPartner} style={{ padding: "4px 8px", fontSize: 11, display: "inline-flex", alignItems: "center", gap: 4 }}>
                       <PlusIcon size={12} /> Marca

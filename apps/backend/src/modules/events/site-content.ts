@@ -230,6 +230,7 @@ export const DEFAULT_SITE_CONTENT: ResolvedSiteContent = {
   faqs: DEFAULT_FAQS,
   partnersList: [
     { name: "Universidade Positivo", role: "Realização" },
+    { name: "Ecohub", role: "Apoio" },
     { name: "LSPK Tecnology", role: "Tecnologia e Apoio" },
   ],
   eventTitle: "Pré-Copol",
@@ -261,7 +262,7 @@ export const DEFAULT_SITE_CONTENT: ResolvedSiteContent = {
   ],
 
   partnersTitle: "Realização e apoio",
-  partnersText: "Universidade Positivo e LSPK Tecnology apoiam o Pré-Copol 2026.",
+  partnersText: "Universidade Positivo, Ecohub e LSPK Tecnology apoiam o Pré-Copol 2026.",
 
   footerText: "3º COPOL — Congresso Odontológico Positivo Londrinense",
 };
@@ -304,11 +305,28 @@ export function resolveSiteContent(stored: unknown): ResolvedSiteContent {
     }));
   }
 
+  let partnersText = content.partnersText || DEFAULT_SITE_CONTENT.partnersText;
+  if (
+    partnersText === "Universidade Positivo e LSPK Tecnology apoiam o Pré-Copol 2026." ||
+    partnersText === "Universidade Positivo e parceiros apoiam o evento."
+  ) {
+    partnersText = "Universidade Positivo, Ecohub e LSPK Tecnology apoiam o Pré-Copol 2026.";
+  }
+
+  let partnersList =
+    content.partnersList && content.partnersList.length > 0
+      ? content.partnersList
+      : DEFAULT_SITE_CONTENT.partnersList;
+
+  if (partnersList.length > 0 && !partnersList.some((p) => p.name.toLowerCase().includes("ecohub"))) {
+    partnersList = [...partnersList, { name: "Ecohub", role: "Apoio" }];
+  }
+
   return {
     theme,
     sections,
     faqs: content.faqs && content.faqs.length > 0 ? content.faqs : DEFAULT_FAQS,
-    partnersList: content.partnersList && content.partnersList.length > 0 ? content.partnersList : DEFAULT_SITE_CONTENT.partnersList,
+    partnersList,
     eventTitle: content.eventTitle || DEFAULT_SITE_CONTENT.eventTitle,
     eventYear: content.eventYear || DEFAULT_SITE_CONTENT.eventYear,
     heroBadge: content.heroBadge || DEFAULT_SITE_CONTENT.heroBadge,
@@ -321,7 +339,7 @@ export function resolveSiteContent(stored: unknown): ResolvedSiteContent {
     pricingTiers:
       content.pricingTiers && content.pricingTiers.length > 0 ? content.pricingTiers : DEFAULT_SITE_CONTENT.pricingTiers,
     partnersTitle: content.partnersTitle || DEFAULT_SITE_CONTENT.partnersTitle,
-    partnersText: content.partnersText || DEFAULT_SITE_CONTENT.partnersText,
+    partnersText,
     footerText: content.footerText || DEFAULT_SITE_CONTENT.footerText,
   };
 }

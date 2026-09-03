@@ -42,6 +42,8 @@ describe("White-Label — Construtor de Sites Dinâmico por Evento", () => {
     expect(data.siteContent.sections).toHaveLength(7);
     expect(data.siteContent.sections[0].type).toBe("hero");
     expect(data.siteContent.sections[1].type).toBe("about");
+    expect(data.siteContent.partnersText).toBe("Universidade Positivo, Ecohub e LSPK Tecnology apoiam o Pré-Copol 2026.");
+    expect(data.siteContent.partnersList.some((p: any) => p.name === "Ecohub")).toBe(true);
   });
 
   it("permite ao administrador customizar cores, ordem de seções, ocultar seção e salvar FAQ", async () => {

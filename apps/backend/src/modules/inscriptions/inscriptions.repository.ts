@@ -16,6 +16,10 @@ export interface CreateInscriptionParams {
   qrCodeBase64?: string | null;
   qrCodeContent?: string | null;
   paymentExpiresAt?: Date | null;
+  /** Versao do termo aceito. Ver inscriptions.schema.ts. */
+  consentVersion: string;
+  consentAcceptedAt: Date;
+  consentIp?: string | null;
 }
 
 export function createInscription(params: CreateInscriptionParams) {
@@ -35,6 +39,9 @@ export function createInscription(params: CreateInscriptionParams) {
       qrCodeBase64: params.qrCodeBase64 ?? null,
       qrCodeContent: params.qrCodeContent ?? null,
       paymentExpiresAt: params.paymentExpiresAt ?? null,
+      consentVersion: params.consentVersion,
+      consentAcceptedAt: params.consentAcceptedAt,
+      consentIp: params.consentIp ?? null,
     },
   });
 }

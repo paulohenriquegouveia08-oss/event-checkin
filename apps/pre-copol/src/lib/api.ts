@@ -93,6 +93,9 @@ export interface InscriptionInput {
   category?: string;
   institution?: string;
   notes?: string;
+  /** Versao do termo que estava na tela quando a pessoa aceitou.
+   *  Ver src/lib/termos.ts — o servidor a grava junto com a data. */
+  consentVersion: string;
 }
 
 export interface InscriptionResult {

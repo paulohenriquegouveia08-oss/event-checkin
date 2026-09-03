@@ -226,3 +226,19 @@ h4 {
 }
 
 
+
+/* Menu do cabecalho.
+   Em tela estreita os tres links, com o tamanho do computador, nao
+   cabem ao lado do titulo — e o titulo acabava passando por baixo
+   deles. Aqui eles encolhem em vez de brigar por espaco. */
+.link-menu {
+  padding: 8px 9px;
+  font-size: 12px;
+}
+
+@media (min-width: 640px) {
+  .link-menu {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+}

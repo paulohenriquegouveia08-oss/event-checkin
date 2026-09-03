@@ -30,9 +30,90 @@ function inscriptionPayload(overrides: Partial<Record<string, unknown>> = {}) {
     email: "maria@teste.com",
     document: "123.456.789-00",
     category: "STUDENT_UP",
+    // O aceite do termo agora e' obrigatorio. Fica no helper para os
+    // testes que existiam continuarem falando do que falavam.
+    consentVersion: "1.0",
     ...overrides,
   };
 }
+
+describe("consentimento do termo (LGPD)", () => {
+  it("recusa a inscrição sem o aceite do termo", async () => {
+    // O botao desabilitado na tela e' conforto visual: some com um
+    // clique no inspetor. Quem recusa de verdade e' o servidor.
+    const event = await createTestEvent();
+    const { consentVersion: _omitido, ...semAceite } = inscriptionPayload();
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/events/${event.id}/inscriptions`,
+      payload: semAceite,
+    });
+
+    // 422 e' a convencao deste projeto para falha de validacao.
+    expect(response.statusCode).toBe(422);
+  });
+
+  it("recusa versão em branco", async () => {
+    const event = await createTestEvent();
+    const response = await app.inject({
+      method: "POST",
+      url: `/events/${event.id}/inscriptions`,
+      payload: inscriptionPayload({ consentVersion: "   " }),
+    });
+
+    expect(response.statusCode).toBe(422);
+  });
+
+  it("grava qual versão foi aceita, e quando", async () => {
+    const event = await createTestEvent();
+    const antes = new Date();
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/events/${event.id}/inscriptions`,
+      payload: inscriptionPayload({ consentVersion: "2.7" }),
+    });
+
+    expect(response.statusCode).toBe(201);
+
+    const gravada = await prisma.inscription.findUnique({
+      where: { id: response.json().data.id },
+    });
+
+    // A versao e' o que torna a prova util: sem ela saber-se-ia que a
+    // pessoa concordou, mas nao com QUE texto.
+    expect(gravada?.consentVersion).toBe("2.7");
+    expect(gravada?.consentAcceptedAt).toBeInstanceOf(Date);
+    expect(gravada!.consentAcceptedAt!.getTime()).toBeGreaterThanOrEqual(antes.getTime() - 1000);
+    expect(gravada?.consentIp).toBeTruthy();
+  });
+
+  it("ignora data e IP enviados pelo cliente", async () => {
+    // Evidencia que o proprio interessado escolhe nao e' evidencia.
+    // Os dois campos sao carimbados pelo servidor, e o que vier no
+    // corpo da requisicao nao pode sobrescrever.
+    const event = await createTestEvent();
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/events/${event.id}/inscriptions`,
+      payload: inscriptionPayload({
+        consentAcceptedAt: "1999-01-01T00:00:00.000Z",
+        consentIp: "1.2.3.4",
+      }),
+    });
+
+    expect(response.statusCode).toBe(201);
+
+    const gravada = await prisma.inscription.findUnique({
+      where: { id: response.json().data.id },
+    });
+
+    expect(gravada!.consentAcceptedAt!.getFullYear()).toBeGreaterThan(2020);
+    expect(gravada?.consentIp).not.toBe("1.2.3.4");
+  });
+});
 
 describe("POST /events/:eventId/inscriptions", () => {
   it("cria inscrição usando a categoria/valor padrão quando o evento não tem siteContent configurado", async () => {

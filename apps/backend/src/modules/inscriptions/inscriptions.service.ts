@@ -10,7 +10,13 @@ import * as batchesService from "../batches/batches.service.js";
 import * as inscriptionsRepository from "./inscriptions.repository.js";
 import type { CreateInscriptionInput } from "./inscriptions.schema.js";
 
-export async function createInscription(eventId: string, input: CreateInscriptionInput) {
+export async function createInscription(
+  eventId: string,
+  input: CreateInscriptionInput,
+  /** Endereco de onde veio a inscricao, para a prova do consentimento.
+   *  Vem da conexao, nunca do corpo da requisicao. */
+  consentIp?: string | null,
+) {
   const event = await getEventOrThrow(eventId);
 
   if (!event.registrationsOpen) {
@@ -63,6 +69,12 @@ export async function createInscription(eventId: string, input: CreateInscriptio
     batchId,
     notes: input.notes,
     paymentExpiresAt: expiresAt,
+    consentVersion: input.consentVersion,
+    // A hora e' a do SERVIDOR. O relogio do visitante pode estar
+    // errado, ou ajustado de proposito — e e' justamente contra a
+    // versao dele que o registro precisa valer.
+    consentAcceptedAt: new Date(),
+    consentIp: consentIp ?? null,
   });
 
   // 3. Gera a cobrança no PicPay

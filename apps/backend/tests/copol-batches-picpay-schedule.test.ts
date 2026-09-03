@@ -37,6 +37,7 @@ describe("Copol — Inscrição Única, Lotes Automáticos e PicPay", () => {
         email: "carlos@teste.com",
         document: "123.456.789-01",
         phone: "(43) 99999-8888",
+        consentVersion: "1.0",
       },
     });
 
@@ -80,6 +81,7 @@ describe("Copol — Inscrição Única, Lotes Automáticos e PicPay", () => {
         name: "Inscrito 61",
         email: "inscrito61@teste.com",
         document: "999.888.777-66",
+        consentVersion: "1.0",
       },
     });
 
@@ -138,6 +140,7 @@ describe("Copol — Inscrição Única, Lotes Automáticos e PicPay", () => {
         email: "anajulia@teste.com",
         document: "321.654.987-00",
         phone: "(43) 98888-7777",
+        consentVersion: "1.0",
       },
     });
     const inscriptionId = createRes.json().data.id;
@@ -193,6 +196,7 @@ describe("Copol — Inscrição Única, Lotes Automáticos e PicPay", () => {
         email: "beatriz@teste.com",
         document: "555.444.333-22",
         phone: "(43) 97777-6666",
+        consentVersion: "1.0",
       },
     });
 

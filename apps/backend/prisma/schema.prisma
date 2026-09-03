@@ -203,19 +203,19 @@ model Event {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  participants     Participant[]
-  terminals        Terminal[]
-  checkIns         CheckIn[]
-  inscriptions     Inscription[]
-  modules          EventModule[]
-  submissionSettings SubmissionSettings?
+  participants         Participant[]
+  terminals            Terminal[]
+  checkIns             CheckIn[]
+  inscriptions         Inscription[]
+  modules              EventModule[]
+  submissionSettings   SubmissionSettings?
   submissionModalities SubmissionModality[]
   submissionTopics     SubmissionTopic[]
   submissions          Submission[]
-  certificates     Certificate[]
-  attendanceProofs AttendanceProof[]
-  batches          EventBatch[]
-  scheduleItems    EventScheduleItem[]
+  certificates         Certificate[]
+  attendanceProofs     AttendanceProof[]
+  batches              EventBatch[]
+  scheduleItems        EventScheduleItem[]
 
   @@map("events")
 }
@@ -500,19 +500,19 @@ model CheckIn {
 // terminalId podem não existir mais (ou nunca ter existido, no caso de QR
 // inválido) sem que isso quebre nada aqui.
 model CheckInAttempt {
-  id            String              @id @default(uuid())
-  eventId       String
-  participantId String?
-  participantName      String?
-  participantEmail     String?
-  participantPhone     String?
-  participantDocument  String?
-  terminalId    String?
-  terminalName  String?
-  status        CheckInAttemptStatus
-  source        CheckInSource
-  errorMessage  String?
-  attemptedAt   DateTime            @default(now())
+  id                  String               @id @default(uuid())
+  eventId             String
+  participantId       String?
+  participantName     String?
+  participantEmail    String?
+  participantPhone    String?
+  participantDocument String?
+  terminalId          String?
+  terminalName        String?
+  status              CheckInAttemptStatus
+  source              CheckInSource
+  errorMessage        String?
+  attemptedAt         DateTime             @default(now())
 
   @@index([eventId, attemptedAt])
   @@map("checkin_attempts")
@@ -524,21 +524,21 @@ enum CheckInAttemptStatus {
 }
 
 model Inscription {
-  id            String            @id @default(uuid())
-  eventId       String
-  event         Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  participantId String?
-  name          String
-  email         String
-  document      String // CPF
-  phone         String?
-  institution   String?
+  id               String            @id @default(uuid())
+  eventId          String
+  event            Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  participantId    String?
+  name             String
+  email            String
+  document         String // CPF
+  phone            String?
+  institution      String?
   // Texto livre (não é mais enum fixo) — key de Event.siteContent.pricingTiers
   // vigente no momento da inscrição. Ver modules/inscriptions/inscriptions.service.ts.
-  category      String            @db.VarChar(50)
-  amount        Decimal           @db.Decimal(10, 2)
-  status        InscriptionStatus @default(PENDING)
-  paymentId     String?
+  category         String            @db.VarChar(50)
+  amount           Decimal           @db.Decimal(10, 2)
+  status           InscriptionStatus @default(PENDING)
+  paymentId        String?
   notes            String?
   paymentUrl       String?
   qrCodeBase64     String?           @db.Text
@@ -546,8 +546,22 @@ model Inscription {
   paymentExpiresAt DateTime?
   batchId          String?
   batch            EventBatch?       @relation(fields: [batchId], references: [id], onDelete: SetNull)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+
+  // ---- consentimento (LGPD art. 8o, §1o) --------------------------
+  // O onus de provar que o consentimento foi obtido e' do controlador.
+  // Uma caixa marcada que so destrava o botao nao prova nada: some
+  // quando a pagina fecha. Estes tres campos sao a prova.
+  //
+  // A VERSAO e' o campo que mais importa. Sem ela, saber-se-ia que a
+  // pessoa concordou, mas nao COM O QUE — e o texto muda com o tempo.
+  consentVersion    String?   @db.VarChar(20)
+  consentAcceptedAt DateTime?
+  // Carimbado pelo servidor a partir da conexao, nunca enviado pelo
+  // navegador: um valor que o cliente escolhe nao serve de evidencia.
+  consentIp         String?   @db.VarChar(64)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([eventId])
   @@index([batchId])
@@ -555,19 +569,19 @@ model Inscription {
 }
 
 model EventBatch {
-  id          String        @id @default(uuid())
+  id          String    @id @default(uuid())
   eventId     String
-  event       Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event       Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
   batchNumber Int
-  name        String        @db.VarChar(100)
-  price       Decimal       @db.Decimal(10, 2)
+  name        String    @db.VarChar(100)
+  price       Decimal   @db.Decimal(10, 2)
   maxQuantity Int?
   startDate   DateTime?
   endDate     DateTime?
-  isActive    Boolean       @default(false)
-  isClosed    Boolean       @default(false)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  isActive    Boolean   @default(false)
+  isClosed    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   inscriptions Inscription[]
 
@@ -650,9 +664,9 @@ model Certificate {
 // Comprovante de presença — independente do certificado (ver seção 8 do
 // pedido), mesmo princípio de cache: gerado uma vez, reaproveitado depois.
 model AttendanceProof {
-  id            String @id @default(uuid())
+  id            String      @id @default(uuid())
   eventId       String
-  event         Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event         Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
   participantId String
   participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
 

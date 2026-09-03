@@ -14,6 +14,7 @@ import {
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { ArrowRightIcon } from "@/components/Icons";
+import { RESUMO_ACEITE, VERSAO_TERMOS } from "@/lib/termos";
 
 export default function InscriptionPage() {
   return (
@@ -40,7 +41,13 @@ function InscriptionContent() {
     phone: "",
     institution: "",
     notes: "",
+    consentVersion: VERSAO_TERMOS,
   });
+
+  // O aceite fica FORA do `form` de proposito: ele nao e' um dado da
+  // pessoa, e' a condicao para enviar. O que vai ao servidor e' a
+  // versao do termo, nao um "true" solto.
+  const [aceitou, setAceitou] = useState(false);
 
   useEffect(() => {
     if (!eventId) {
@@ -83,6 +90,14 @@ function InscriptionContent() {
 
     if (!form.name.trim() || !form.email.trim() || !form.document.trim()) {
       setError("Preencha nome, e-mail e CPF.");
+      return;
+    }
+
+    // Barreira tambem aqui, alem do botao desabilitado: o `disabled` e'
+    // conforto visual, nao garantia — some com um clique no inspetor.
+    // Quem recusa de verdade e' o servidor, que exige consentVersion.
+    if (!aceitou) {
+      setError("É necessário aceitar o termo de inscrição para continuar.");
       return;
     }
 
@@ -280,6 +295,45 @@ function InscriptionContent() {
               />
             </Field>
 
+            <label
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 12,
+                padding: "14px 16px",
+                marginTop: 8,
+                background: "var(--muted, rgba(255,255,255,0.03))",
+                border: "1px solid var(--border)",
+                borderRadius: 8,
+                cursor: "pointer",
+                fontSize: 14,
+                lineHeight: 1.6,
+                fontWeight: 400,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={aceitou}
+                onChange={(e) => setAceitou(e.target.checked)}
+                required
+                style={{ marginTop: 3, width: 17, height: 17, flexShrink: 0, cursor: "pointer" }}
+              />
+              <span>
+                {RESUMO_ACEITE}{" "}
+                {/* Aba nova: clicar para ler nao pode apagar o que a
+                    pessoa ja digitou no formulario. */}
+                <Link
+                  href="/termos"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ textDecoration: "underline", fontWeight: 500 }}
+                >
+                  Ler o termo completo
+                </Link>
+                .
+              </span>
+            </label>
+
             {error && (
               <div
                 style={{
@@ -297,7 +351,7 @@ function InscriptionContent() {
 
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || !aceitou}
               className="btn-primary"
               style={{ width: "100%", padding: 14, fontSize: 16, marginTop: 8, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}
             >

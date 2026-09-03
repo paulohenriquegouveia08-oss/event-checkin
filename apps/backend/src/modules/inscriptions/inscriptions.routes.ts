@@ -18,7 +18,10 @@ export async function inscriptionsRoutes(app: FastifyInstance) {
     const { eventId } = inscriptionEventParamsSchema.parse(request.params);
     const input = createInscriptionSchema.parse(request.body);
 
-    const inscription = await inscriptionsService.createInscription(eventId, input);
+    // request.ip ja considera o X-Forwarded-For quando o Fastify esta
+    // com trustProxy — que e' o caso atras do nginx. Sem isso, todas as
+    // inscricoes ficariam registradas com o IP do proprio container.
+    const inscription = await inscriptionsService.createInscription(eventId, input, request.ip);
     return reply.status(201).send(ok(inscription));
   });
 

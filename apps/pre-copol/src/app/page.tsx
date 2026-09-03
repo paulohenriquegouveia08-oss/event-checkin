@@ -377,28 +377,28 @@ export default function HomePage() {
                             </span>
 
                             {b.status === "UPCOMING" || b.price === null ? (
-                              <div className="mystery-price-wrapper">
-                                <SparkleIcon
-                                  size={13}
-                                  color="var(--gold)"
-                                  className="sparkle-icon"
-                                  style={{ filter: "drop-shadow(0 0 3px var(--gold))" }}
-                                />
-                                <span className="mystery-price-text">
-                                  R$ 1••,00
-                                </span>
-                                <SparkleIcon
-                                  size={10}
-                                  color="var(--gold)"
-                                  className="sparkle-icon"
+                              <div style={{ height: 38, display: "flex", alignItems: "center", gap: 8 }}>
+                                <span
                                   style={{
-                                    animationDelay: "1.1s",
-                                    filter: "drop-shadow(0 0 3px var(--gold))",
+                                    fontSize: 28,
+                                    fontWeight: 800,
+                                    color: "var(--gold)",
+                                    filter: "blur(6px)",
+                                    userSelect: "none",
+                                    letterSpacing: "1.5px",
+                                    whiteSpace: "nowrap",
+                                    lineHeight: 1,
+                                    textShadow: "0 0 14px rgba(200, 162, 97, 0.65)",
                                   }}
-                                />
-                                <span className="mystery-price-badge">
-                                  Em breve
+                                >
+                                  R$ 150,00
                                 </span>
+                                <SparkleIcon
+                                  size={15}
+                                  color="var(--gold)"
+                                  className="sparkle-icon"
+                                  style={{ filter: "drop-shadow(0 0 4px var(--gold))" }}
+                                />
                               </div>
                             ) : (
                               <div style={{ height: 38, display: "flex", alignItems: "center", fontSize: 28, fontWeight: 800, color: b.isActive ? "var(--gold)" : "var(--foreground)" }}>
@@ -432,9 +432,32 @@ export default function HomePage() {
                                 Inscrever-se
                               </Link>
                             ) : (
-                              <span style={{ fontSize: 12, textAlign: "center", color: "var(--muted-foreground)", padding: "10px 0", background: "rgba(255,255,255,0.03)", borderRadius: 8 }}>
-                                {b.status === "CLOSED" ? "Encerrado" : "Aguarde a liberação"}
-                              </span>
+                              <div
+                                style={{
+                                  width: "100%",
+                                  textAlign: "center",
+                                  padding: 10,
+                                  fontSize: 13,
+                                  fontWeight: 700,
+                                  borderRadius: 8,
+                                  background: "rgba(255, 255, 255, 0.04)",
+                                  color: b.status === "CLOSED" ? "var(--muted-foreground)" : "var(--gold)",
+                                  border: b.status === "CLOSED" ? "1px solid rgba(255, 255, 255, 0.06)" : "1px solid rgba(200, 162, 97, 0.25)",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  gap: 6,
+                                }}
+                              >
+                                {b.status === "CLOSED" ? (
+                                  <span>Encerrado</span>
+                                ) : (
+                                  <>
+                                    <SparkleIcon size={13} color="var(--gold)" className="sparkle-icon" />
+                                    <span>Em breve</span>
+                                  </>
+                                )}
+                              </div>
                             )}
                           </div>
                         ))}

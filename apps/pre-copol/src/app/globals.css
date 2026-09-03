@@ -220,40 +220,9 @@ h4 {
   }
 }
 
-.mystery-price-wrapper {
-  height: 38px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.mystery-price-text {
-  font-size: 26px;
-  font-weight: 800;
-  color: var(--gold);
-  filter: blur(5px);
-  user-select: none;
-  white-space: nowrap;
-  letter-spacing: 1.5px;
-  line-height: 1;
-  animation: text-glow-pulse 2.5s ease-in-out infinite;
-}
-
-.mystery-price-badge {
-  font-size: 10px;
-  font-weight: 800;
-  color: var(--gold);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  background: rgba(200, 162, 97, 0.12);
-  border: 1px solid rgba(200, 162, 97, 0.3);
-  padding: 3px 8px;
-  border-radius: 999px;
-  white-space: nowrap;
-}
-
 .sparkle-icon {
   animation: sparkle-twinkle 2.2s ease-in-out infinite;
   display: inline-block;
 }
+
 

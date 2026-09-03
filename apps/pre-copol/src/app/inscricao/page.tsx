@@ -203,7 +203,7 @@ function InscriptionContent() {
             </div>
             <div style={{ textAlign: "right" }}>
               <div style={{ fontSize: "clamp(24px, 5vw, 28px)", fontWeight: 800, color: "var(--gold)", lineHeight: 1 }}>
-                {activeBatch ? `R$ ${activeBatch.price.toFixed(2).replace(".", ",")}` : "R$ 100,00"}
+                {activeBatch && activeBatch.price !== null ? `R$ ${activeBatch.price.toFixed(2).replace(".", ",")}` : "R$ 100,00"}
               </div>
               <span style={{ fontSize: 11, color: "var(--muted-foreground)", display: "block", marginTop: 4 }}>
                 Inscrição única

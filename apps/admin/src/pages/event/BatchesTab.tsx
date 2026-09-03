@@ -8,6 +8,7 @@ interface BatchFormData {
   name: string;
   price: number;
   maxQuantity: string;
+  startDate: string;
   endDate: string;
 }
 
@@ -16,6 +17,7 @@ const EMPTY_FORM: BatchFormData = {
   name: "",
   price: 100,
   maxQuantity: "",
+  startDate: "",
   endDate: "",
 };
 
@@ -85,6 +87,7 @@ export function BatchesTab({ eventId }: { eventId: string }) {
       name: b.name,
       price: b.price,
       maxQuantity: b.maxQuantity ? String(b.maxQuantity) : "",
+      startDate: b.startDate ? b.startDate.split("T")[0]! : "",
       endDate: b.endDate ? b.endDate.split("T")[0]! : "",
     });
     setIsModalOpen(true);
@@ -105,6 +108,7 @@ export function BatchesTab({ eventId }: { eventId: string }) {
           name: form.name.trim(),
           price: form.price,
           maxQuantity: form.maxQuantity ? parseInt(form.maxQuantity, 10) : null,
+          startDate: form.startDate ? `${form.startDate}T00:00:00.000Z` : null,
           endDate: form.endDate ? `${form.endDate}T23:59:59.999Z` : null,
         });
       } else {
@@ -113,6 +117,7 @@ export function BatchesTab({ eventId }: { eventId: string }) {
           name: form.name.trim(),
           price: form.price,
           maxQuantity: form.maxQuantity ? parseInt(form.maxQuantity, 10) : null,
+          startDate: form.startDate ? `${form.startDate}T00:00:00.000Z` : null,
           endDate: form.endDate ? `${form.endDate}T23:59:59.999Z` : null,
         });
       }
@@ -168,6 +173,13 @@ export function BatchesTab({ eventId }: { eventId: string }) {
       return <span className="badge" style={{ background: "rgba(100, 116, 139, 0.15)", color: "#64748B" }}>Encerrado</span>;
     }
     if (b.status === "UPCOMING") {
+      if (b.startDate && new Date(b.startDate) > new Date()) {
+        return (
+          <span className="badge" style={{ background: "rgba(245, 158, 11, 0.15)", color: "#D97706" }}>
+            Início em {new Date(b.startDate).toLocaleDateString("pt-BR")}
+          </span>
+        );
+      }
       return <span className="badge" style={{ background: "rgba(14, 165, 233, 0.15)", color: "#0284C7" }}>Próximo Lote</span>;
     }
     return <span className="badge badge-warning">Finalizado</span>;
@@ -215,7 +227,7 @@ export function BatchesTab({ eventId }: { eventId: string }) {
         <div>
           <h2 style={{ margin: "0 0 4px", fontSize: 18 }}>Lotes e Valores do Evento</h2>
           <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-            Configure valores, limite de vagas e prazos. As transições ocorrem automaticamente pelas regras cadastradas.
+            Configure valores, limite de vagas e datas. O valor dos próximos lotes é ocultado automaticamente do público até que sejam ativados.
           </p>
         </div>
 
@@ -235,8 +247,8 @@ export function BatchesTab({ eventId }: { eventId: string }) {
           className="card"
           style={{
             padding: 24,
-            borderLeft: "4px solid var(--primary, #0E3634)",
-            background: "rgba(14, 54, 52, 0.03)",
+            borderLeft: "4px solid var(--primary, #2DD4BF)",
+            background: "rgba(45, 212, 191, 0.05)",
           }}
         >
           <div className="spread" style={{ flexWrap: "wrap", gap: 16 }}>
@@ -255,7 +267,7 @@ export function BatchesTab({ eventId }: { eventId: string }) {
             </div>
 
             <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 26, fontWeight: 800, color: "var(--primary, #0E3634)" }}>
+              <div style={{ fontSize: 26, fontWeight: 800, color: "var(--primary, #2DD4BF)" }}>
                 R$ {activeBatch.price.toFixed(2).replace(".", ",")}
               </div>
               <span className="muted" style={{ fontSize: 12 }}>
@@ -290,19 +302,20 @@ export function BatchesTab({ eventId }: { eventId: string }) {
               <tr>
                 <th style={{ width: 60 }}>Ordem</th>
                 <th>Nome do Lote</th>
-                <th>Valor</th>
+                <th>Valor (Admin)</th>
                 <th>Limite de Vagas</th>
                 <th>Confirmados</th>
+                <th>Início das Vendas</th>
                 <th>Encerramento</th>
                 <th>Status</th>
-                <th style={{ width: 180, textAlign: "right" }}>Ações</th>
+                <th style={{ width: 200, textAlign: "right" }}>Ações</th>
               </tr>
             </thead>
             <tbody>
               {batches.map((batch) => (
                 <tr
                   key={batch.id}
-                  style={batch.isActive ? { background: "rgba(14, 54, 52, 0.04)", fontWeight: 600 } : undefined}
+                  style={batch.isActive ? { background: "rgba(45, 212, 191, 0.05)", fontWeight: 600 } : undefined}
                 >
                   <td style={{ fontWeight: 700 }}>#{batch.batchNumber}</td>
                   <td>{batch.name}</td>
@@ -311,6 +324,9 @@ export function BatchesTab({ eventId }: { eventId: string }) {
                   <td>
                     <strong>{batch.confirmedCount}</strong>
                     {batch.maxQuantity ? ` / ${batch.maxQuantity}` : ""}
+                  </td>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    {batch.startDate ? new Date(batch.startDate).toLocaleDateString("pt-BR") : "Imediato"}
                   </td>
                   <td style={{ whiteSpace: "nowrap" }}>
                     {batch.endDate ? new Date(batch.endDate).toLocaleDateString("pt-BR") : "Sem prazo fixo"}
@@ -322,9 +338,9 @@ export function BatchesTab({ eventId }: { eventId: string }) {
                         className="btn btn-secondary btn-sm"
                         style={{ marginRight: 6, fontSize: 11 }}
                         onClick={() => handleActivateManual(batch.id)}
-                        title="Ativar este lote manualmente agora"
+                        title="Ativar este lote manualmente agora no ar (sobrepõe datas automáticas)"
                       >
-                        Ativar
+                        Ativar Agora
                       </button>
                     )}
                     <button
@@ -407,6 +423,7 @@ export function BatchesTab({ eventId }: { eventId: string }) {
                     onChange={(e) => setForm({ ...form, price: parseFloat(e.target.value) || 0 })}
                     required
                   />
+                  <small className="muted">Oculto do público nos lotes futuros.</small>
                 </label>
 
                 <label className="stack" style={{ flex: 1, gap: 4, fontSize: 12 }}>
@@ -420,15 +437,27 @@ export function BatchesTab({ eventId }: { eventId: string }) {
                 </label>
               </div>
 
-              <label className="stack" style={{ gap: 4, fontSize: 12 }}>
-                <span>Data de Encerramento (opcional)</span>
-                <input
-                  type="date"
-                  value={form.endDate}
-                  onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-                />
-                <small className="muted">O lote encerrará automaticamente às 23:59 desta data.</small>
-              </label>
+              <div className="row" style={{ gap: 10 }}>
+                <label className="stack" style={{ flex: 1, gap: 4, fontSize: 12 }}>
+                  <span>Início das Vendas (opcional)</span>
+                  <input
+                    type="date"
+                    value={form.startDate}
+                    onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                  />
+                  <small className="muted">Ativação automática a partir desta data.</small>
+                </label>
+
+                <label className="stack" style={{ flex: 1, gap: 4, fontSize: 12 }}>
+                  <span>Encerramento (opcional)</span>
+                  <input
+                    type="date"
+                    value={form.endDate}
+                    onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+                  />
+                  <small className="muted">Encerra às 23:59 desta data.</small>
+                </label>
+              </div>
 
               <div className="spread" style={{ marginTop: 16 }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>

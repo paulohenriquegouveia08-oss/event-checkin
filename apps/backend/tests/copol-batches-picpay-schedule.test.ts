@@ -214,6 +214,85 @@ describe("Copol — Inscrição Única, Lotes Automáticos e PicPay", () => {
     expect(item.document).toBe("555.444.333-22");
     expect(item.amount).toBe(100);
   });
+
+  it("oculta o preço de lotes UPCOMING para visitantes públicos, mas exibe para admins autenticados", async () => {
+    const event = await createTestEvent();
+    const token = await loginAsAdmin();
+
+    // 1. Chamada pública (sem token): lotes UPCOMING devem ter price null
+    const publicRes = await app.inject({
+      method: "GET",
+      url: `/events/${event.id}/batches`,
+    });
+    expect(publicRes.statusCode).toBe(200);
+    const publicBatches = publicRes.json().data.batches;
+    const activeBatch = publicBatches.find((b: any) => b.isActive);
+    const upcomingBatch = publicBatches.find((b: any) => b.status === "UPCOMING");
+
+    expect(activeBatch.price).toBe(100); // Lote ativo revela o preço!
+    expect(upcomingBatch.price).toBeNull(); // Próximo lote oculta o preço!
+
+    // 2. Chamada autenticada como admin: deve retornar todos os preços
+    const adminRes = await app.inject({
+      method: "GET",
+      url: `/events/${event.id}/batches`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(adminRes.statusCode).toBe(200);
+    const adminBatches = adminRes.json().data.batches;
+    const adminUpcoming = adminBatches.find((b: any) => b.status === "UPCOMING");
+    expect(adminUpcoming.price).toBeGreaterThan(0); // Admin vê o preço real para editar!
+  });
+
+  it("respeita startDate na ativação automática e permite ativação manual pelo admin", async () => {
+    const event = await createTestEvent();
+    const token = await loginAsAdmin();
+    const batches = await batchesService.ensureDefaultBatches(event.id);
+    const lote2 = batches.find((b) => b.batchNumber === 2)!;
+
+    // Agenda o lote 2 para começar apenas daqui a 7 dias
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 7);
+
+    await app.inject({
+      method: "PUT",
+      url: `/batches/${lote2.id}`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        startDate: futureDate.toISOString(),
+      },
+    });
+
+    // Simula lote 1 esgotado
+    const lote1 = batches.find((b) => b.batchNumber === 1)!;
+    await app.inject({
+      method: "PUT",
+      url: `/batches/${lote1.id}`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: { isClosed: true },
+    });
+
+    // Como o lote 2 só começa daqui a 7 dias, a resolução automática NÃO ativa o lote 2
+    const checkRes = await app.inject({
+      method: "GET",
+      url: `/events/${event.id}/batches`,
+    });
+    const checkBatches = checkRes.json().data.batches;
+    const activeNow = checkBatches.find((b: any) => b.isActive);
+    expect(activeNow?.id).not.toBe(lote2.id);
+
+    // Agora o admin força a ativação manual pelo painel
+    const activateRes = await app.inject({
+      method: "POST",
+      url: `/events/${event.id}/batches/${lote2.id}/activate`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(activateRes.statusCode).toBe(200);
+    const activatedBatches = activateRes.json().data;
+    const lote2Active = activatedBatches.find((b: any) => b.id === lote2.id);
+    expect(lote2Active.isActive).toBe(true);
+    expect(lote2Active.status).toBe("ACTIVE");
+  });
 });
 
 describe("Copol — Programação do Evento", () => {

@@ -127,9 +127,10 @@ export interface BatchItem {
   id: string;
   batchNumber: number;
   name: string;
-  price: number;
+  price: number | null;
   maxQuantity: number | null;
   confirmedCount: number;
+  startDate?: string | null;
   endDate: string | null;
   status: "ACTIVE" | "CLOSED" | "UPCOMING" | "FINISHED";
   isActive: boolean;

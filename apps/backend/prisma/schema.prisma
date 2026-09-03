@@ -562,6 +562,7 @@ model EventBatch {
   name        String        @db.VarChar(100)
   price       Decimal       @db.Decimal(10, 2)
   maxQuantity Int?
+  startDate   DateTime?
   endDate     DateTime?
   isActive    Boolean       @default(false)
   isClosed    Boolean       @default(false)

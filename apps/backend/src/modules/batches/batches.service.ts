@@ -6,9 +6,10 @@ export interface BatchViewItem {
   id: string;
   batchNumber: number;
   name: string;
-  price: number;
+  price: number | null;
   maxQuantity: number | null;
   confirmedCount: number;
+  startDate: string | null;
   endDate: string | null;
   status: "ACTIVE" | "CLOSED" | "UPCOMING" | "FINISHED";
   isActive: boolean;
@@ -20,6 +21,7 @@ export interface CreateBatchInput {
   name: string;
   price: number;
   maxQuantity?: number | null;
+  startDate?: string | null;
   endDate?: string | null;
 }
 
@@ -28,6 +30,7 @@ export interface UpdateBatchInput {
   name?: string;
   price?: number;
   maxQuantity?: number | null;
+  startDate?: string | null;
   endDate?: string | null;
   isClosed?: boolean;
   isActive?: boolean;
@@ -39,6 +42,7 @@ export const DEFAULT_BATCH_DEFINITIONS = [
     name: "1º Lote — Promocional",
     price: 100.0,
     maxQuantity: 60,
+    startDate: null,
     endDate: null,
   },
   {
@@ -46,6 +50,7 @@ export const DEFAULT_BATCH_DEFINITIONS = [
     name: "2º Lote",
     price: 150.0,
     maxQuantity: null,
+    startDate: null,
     endDate: new Date("2026-09-22T23:59:59.999-03:00"),
   },
   {
@@ -53,6 +58,7 @@ export const DEFAULT_BATCH_DEFINITIONS = [
     name: "3º Lote",
     price: 180.0,
     maxQuantity: null,
+    startDate: null,
     endDate: new Date("2026-10-22T23:59:59.999-03:00"),
   },
   {
@@ -60,6 +66,7 @@ export const DEFAULT_BATCH_DEFINITIONS = [
     name: "4º Lote",
     price: 220.0,
     maxQuantity: null,
+    startDate: null,
     endDate: new Date("2026-11-05T23:59:59.999-03:00"),
   },
 ];
@@ -84,6 +91,7 @@ export async function ensureDefaultBatches(eventId: string): Promise<EventBatch[
           name: def.name,
           price: def.price,
           maxQuantity: def.maxQuantity,
+          startDate: def.startDate,
           endDate: def.endDate,
         },
       })
@@ -100,7 +108,8 @@ export async function ensureDefaultBatches(eventId: string): Promise<EventBatch[
  *    - Se fechado manualmente -> pula;
  *    - Se atingiu maxQuantity de confirmados -> pula;
  *    - Se passou da data de encerramento -> pula;
- *    - O primeiro lote elegível é o ativo!
+ *    - Se a data atual ainda é anterior à data de início (startDate) -> pula;
+ *    - O primeiro lote elegível é o ativo automaticamente!
  */
 export async function resolveActiveBatch(eventId: string, now: Date = new Date()) {
   const batches = await ensureDefaultBatches(eventId);
@@ -132,7 +141,7 @@ export async function resolveActiveBatch(eventId: string, now: Date = new Date()
     countMap.set(lote1.id, current + legacyCount);
   }
 
-  // 1. Checa fixação manual ativa
+  // 1. Checa fixação manual ativa pelo administrador
   const manualActive = batches.find((b) => b.isActive && !b.isClosed);
   if (manualActive) {
     return {
@@ -142,7 +151,7 @@ export async function resolveActiveBatch(eventId: string, now: Date = new Date()
     };
   }
 
-  // 2. Resolução automática por regras
+  // 2. Resolução automática por regras (data de início, data final, capacidade)
   let resolvedActive: EventBatch | null = null;
 
   for (const b of batches) {
@@ -154,6 +163,10 @@ export async function resolveActiveBatch(eventId: string, now: Date = new Date()
     }
 
     if (b.endDate !== null && now > b.endDate) {
+      continue;
+    }
+
+    if (b.startDate !== null && now < b.startDate) {
       continue;
     }
 
@@ -170,8 +183,12 @@ export async function resolveActiveBatch(eventId: string, now: Date = new Date()
 
 /**
  * Retorna visão completa dos lotes para o painel admin e página pública.
+ * Opcionalmente oculta o valor dos próximos lotes (UPCOMING) para visitantes não autenticados.
  */
-export async function getBatchesOverview(eventId: string): Promise<BatchViewItem[]> {
+export async function getBatchesOverview(
+  eventId: string,
+  options?: { hideUpcomingPrice?: boolean }
+): Promise<BatchViewItem[]> {
   const { activeBatch, allBatches } = await resolveActiveBatch(eventId);
   const activeId = activeBatch?.id ?? null;
   const activeNum = activeBatch?.batchNumber ?? 999;
@@ -202,13 +219,16 @@ export async function getBatchesOverview(eventId: string): Promise<BatchViewItem
       status = "UPCOMING";
     }
 
+    const price = options?.hideUpcomingPrice && status === "UPCOMING" ? null : Number(b.price);
+
     return {
       id: b.id,
       batchNumber: b.batchNumber,
       name: b.name,
-      price: Number(b.price),
+      price,
       maxQuantity: b.maxQuantity,
       confirmedCount: confirmed,
+      startDate: b.startDate ? b.startDate.toISOString() : null,
       endDate: b.endDate ? b.endDate.toISOString() : null,
       status,
       isActive: isThisActive,
@@ -221,7 +241,6 @@ export async function getBatchesOverview(eventId: string): Promise<BatchViewItem
  * Criação de um novo lote para qualquer evento.
  */
 export async function createBatch(eventId: string, input: CreateBatchInput) {
-  // Se batchNumber não for passado, pega o próximo disponível
   let batchNum = input.batchNumber;
   if (!batchNum) {
     const highest = await prisma.eventBatch.findFirst({
@@ -245,6 +264,7 @@ export async function createBatch(eventId: string, input: CreateBatchInput) {
       name: input.name,
       price: input.price,
       maxQuantity: input.maxQuantity ?? null,
+      startDate: input.startDate ? new Date(input.startDate) : null,
       endDate: input.endDate ? new Date(input.endDate) : null,
     },
   });
@@ -253,7 +273,7 @@ export async function createBatch(eventId: string, input: CreateBatchInput) {
 }
 
 /**
- * Atualização dos parâmetros de um lote (preço, nome, vagas, data, status).
+ * Atualização dos parâmetros de um lote (preço, nome, vagas, data de início, data final, status).
  */
 export async function updateBatch(id: string, input: UpdateBatchInput) {
   const existing = await prisma.eventBatch.findUnique({ where: { id } });
@@ -266,6 +286,7 @@ export async function updateBatch(id: string, input: UpdateBatchInput) {
       batchNumber: input.batchNumber ?? undefined,
       price: input.price !== undefined ? input.price : undefined,
       maxQuantity: input.maxQuantity !== undefined ? input.maxQuantity : undefined,
+      startDate: input.startDate !== undefined ? (input.startDate ? new Date(input.startDate) : null) : undefined,
       endDate: input.endDate !== undefined ? (input.endDate ? new Date(input.endDate) : null) : undefined,
       isClosed: input.isClosed !== undefined ? input.isClosed : undefined,
       isActive: input.isActive !== undefined ? input.isActive : undefined,
@@ -314,7 +335,6 @@ export async function setActiveBatchManual(eventId: string, batchId: string) {
  * Reseta e aplica os lotes padrão do Copol no evento selecionado.
  */
 export async function seedDefaultBatches(eventId: string) {
-  // Apaga lotes existentes sem inscrições
   const existing = await prisma.eventBatch.findMany({ where: { eventId } });
   for (const b of existing) {
     const hasInscriptions = await prisma.inscription.count({ where: { batchId: b.id } });

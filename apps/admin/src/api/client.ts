@@ -836,6 +836,7 @@ export interface BatchItem {
   price: number;
   maxQuantity: number | null;
   confirmedCount: number;
+  startDate?: string | null;
   endDate: string | null;
   status: "ACTIVE" | "CLOSED" | "UPCOMING" | "FINISHED";
   isActive: boolean;
@@ -852,6 +853,7 @@ export function createBatch(
     name: string;
     price: number;
     maxQuantity?: number | null;
+    startDate?: string | null;
     endDate?: string | null;
   }
 ) {
@@ -865,6 +867,7 @@ export function updateBatch(
     name?: string;
     price?: number;
     maxQuantity?: number | null;
+    startDate?: string | null;
     endDate?: string | null;
     isClosed?: boolean;
     isActive?: boolean;

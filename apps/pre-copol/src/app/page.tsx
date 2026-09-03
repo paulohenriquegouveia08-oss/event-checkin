@@ -375,15 +375,27 @@ export default function HomePage() {
                               {b.name}
                             </span>
 
-                            <div style={{ fontSize: 28, fontWeight: 800, color: b.isActive ? "var(--gold)" : "var(--foreground)" }}>
-                              R$ {b.price.toFixed(2).replace(".", ",")}
-                            </div>
+                            {b.status === "UPCOMING" || b.price === null ? (
+                              <div style={{ fontSize: 20, fontWeight: 700, color: "var(--muted-foreground)", margin: "4px 0" }}>
+                                Valor em breve
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: 28, fontWeight: 800, color: b.isActive ? "var(--gold)" : "var(--foreground)" }}>
+                                R$ {b.price.toFixed(2).replace(".", ",")}
+                              </div>
+                            )}
 
                             <p style={{ margin: 0, fontSize: 12, color: "var(--muted-foreground)", minHeight: 32 }}>
-                              {b.batchNumber === 1
+                              {b.isActive && b.batchNumber === 1
                                 ? `${b.confirmedCount} de 60 vagas preenchidas`
+                                : b.status === "UPCOMING"
+                                ? b.startDate
+                                  ? `Abertura prevista: ${new Date(b.startDate).toLocaleDateString("pt-BR")}`
+                                  : "Aguarde a abertura deste lote"
                                 : b.endDate
                                 ? `Válido até ${new Date(b.endDate).toLocaleDateString("pt-BR")}`
+                                : b.status === "CLOSED"
+                                ? "Lote encerrado"
                                 : "Vagas limitadas"}
                             </p>
 
@@ -399,8 +411,8 @@ export default function HomePage() {
                                 Inscrever-se
                               </Link>
                             ) : (
-                              <span style={{ fontSize: 12, textAlign: "center", color: "var(--muted-foreground)", padding: "10px 0" }}>
-                                {b.status === "CLOSED" ? "Encerrado" : "Próximo Lote"}
+                              <span style={{ fontSize: 12, textAlign: "center", color: "var(--muted-foreground)", padding: "10px 0", background: "rgba(255,255,255,0.03)", borderRadius: 8 }}>
+                                {b.status === "CLOSED" ? "Encerrado" : "Em breve"}
                               </span>
                             )}
                           </div>

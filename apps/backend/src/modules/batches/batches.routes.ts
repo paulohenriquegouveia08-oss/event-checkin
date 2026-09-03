@@ -13,6 +13,7 @@ const createBatchSchema = z.object({
   name: z.string().trim().min(1, "Nome é obrigatório").max(100),
   price: z.coerce.number().positive("Preço deve ser positivo"),
   maxQuantity: z.coerce.number().int().positive().optional().nullable(),
+  startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
 });
 
@@ -21,16 +22,32 @@ const updateBatchSchema = z.object({
   name: z.string().trim().min(1).max(100).optional(),
   price: z.coerce.number().positive().optional(),
   maxQuantity: z.coerce.number().int().positive().optional().nullable(),
+  startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
   isClosed: z.boolean().optional(),
   isActive: z.boolean().optional(),
 });
 
 export async function batchesRoutes(app: FastifyInstance) {
-  // Retorna visão geral dos lotes do evento (público e admin)
+  // Retorna visão geral dos lotes do evento
+  // Para visitantes (público), oculta o preço dos lotes futuros (UPCOMING)
+  // Para admins autenticados, retorna todos os preços para edição
   app.get("/events/:eventId/batches", async (request) => {
     const { eventId } = eventIdParams.parse(request.params);
-    const batches = await batchesService.getBatchesOverview(eventId);
+
+    let isAuthorizedAdmin = false;
+    try {
+      await request.jwtVerify();
+      if (request.user && (request.user as any).type === "admin") {
+        isAuthorizedAdmin = true;
+      }
+    } catch {
+      // Visitante público não autenticado
+    }
+
+    const batches = await batchesService.getBatchesOverview(eventId, {
+      hideUpcomingPrice: !isAuthorizedAdmin,
+    });
     const active = batches.find((b) => b.isActive) ?? null;
 
     return ok({

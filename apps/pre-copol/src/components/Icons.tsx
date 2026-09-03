@@ -109,3 +109,12 @@ export function GripVerticalIcon({ size = 16, color = "currentColor", ...props }
     </svg>
   );
 }
+
+export function SparkleIcon({ size = 16, color = "currentColor", ...props }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={color} stroke="none" {...props}>
+      <path d="M12 0L14.59 8.41L23 11L14.59 13.59L12 22L9.41 13.59L1 11L9.41 8.41L12 0Z" />
+    </svg>
+  );
+}
+

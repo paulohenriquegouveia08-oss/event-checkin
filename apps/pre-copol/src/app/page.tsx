@@ -23,6 +23,7 @@ import {
   QuestionIcon,
   ChevronDownIcon,
   GripVerticalIcon,
+  SparkleIcon,
 } from "@/components/Icons";
 
 const DEFAULT_SECTIONS: SiteSectionConfig[] = [
@@ -376,8 +377,34 @@ export default function HomePage() {
                             </span>
 
                             {b.status === "UPCOMING" || b.price === null ? (
-                              <div style={{ fontSize: 20, fontWeight: 700, color: "var(--muted-foreground)", margin: "4px 0" }}>
-                                Valor em breve
+                              <div className="mystery-price-container" style={{ margin: "4px 0" }}>
+                                <div className="mystery-price-shimmer-sweep" />
+                                <SparkleIcon size={14} color="var(--gold)" className="sparkle-icon" />
+                                <div className="mystery-price-blurred">
+                                  R$ 1••,00
+                                </div>
+                                <span
+                                  style={{
+                                    fontSize: 10,
+                                    fontWeight: 800,
+                                    color: "var(--gold)",
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.5px",
+                                    background: "rgba(200, 162, 97, 0.18)",
+                                    padding: "3px 7px",
+                                    borderRadius: 6,
+                                    border: "1px solid rgba(200, 162, 97, 0.3)",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  Em breve
+                                </span>
+                                <SparkleIcon
+                                  size={11}
+                                  color="var(--gold)"
+                                  className="sparkle-icon"
+                                  style={{ animationDelay: "1.1s" }}
+                                />
                               </div>
                             ) : (
                               <div style={{ fontSize: 28, fontWeight: 800, color: b.isActive ? "var(--gold)" : "var(--foreground)" }}>

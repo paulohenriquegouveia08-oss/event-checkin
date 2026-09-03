@@ -377,37 +377,31 @@ export default function HomePage() {
                             </span>
 
                             {b.status === "UPCOMING" || b.price === null ? (
-                              <div className="mystery-price-container" style={{ margin: "4px 0" }}>
-                                <div className="mystery-price-shimmer-sweep" />
-                                <SparkleIcon size={14} color="var(--gold)" className="sparkle-icon" />
-                                <div className="mystery-price-blurred">
-                                  R$ 1••,00
-                                </div>
-                                <span
-                                  style={{
-                                    fontSize: 10,
-                                    fontWeight: 800,
-                                    color: "var(--gold)",
-                                    textTransform: "uppercase",
-                                    letterSpacing: "0.5px",
-                                    background: "rgba(200, 162, 97, 0.18)",
-                                    padding: "3px 7px",
-                                    borderRadius: 6,
-                                    border: "1px solid rgba(200, 162, 97, 0.3)",
-                                    whiteSpace: "nowrap",
-                                  }}
-                                >
-                                  Em breve
-                                </span>
+                              <div className="mystery-price-wrapper">
                                 <SparkleIcon
-                                  size={11}
+                                  size={13}
                                   color="var(--gold)"
                                   className="sparkle-icon"
-                                  style={{ animationDelay: "1.1s" }}
+                                  style={{ filter: "drop-shadow(0 0 3px var(--gold))" }}
                                 />
+                                <span className="mystery-price-text">
+                                  R$ 1••,00
+                                </span>
+                                <SparkleIcon
+                                  size={10}
+                                  color="var(--gold)"
+                                  className="sparkle-icon"
+                                  style={{
+                                    animationDelay: "1.1s",
+                                    filter: "drop-shadow(0 0 3px var(--gold))",
+                                  }}
+                                />
+                                <span className="mystery-price-badge">
+                                  Em breve
+                                </span>
                               </div>
                             ) : (
-                              <div style={{ fontSize: 28, fontWeight: 800, color: b.isActive ? "var(--gold)" : "var(--foreground)" }}>
+                              <div style={{ height: 38, display: "flex", alignItems: "center", fontSize: 28, fontWeight: 800, color: b.isActive ? "var(--gold)" : "var(--foreground)" }}>
                                 R$ {b.price.toFixed(2).replace(".", ",")}
                               </div>
                             )}
@@ -439,7 +433,7 @@ export default function HomePage() {
                               </Link>
                             ) : (
                               <span style={{ fontSize: 12, textAlign: "center", color: "var(--muted-foreground)", padding: "10px 0", background: "rgba(255,255,255,0.03)", borderRadius: 8 }}>
-                                {b.status === "CLOSED" ? "Encerrado" : "Em breve"}
+                                {b.status === "CLOSED" ? "Encerrado" : "Aguarde a liberação"}
                               </span>
                             )}
                           </div>

@@ -11,6 +11,7 @@ import {
   type BatchItem,
   type ScheduleItem,
   type SiteSectionConfig,
+  type SiteContent,
 } from "@/lib/api";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -21,7 +22,7 @@ import {
   ClockIcon,
   QuestionIcon,
   ChevronDownIcon,
-  CheckIcon,
+  GripVerticalIcon,
 } from "@/components/Icons";
 
 const DEFAULT_SECTIONS: SiteSectionConfig[] = [
@@ -40,6 +41,41 @@ export default function HomePage() {
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
+
+  // Estados de integração com o Editor Admin (WYSIWYG Bridge)
+  const [editorMode, setEditorMode] = useState(false);
+  const [liveContent, setLiveContent] = useState<SiteContent | null>(null);
+  const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Detecta se está sendo renderizado dentro do iframe do painel admin
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const isIframe = window.self !== window.top;
+      if (isIframe || urlParams.get("editor") === "true") {
+        setEditorMode(true);
+      }
+    }
+
+    // Ouvinte para atualizações em tempo real enviadas pelo painel admin
+    function handleMessage(event: MessageEvent) {
+      if (event.data?.type === "SYNC_SITE_CONTENT" && event.data.payload) {
+        setLiveContent(event.data.payload);
+      }
+      if (event.data?.type === "HIGHLIGHT_SECTION") {
+        setSelectedSectionId(event.data.sectionId);
+      }
+    }
+
+    window.addEventListener("message", handleMessage);
+
+    // Notifica a janela pai (Admin) de que o site está montado e pronto
+    if (typeof window !== "undefined" && window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: "PREVIEW_READY" }, "*");
+    }
+
+    return () => window.removeEventListener("message", handleMessage);
+  }, []);
 
   useEffect(() => {
     listActiveEvents()
@@ -61,7 +97,9 @@ export default function HomePage() {
 
   const mainEvent = events[0];
   const registrationsOpen = mainEvent?.registrationsOpen ?? true;
-  const content = mainEvent?.siteContent;
+  
+  // Prioriza o conteúdo ao vivo enviado pelo editor do Admin
+  const content = liveContent ?? mainEvent?.siteContent;
 
   let rawPrimary = content?.theme?.primaryColor || "#2DD4BF";
   if (rawPrimary.toUpperCase() === "#0E3634" || rawPrimary.toUpperCase() === "#0B2928") {
@@ -110,341 +148,432 @@ export default function HomePage() {
 
       <main style={{ flex: 1 }}>
         {sections.map((sec) => {
+          const isSelected = editorMode && selectedSectionId === sec.id;
           const sectionStyle: React.CSSProperties = {
             position: "relative",
             backgroundColor: sec.backgroundColor || undefined,
             color: sec.textColor || undefined,
           };
 
-          switch (sec.type) {
-            /* ---------- 1. HERO ---------- */
-            case "hero":
-              return (
-                <section key={sec.id} style={{ ...sectionStyle, overflow: "hidden" }}>
-                  <div className="wave-bg" />
-                  <div
-                    className="container-page animate-fade-up"
-                    style={{
-                      position: "relative",
-                      zIndex: 1,
-                      padding: "72px 24px 56px",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      textAlign: "center",
-                      gap: 24,
-                    }}
-                  >
-                    <div className="animate-float">
-                      <Image src="/icon-mark.png" alt="Logo" width={84} height={80} priority />
-                    </div>
-
-                    <span className="badge">{content?.heroBadge || "3º COPOL · Congresso Odontológico Positivo Londrinense"}</span>
-
-                    <h1 style={{ margin: 0, fontSize: "clamp(36px, 6vw, 64px)", fontWeight: 800, lineHeight: 1.05 }}>
-                      <span style={{ color: "var(--gold)" }}>{eventTitle}</span> {eventYear}
-                    </h1>
-
-                    <p
+          const renderSectionContent = () => {
+            switch (sec.type) {
+              /* ---------- 1. HERO ---------- */
+              case "hero":
+                return (
+                  <section style={{ ...sectionStyle, overflow: "hidden" }}>
+                    <div className="wave-bg" />
+                    <div
+                      className="container-page animate-fade-up"
                       style={{
-                        margin: 0,
-                        maxWidth: 620,
-                        fontSize: "clamp(16px, 2.4vw, 20px)",
-                        color: "var(--muted-foreground)",
-                        lineHeight: 1.5,
+                        position: "relative",
+                        zIndex: 1,
+                        padding: "72px 24px 56px",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        textAlign: "center",
+                        gap: 24,
                       }}
                     >
-                      {content?.heroSubtitle || "Toxina Botulínica: a ciência por trás do resultado natural."}
-                    </p>
+                      <div className="animate-float">
+                        <Image src="/icon-mark.png" alt="Logo" width={84} height={80} priority />
+                      </div>
 
-                    {mainEvent ? (
-                      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 10 }}>
-                        <MetaChip
-                          icon={<CalendarIcon size={14} color="var(--gold)" />}
-                          text={formatDateRange(mainEvent.startDate, mainEvent.endDate)}
-                        />
-                        {mainEvent.location ? (
+                      <span className="badge">{content?.heroBadge || "3º COPOL · Congresso Odontológico Positivo Londrinense"}</span>
+
+                      <h1 style={{ margin: 0, fontSize: "clamp(36px, 6vw, 64px)", fontWeight: 800, lineHeight: 1.05 }}>
+                        <span style={{ color: "var(--gold)" }}>{eventTitle}</span> {eventYear}
+                      </h1>
+
+                      <p
+                        style={{
+                          margin: 0,
+                          maxWidth: 620,
+                          fontSize: "clamp(16px, 2.4vw, 20px)",
+                          color: "var(--muted-foreground)",
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        {content?.heroSubtitle || "Toxina Botulínica: a ciência por trás do resultado natural."}
+                      </p>
+
+                      {mainEvent ? (
+                        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 10 }}>
                           <MetaChip
-                            icon={<MapPinIcon size={14} color="var(--gold)" />}
-                            text={mainEvent.location}
+                            icon={<CalendarIcon size={14} color="var(--gold)" />}
+                            text={formatDateRange(mainEvent.startDate, mainEvent.endDate)}
                           />
-                        ) : null}
-                      </div>
-                    ) : null}
-
-                    {mainEvent ? <RegistrationStatus event={mainEvent} /> : null}
-
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center", marginTop: 8 }}>
-                      {mainEvent && registrationsOpen ? (
-                        <Link href={`/inscricao?eventId=${mainEvent.id}`} className="btn-primary" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                          <span>Garanta sua vaga</span>
-                          <ArrowRightIcon size={16} />
-                        </Link>
+                          {mainEvent.location ? (
+                            <MetaChip
+                              icon={<MapPinIcon size={14} color="var(--gold)" />}
+                              text={mainEvent.location}
+                            />
+                          ) : null}
+                        </div>
                       ) : null}
-                      <Link href="/programacao" className="btn-secondary">
-                        Ver Programação
-                      </Link>
-                    </div>
 
-                    {!loading && events.length === 0 ? (
-                      <p style={{ color: "var(--muted-foreground)" }}>Nenhum evento disponível no momento.</p>
-                    ) : null}
-                  </div>
-                </section>
-              );
+                      {mainEvent ? <RegistrationStatus event={mainEvent} /> : null}
 
-            /* ---------- 2. SOBRE ---------- */
-            case "about":
-              return (
-                <section key={sec.id} style={{ ...sectionStyle, padding: "64px 24px", borderTop: "1px solid var(--border)" }}>
-                  <div className="container-page" style={{ maxWidth: 760 }}>
-                    <SectionEyebrow>Sobre o evento</SectionEyebrow>
-                    <h2 style={{ fontSize: "clamp(24px, 3.5vw, 32px)", margin: "8px 0 16px" }}>
-                      {sec.title || content?.aboutTitle || "Um encontro pra quem leva a odontologia a sério"}
-                    </h2>
-                    <p style={{ color: "var(--muted-foreground)", fontSize: 16, lineHeight: 1.7, margin: 0, whiteSpace: "pre-line" }}>
-                      {content?.aboutText ||
-                        "O Pré-Copol 2026 é a abertura do 3º Congresso Odontológico Positivo Londrinense (COPOL)."}
-                    </p>
-                  </div>
-                </section>
-              );
-
-            /* ---------- 3. PROGRAMAÇÃO PREVIEW ---------- */
-            case "schedule":
-              return (
-                <section key={sec.id} style={{ ...sectionStyle, padding: "64px 24px", borderTop: "1px solid var(--border)" }}>
-                  <div className="container-page" style={{ maxWidth: 840 }}>
-                    <div style={{ textAlign: "center", marginBottom: 36 }}>
-                      <SectionEyebrow>Cronograma</SectionEyebrow>
-                      <h2 style={{ fontSize: "clamp(24px, 3.5vw, 32px)", margin: "8px 0 12px" }}>
-                        {sec.title || "Programação Oficial"}
-                      </h2>
-                      <p style={{ color: "var(--muted-foreground)", margin: 0 }}>
-                        {sec.subtitle || "Destaques das atividades e palestras confirmadas"}
-                      </p>
-                    </div>
-
-                    {schedule.length === 0 ? (
-                      <div className="card" style={{ padding: 32, textAlign: "center" }}>
-                        <p className="muted" style={{ margin: 0 }}>Programação em fase final de confirmação pela organização.</p>
-                      </div>
-                    ) : (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                        {schedule.slice(0, 4).map((item) => (
-                          <div key={item.id} className="card spread" style={{ padding: "16px 20px", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                              <span style={{ fontFamily: "monospace", fontWeight: 700, color: "var(--gold)", background: "rgba(200, 162, 97, 0.1)", padding: "4px 8px", borderRadius: 6, fontSize: 13 }}>
-                                <ClockIcon size={12} style={{ display: "inline", marginRight: 4 }} />
-                                {item.startTime}
-                              </span>
-                              <div>
-                                <strong style={{ fontSize: 15, display: "block" }}>{item.title}</strong>
-                                {item.speaker && <span style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Palestrante: {item.speaker}</span>}
-                              </div>
-                            </div>
-                            {item.location && <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>{item.location}</span>}
-                          </div>
-                        ))}
-
-                        <div style={{ textAlign: "center", marginTop: 16 }}>
-                          <Link href="/programacao" className="btn-secondary btn-sm" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                            <span>Ver programação completa</span>
-                            <ArrowRightIcon size={14} />
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center", marginTop: 8 }}>
+                        {mainEvent && registrationsOpen ? (
+                          <Link
+                            href={editorMode ? "#" : `/inscricao?eventId=${mainEvent.id}`}
+                            onClick={(e) => {
+                              if (editorMode) e.preventDefault();
+                            }}
+                            className="btn-primary"
+                            style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+                          >
+                            <span>Garanta sua vaga</span>
+                            <ArrowRightIcon size={16} />
                           </Link>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </section>
-              );
-
-            /* ---------- 4. LOTES & INSCRIÇÃO ---------- */
-            case "batches":
-              return (
-                <section key={sec.id} style={{ ...sectionStyle, padding: "64px 24px", borderTop: "1px solid var(--border)" }}>
-                  <div className="container-page" style={{ maxWidth: 900 }}>
-                    <div style={{ textAlign: "center", marginBottom: 36 }}>
-                      <SectionEyebrow>Inscrições</SectionEyebrow>
-                      <h2 style={{ fontSize: "clamp(24px, 3.5vw, 32px)", margin: "8px 0 12px" }}>
-                        {sec.title || "Lotes e Inscrições"}
-                      </h2>
-                      <p style={{ color: "var(--muted-foreground)", margin: 0 }}>
-                        {sec.subtitle || "Aproveite os valores promocionais dos lotes antecipados"}
-                      </p>
-                    </div>
-
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
-                      {batches.map((b) => (
-                        <div
-                          key={b.id}
-                          className="card"
-                          style={{
-                            padding: 24,
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: 12,
-                            border: b.isActive ? "2px solid var(--gold)" : "1px solid var(--border)",
-                            position: "relative",
-                            background: b.isActive ? "rgba(200, 162, 97, 0.05)" : "var(--card)",
+                        ) : null}
+                        <Link
+                          href={editorMode ? "#" : "/programacao"}
+                          onClick={(e) => {
+                            if (editorMode) e.preventDefault();
                           }}
+                          className="btn-secondary"
                         >
-                          {b.isActive && (
-                            <span
-                              style={{
-                                position: "absolute",
-                                top: -11,
-                                left: "50%",
-                                transform: "translateX(-50%)",
-                                background: "var(--gold)",
-                                color: "#0B2928",
-                                fontSize: 11,
-                                fontWeight: 800,
-                                padding: "2px 10px",
-                                borderRadius: 999,
-                                textTransform: "uppercase",
-                                letterSpacing: "0.5px",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              Lote Atual
-                            </span>
-                          )}
+                          Ver Programação
+                        </Link>
+                      </div>
 
-                          <span style={{ fontSize: 12, color: "var(--muted-foreground)", textTransform: "uppercase", fontWeight: 700 }}>
-                            {b.name}
-                          </span>
-
-                          <div style={{ fontSize: 28, fontWeight: 800, color: b.isActive ? "var(--gold)" : "var(--foreground)" }}>
-                            R$ {b.price.toFixed(2).replace(".", ",")}
-                          </div>
-
-                          <p style={{ margin: 0, fontSize: 12, color: "var(--muted-foreground)", minHeight: 32 }}>
-                            {b.batchNumber === 1
-                              ? `${b.confirmedCount} de 60 vagas preenchidas`
-                              : b.endDate
-                              ? `Válido até ${new Date(b.endDate).toLocaleDateString("pt-BR")}`
-                              : "Vagas limitadas"}
-                          </p>
-
-                          {b.isActive && mainEvent && registrationsOpen ? (
-                            <Link href={`/inscricao?eventId=${mainEvent.id}`} className="btn-primary" style={{ width: "100%", textAlign: "center", padding: 10, fontSize: 14 }}>
-                              Inscrever-se
-                            </Link>
-                          ) : (
-                            <span style={{ fontSize: 12, textAlign: "center", color: "var(--muted-foreground)", padding: "10px 0" }}>
-                              {b.status === "CLOSED" ? "Encerrado" : "Próximo Lote"}
-                            </span>
-                          )}
-                        </div>
-                      ))}
+                      {!loading && events.length === 0 ? (
+                        <p style={{ color: "var(--muted-foreground)" }}>Nenhum evento disponível no momento.</p>
+                      ) : null}
                     </div>
-                  </div>
-                </section>
-              );
+                  </section>
+                );
 
-            /* ---------- 5. COMO FUNCIONA (STEPS) ---------- */
-            case "steps":
-              return (
-                <section key={sec.id} style={{ ...sectionStyle, padding: "64px 24px", borderTop: "1px solid var(--border)" }}>
-                  <div className="container-page">
-                    <SectionEyebrow>Como funciona</SectionEyebrow>
-                    <h2 style={{ fontSize: "clamp(24px, 3.5vw, 32px)", margin: "8px 0 32px" }}>
-                      {sec.title || content?.stepsTitle || "Da inscrição ao credenciamento"}
-                    </h2>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 20 }}>
-                      {(content?.steps || []).map((step, i) => (
-                        <StepCard key={step.title} number={String(i + 1)} title={step.title} text={step.text} />
-                      ))}
-                    </div>
-                  </div>
-                </section>
-              );
-
-            /* ---------- 6. PARCEIROS ---------- */
-            case "partners":
-              return (
-                <section key={sec.id} style={{ ...sectionStyle, padding: "64px 24px", borderTop: "1px solid var(--border)" }}>
-                  <div className="container-page" style={{ maxWidth: 760, textAlign: "center" }}>
-                    <SectionEyebrow>Realização e apoio</SectionEyebrow>
-                    <h2 style={{ fontSize: "clamp(24px, 3.5vw, 32px)", margin: "8px 0 16px" }}>
-                      {sec.title || content?.partnersTitle || "Realização e Apoio"}
-                    </h2>
-                    <p style={{ color: "var(--muted-foreground)", fontSize: 16, lineHeight: 1.7, margin: "0 0 32px" }}>
-                      {content?.partnersText || "Universidade Positivo e parceiros apoiam o evento."}
-                    </p>
-
-                    <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 16 }}>
-                      {(content?.partnersList || [{ name: "Universidade Positivo", role: "Realização" }, { name: "LSPK Tecnology", role: "Apoio Tecnológico" }]).map((p) => (
-                        <div key={p.name} className="card" style={{ padding: "16px 24px", minWidth: 200, textAlign: "center" }}>
-                          <strong style={{ fontSize: 16, display: "block" }}>{p.name}</strong>
-                          {p.role && <span style={{ fontSize: 12, color: "var(--gold)" }}>{p.role}</span>}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </section>
-              );
-
-            /* ---------- 7. FAQ (PERGUNTAS FREQUENTES) ---------- */
-            case "faq":
-              const faqList = content?.faqs && content.faqs.length > 0 ? content.faqs : [];
-              return (
-                <section key={sec.id} style={{ ...sectionStyle, padding: "64px 24px", borderTop: "1px solid var(--border)" }}>
-                  <div className="container-page" style={{ maxWidth: 760 }}>
-                    <div style={{ textAlign: "center", marginBottom: 36 }}>
-                      <SectionEyebrow>Dúvidas</SectionEyebrow>
-                      <h2 style={{ fontSize: "clamp(24px, 3.5vw, 32px)", margin: "8px 0 12px" }}>
-                        {sec.title || "Perguntas Frequentes"}
+              /* ---------- 2. SOBRE ---------- */
+              case "about":
+                return (
+                  <section style={{ ...sectionStyle, padding: "64px 24px", borderTop: "1px solid var(--border)" }}>
+                    <div className="container-page" style={{ maxWidth: 760 }}>
+                      <SectionEyebrow>Sobre o evento</SectionEyebrow>
+                      <h2 style={{ fontSize: "clamp(24px, 3.5vw, 32px)", margin: "8px 0 16px" }}>
+                        {sec.title || content?.aboutTitle || "Um encontro pra quem leva a odontologia a sério"}
                       </h2>
-                      <p style={{ color: "var(--muted-foreground)", margin: 0 }}>
-                        {sec.subtitle || "Tire suas dúvidas sobre inscrições, pagamentos e certificados"}
+                      <p style={{ color: "var(--muted-foreground)", fontSize: 16, lineHeight: 1.7, margin: 0, whiteSpace: "pre-line" }}>
+                        {content?.aboutText ||
+                          "O Pré-Copol 2026 é a abertura do 3º Congresso Odontológico Positivo Londrinense (COPOL)."}
                       </p>
                     </div>
+                  </section>
+                );
 
-                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                      {faqList.map((faq, idx) => {
-                        const isOpen = activeFaq === idx;
-                        return (
+              /* ---------- 3. PROGRAMAÇÃO PREVIEW ---------- */
+              case "schedule":
+                return (
+                  <section style={{ ...sectionStyle, padding: "64px 24px", borderTop: "1px solid var(--border)" }}>
+                    <div className="container-page" style={{ maxWidth: 840 }}>
+                      <div style={{ textAlign: "center", marginBottom: 36 }}>
+                        <SectionEyebrow>Cronograma</SectionEyebrow>
+                        <h2 style={{ fontSize: "clamp(24px, 3.5vw, 32px)", margin: "8px 0 12px" }}>
+                          {sec.title || "Programação Oficial"}
+                        </h2>
+                        <p style={{ color: "var(--muted-foreground)", margin: 0 }}>
+                          {sec.subtitle || "Destaques das atividades e palestras confirmadas"}
+                        </p>
+                      </div>
+
+                      {schedule.length === 0 ? (
+                        <div className="card" style={{ padding: 32, textAlign: "center" }}>
+                          <p className="muted" style={{ margin: 0 }}>Programação em fase final de confirmação pela organização.</p>
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                          {schedule.slice(0, 4).map((item) => (
+                            <div key={item.id} className="card spread" style={{ padding: "16px 20px", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                <span style={{ fontFamily: "monospace", fontWeight: 700, color: "var(--gold)", background: "rgba(200, 162, 97, 0.1)", padding: "4px 8px", borderRadius: 6, fontSize: 13 }}>
+                                  <ClockIcon size={12} style={{ display: "inline", marginRight: 4 }} />
+                                  {item.startTime}
+                                </span>
+                                <div>
+                                  <strong style={{ fontSize: 15, display: "block" }}>{item.title}</strong>
+                                  {item.speaker && <span style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Palestrante: {item.speaker}</span>}
+                                </div>
+                              </div>
+                              {item.location && <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>{item.location}</span>}
+                            </div>
+                          ))}
+
+                          <div style={{ textAlign: "center", marginTop: 16 }}>
+                            <Link
+                              href={editorMode ? "#" : "/programacao"}
+                              onClick={(e) => {
+                                if (editorMode) e.preventDefault();
+                              }}
+                              className="btn-secondary btn-sm"
+                              style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+                            >
+                              <span>Ver programação completa</span>
+                              <ArrowRightIcon size={14} />
+                            </Link>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                );
+
+              /* ---------- 4. LOTES & INSCRIÇÃO ---------- */
+              case "batches":
+                return (
+                  <section style={{ ...sectionStyle, padding: "64px 24px", borderTop: "1px solid var(--border)" }}>
+                    <div className="container-page" style={{ maxWidth: 900 }}>
+                      <div style={{ textAlign: "center", marginBottom: 36 }}>
+                        <SectionEyebrow>Inscrições</SectionEyebrow>
+                        <h2 style={{ fontSize: "clamp(24px, 3.5vw, 32px)", margin: "8px 0 12px" }}>
+                          {sec.title || "Lotes e Inscrições"}
+                        </h2>
+                        <p style={{ color: "var(--muted-foreground)", margin: 0 }}>
+                          {sec.subtitle || "Aproveite os valores promocionais dos lotes antecipados"}
+                        </p>
+                      </div>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
+                        {batches.map((b) => (
                           <div
-                            key={idx}
+                            key={b.id}
                             className="card"
                             style={{
-                              padding: "16px 20px",
-                              cursor: "pointer",
-                              transition: "background 0.15s ease",
+                              padding: 24,
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 12,
+                              border: b.isActive ? "2px solid var(--gold)" : "1px solid var(--border)",
+                              position: "relative",
+                              background: b.isActive ? "rgba(200, 162, 97, 0.05)" : "var(--card)",
                             }}
-                            onClick={() => setActiveFaq(isOpen ? null : idx)}
                           >
-                            <div className="spread" style={{ alignItems: "center" }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                <QuestionIcon size={16} color="var(--gold)" />
-                                <strong style={{ fontSize: 15 }}>{faq.question}</strong>
-                              </div>
-                              <ChevronDownIcon
-                                size={18}
+                            {b.isActive && (
+                              <span
                                 style={{
-                                  transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
-                                  transition: "transform 0.2s ease",
+                                  position: "absolute",
+                                  top: -11,
+                                  left: "50%",
+                                  transform: "translateX(-50%)",
+                                  background: "var(--gold)",
+                                  color: "#0B2928",
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  padding: "2px 10px",
+                                  borderRadius: 999,
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.5px",
+                                  whiteSpace: "nowrap",
                                 }}
-                              />
+                              >
+                                Lote Atual
+                              </span>
+                            )}
+
+                            <span style={{ fontSize: 12, color: "var(--muted-foreground)", textTransform: "uppercase", fontWeight: 700 }}>
+                              {b.name}
+                            </span>
+
+                            <div style={{ fontSize: 28, fontWeight: 800, color: b.isActive ? "var(--gold)" : "var(--foreground)" }}>
+                              R$ {b.price.toFixed(2).replace(".", ",")}
                             </div>
-                            {isOpen && (
-                              <p style={{ margin: "12px 0 0", fontSize: 14, color: "var(--muted-foreground)", lineHeight: 1.6, paddingLeft: 26 }}>
-                                {faq.answer}
-                              </p>
+
+                            <p style={{ margin: 0, fontSize: 12, color: "var(--muted-foreground)", minHeight: 32 }}>
+                              {b.batchNumber === 1
+                                ? `${b.confirmedCount} de 60 vagas preenchidas`
+                                : b.endDate
+                                ? `Válido até ${new Date(b.endDate).toLocaleDateString("pt-BR")}`
+                                : "Vagas limitadas"}
+                            </p>
+
+                            {b.isActive && mainEvent && registrationsOpen ? (
+                              <Link
+                                href={editorMode ? "#" : `/inscricao?eventId=${mainEvent.id}`}
+                                onClick={(e) => {
+                                  if (editorMode) e.preventDefault();
+                                }}
+                                className="btn-primary"
+                                style={{ width: "100%", textAlign: "center", padding: 10, fontSize: 14 }}
+                              >
+                                Inscrever-se
+                              </Link>
+                            ) : (
+                              <span style={{ fontSize: 12, textAlign: "center", color: "var(--muted-foreground)", padding: "10px 0" }}>
+                                {b.status === "CLOSED" ? "Encerrado" : "Próximo Lote"}
+                              </span>
                             )}
                           </div>
-                        );
-                      })}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                </section>
-              );
+                  </section>
+                );
 
-            default:
-              return null;
-          }
+              /* ---------- 5. COMO FUNCIONA (STEPS) ---------- */
+              case "steps":
+                return (
+                  <section style={{ ...sectionStyle, padding: "64px 24px", borderTop: "1px solid var(--border)" }}>
+                    <div className="container-page">
+                      <SectionEyebrow>Como funciona</SectionEyebrow>
+                      <h2 style={{ fontSize: "clamp(24px, 3.5vw, 32px)", margin: "8px 0 32px" }}>
+                        {sec.title || content?.stepsTitle || "Da inscrição ao credenciamento"}
+                      </h2>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 20 }}>
+                        {(content?.steps || []).map((step, i) => (
+                          <StepCard key={step.title} number={String(i + 1)} title={step.title} text={step.text} />
+                        ))}
+                      </div>
+                    </div>
+                  </section>
+                );
+
+              /* ---------- 6. PARCEIROS ---------- */
+              case "partners":
+                return (
+                  <section style={{ ...sectionStyle, padding: "64px 24px", borderTop: "1px solid var(--border)" }}>
+                    <div className="container-page" style={{ maxWidth: 760, textAlign: "center" }}>
+                      <SectionEyebrow>Realização e apoio</SectionEyebrow>
+                      <h2 style={{ fontSize: "clamp(24px, 3.5vw, 32px)", margin: "8px 0 16px" }}>
+                        {sec.title || content?.partnersTitle || "Realização e Apoio"}
+                      </h2>
+                      <p style={{ color: "var(--muted-foreground)", fontSize: 16, lineHeight: 1.7, margin: "0 0 32px" }}>
+                        {content?.partnersText || "Universidade Positivo e parceiros apoiam o evento."}
+                      </p>
+
+                      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 16 }}>
+                        {(content?.partnersList || [{ name: "Universidade Positivo", role: "Realização" }, { name: "LSPK Tecnology", role: "Apoio Tecnológico" }]).map((p) => (
+                          <div key={p.name} className="card" style={{ padding: "16px 24px", minWidth: 200, textAlign: "center" }}>
+                            <strong style={{ fontSize: 16, display: "block" }}>{p.name}</strong>
+                            {p.role && <span style={{ fontSize: 12, color: "var(--gold)" }}>{p.role}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </section>
+                );
+
+              /* ---------- 7. FAQ (PERGUNTAS FREQUENTES) ---------- */
+              case "faq":
+                const faqList = content?.faqs && content.faqs.length > 0 ? content.faqs : [];
+                return (
+                  <section style={{ ...sectionStyle, padding: "64px 24px", borderTop: "1px solid var(--border)" }}>
+                    <div className="container-page" style={{ maxWidth: 760 }}>
+                      <div style={{ textAlign: "center", marginBottom: 36 }}>
+                        <SectionEyebrow>Dúvidas</SectionEyebrow>
+                        <h2 style={{ fontSize: "clamp(24px, 3.5vw, 32px)", margin: "8px 0 12px" }}>
+                          {sec.title || "Perguntas Frequentes"}
+                        </h2>
+                        <p style={{ color: "var(--muted-foreground)", margin: 0 }}>
+                          {sec.subtitle || "Tire suas dúvidas sobre inscrições, pagamentos e certificados"}
+                        </p>
+                      </div>
+
+                      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        {faqList.map((faq, idx) => {
+                          const isOpen = activeFaq === idx;
+                          return (
+                            <div
+                              key={idx}
+                              className="card"
+                              style={{
+                                padding: "16px 20px",
+                                cursor: "pointer",
+                                transition: "background 0.15s ease",
+                              }}
+                              onClick={(e) => {
+                                if (!editorMode) {
+                                  setActiveFaq(isOpen ? null : idx);
+                                }
+                              }}
+                            >
+                              <div className="spread" style={{ alignItems: "center" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                  <QuestionIcon size={16} color="var(--gold)" />
+                                  <strong style={{ fontSize: 15 }}>{faq.question}</strong>
+                                </div>
+                                <ChevronDownIcon
+                                  size={18}
+                                  style={{
+                                    transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+                                    transition: "transform 0.2s ease",
+                                  }}
+                                />
+                              </div>
+                              {isOpen && (
+                                <p style={{ margin: "12px 0 0", fontSize: 14, color: "var(--muted-foreground)", lineHeight: 1.6, paddingLeft: 26 }}>
+                                  {faq.answer}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </section>
+                );
+
+              default:
+                return null;
+            }
+          };
+
+          return (
+            <div
+              key={sec.id}
+              data-section-id={sec.id}
+              onClick={(e) => {
+                if (editorMode) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setSelectedSectionId(sec.id);
+                  if (typeof window !== "undefined" && window.parent) {
+                    window.parent.postMessage({ type: "SECTION_SELECTED", sectionId: sec.id }, "*");
+                  }
+                }
+              }}
+              style={{
+                position: "relative",
+                outline: isSelected
+                  ? "2.5px solid #38BDF8"
+                  : editorMode
+                  ? "1px dashed rgba(56, 189, 248, 0.35)"
+                  : "none",
+                outlineOffset: "-2px",
+                cursor: editorMode ? "pointer" : "inherit",
+                transition: "outline 0.15s ease",
+              }}
+            >
+              {/* Badge indicativo no modo editor */}
+              {editorMode && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 10,
+                    left: 16,
+                    zIndex: 40,
+                    background: isSelected ? "#38BDF8" : "rgba(15, 23, 42, 0.85)",
+                    color: isSelected ? "#0F172A" : "#FFFFFF",
+                    padding: "4px 10px",
+                    borderRadius: 6,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
+                    pointerEvents: "none",
+                  }}
+                >
+                  <GripVerticalIcon size={12} />
+                  <span>{sec.title}</span>
+                  {isSelected && <span style={{ opacity: 0.85 }}>· Selecionada</span>}
+                </div>
+              )}
+
+              {renderSectionContent()}
+            </div>
+          );
         })}
       </main>
 

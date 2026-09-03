@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as api from "../../api/client";
 import {
   PaletteIcon,
@@ -15,12 +15,6 @@ import {
   GripVerticalIcon,
   DesktopIcon,
   MobileIcon,
-  CalendarIcon,
-  MapPinIcon,
-  ClockIcon,
-  ArrowRightIcon,
-  QuestionIcon,
-  ChevronDownIcon,
 } from "../../components/Icons";
 
 function toDatetimeLocal(iso: string): string {
@@ -104,6 +98,19 @@ export function SiteTab({ eventId }: { eventId: string }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  // Referência para o Iframe do Site Original
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const [isIframeConnected, setIsIframeConnected] = useState(false);
+
+  // URL do site real
+  const [siteUrl, setSiteUrl] = useState<string>(() => {
+    if (typeof window !== "undefined" && window.location.hostname === "localhost") {
+      return "http://localhost:3000";
+    }
+    return "https://copol2026.com.br";
+  });
+  const [editingUrl, setEditingUrl] = useState(false);
 
   // Modo de visualização: Desktop ou Mobile
   const [deviceMode, setDeviceMode] = useState<"desktop" | "mobile">("desktop");
@@ -189,6 +196,63 @@ export function SiteTab({ eventId }: { eventId: string }) {
       setLoading(false);
     }
   }
+
+  // ==================== PONTE DE COMUNICAÇÃO (POSTMESSAGE) ====================
+  function syncToIframe() {
+    if (iframeRef.current?.contentWindow) {
+      const payload: api.SiteContent = {
+        theme,
+        sections,
+        faqs,
+        partnersList: partners,
+        steps,
+        ...textFields,
+      };
+
+      iframeRef.current.contentWindow.postMessage(
+        {
+          type: "SYNC_SITE_CONTENT",
+          payload,
+        },
+        "*"
+      );
+    }
+  }
+
+  // Sincroniza sempre que algum dado for alterado
+  useEffect(() => {
+    syncToIframe();
+  }, [theme, sections, textFields, steps, partners, faqs]);
+
+  // Envia destaque da seção selecionada para o iframe
+  useEffect(() => {
+    if (iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(
+        {
+          type: "HIGHLIGHT_SECTION",
+          sectionId: selectedSectionId,
+        },
+        "*"
+      );
+    }
+  }, [selectedSectionId]);
+
+  // Escuta mensagens vindas do iframe (o site real notificando seleção de seção)
+  useEffect(() => {
+    function handleMessage(event: MessageEvent) {
+      if (event.data?.type === "PREVIEW_READY") {
+        setIsIframeConnected(true);
+        syncToIframe();
+      }
+      if (event.data?.type === "SECTION_SELECTED" && event.data.sectionId) {
+        setSelectedSectionId(event.data.sectionId);
+        setSidebarTab("inspector");
+      }
+    }
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [theme, sections, textFields, steps, partners, faqs]);
 
   // Drag and drop logic
   function handleDragStart(index: number) {
@@ -325,7 +389,7 @@ export function SiteTab({ eventId }: { eventId: string }) {
         registrationDeadline: deadlineEnabled && deadline ? fromDatetimeLocal(deadline) : null,
       });
 
-      setNotice("Configurações do site salvas com sucesso! As alterações já estão ao vivo.");
+      setNotice("Configurações do site salvas com sucesso! O site público já está atualizado.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao salvar alterações");
     } finally {
@@ -339,13 +403,14 @@ export function SiteTab({ eventId }: { eventId: string }) {
     setSections(DEFAULT_SECTIONS);
   }
 
-  if (loading) return <p className="muted">Carregando construtor visual...</p>;
+  if (loading) return <p className="muted">Carregando editor visual do site...</p>;
 
   const activeSection = sections.find((s) => s.id === selectedSectionId) || sections[0];
+  const fullPreviewUrl = `${siteUrl.replace(/\/$/, "")}?editor=true&eventId=${eventId}`;
 
   return (
     <div className="stack" style={{ gap: 16 }}>
-      {/* BARRA SUPERIOR: Modo de dispositivo, ações e status */}
+      {/* BARRA SUPERIOR: Modo de dispositivo, URL do site original e ações */}
       <div
         className="card spread"
         style={{
@@ -359,10 +424,42 @@ export function SiteTab({ eventId }: { eventId: string }) {
       >
         <div className="row" style={{ gap: 12, alignItems: "center" }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Construtor Visual do Site (WYSIWYG)</h2>
-            <p className="muted" style={{ margin: 0, fontSize: 12 }}>
-              Clique em qualquer seção na preview para editar ou arraste para reordenar.
-            </p>
+            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Editor Visual com Renderização do Site Real</h2>
+            <div className="row" style={{ gap: 8, alignItems: "center", marginTop: 2 }}>
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: isIframeConnected ? "var(--success, #22C55E)" : "#F59E0B",
+                  display: "inline-block",
+                }}
+              />
+              <span className="muted" style={{ fontSize: 11 }}>
+                {isIframeConnected ? "Conectado ao site original" : "Carregando motor visual..."}
+              </span>
+              {!editingUrl ? (
+                <button
+                  type="button"
+                  onClick={() => setEditingUrl(true)}
+                  style={{ background: "none", border: "none", color: "var(--primary)", fontSize: 11, cursor: "pointer", textDecoration: "underline", padding: 0 }}
+                >
+                  ({siteUrl})
+                </button>
+              ) : (
+                <div className="row" style={{ gap: 4, alignItems: "center" }}>
+                  <input
+                    type="text"
+                    value={siteUrl}
+                    onChange={(e) => setSiteUrl(e.target.value)}
+                    style={{ fontSize: 11, padding: "2px 6px", width: 180 }}
+                  />
+                  <button type="button" className="btn btn-sm" onClick={() => setEditingUrl(false)} style={{ padding: "2px 6px", fontSize: 11 }}>
+                    OK
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -405,7 +502,7 @@ export function SiteTab({ eventId }: { eventId: string }) {
       {notice && <p className="badge badge-success" style={{ padding: "8px 14px", fontSize: 13 }}>{notice}</p>}
       {error && <p className="error-text">{error}</p>}
 
-      {/* ÁREA SPLIT-VIEW: SIDEBAR À ESQUERDA + LIVE CANVAS À DIREITA */}
+      {/* ÁREA SPLIT-VIEW: SIDEBAR À ESQUERDA + IFRAME DO SITE REAL À DIREITA */}
       <div style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
         
         {/* ==================== COLUNA ESQUERDA: SIDEBAR / INSPETOR ==================== */}
@@ -861,7 +958,7 @@ export function SiteTab({ eventId }: { eventId: string }) {
           )}
         </div>
 
-        {/* ==================== COLUNA DIREITA: LIVE INTERACTIVE PREVIEW ==================== */}
+        {/* ==================== COLUNA DIREITA: IFRAME DO SITE REAL ==================== */}
         <div
           style={{
             flex: 1,
@@ -869,7 +966,7 @@ export function SiteTab({ eventId }: { eventId: string }) {
             background: "#080E18",
             borderRadius: 16,
             border: "1px solid var(--border)",
-            padding: deviceMode === "mobile" ? "24px 12px" : "24px",
+            padding: deviceMode === "mobile" ? "24px 12px" : "20px",
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
@@ -877,274 +974,36 @@ export function SiteTab({ eventId }: { eventId: string }) {
             minHeight: "85vh",
           }}
         >
-          {/* Mockup Canvas */}
+          {/* Frame do Iframe */}
           <div
             style={{
               width: deviceMode === "mobile" ? "380px" : "100%",
-              maxWidth: deviceMode === "mobile" ? "380px" : "960px",
+              maxWidth: deviceMode === "mobile" ? "380px" : "100%",
               background: theme.backgroundColor,
-              color: theme.textColor,
-              borderRadius: deviceMode === "mobile" ? 32 : 12,
-              border: deviceMode === "mobile" ? "8px solid #1E293B" : "1px solid rgba(255,255,255,0.1)",
+              borderRadius: deviceMode === "mobile" ? 36 : 12,
+              border: deviceMode === "mobile" ? "10px solid #1E293B" : "1px solid rgba(255,255,255,0.1)",
               boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.7)",
               overflow: "hidden",
               transition: "width 0.3s ease",
+              position: "relative",
             }}
           >
-            {/* Header Simulado do Site */}
-            <div
+            <iframe
+              ref={iframeRef}
+              src={fullPreviewUrl}
+              title="Prévia do Site Original"
+              onLoad={() => {
+                setIsIframeConnected(true);
+                syncToIframe();
+              }}
               style={{
-                padding: "12px 20px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                borderBottom: "1px solid rgba(255,255,255,0.1)",
+                width: "100%",
+                height: "82vh",
+                border: "none",
+                display: "block",
                 background: theme.backgroundColor,
               }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontWeight: 800, fontSize: 14 }}>
-                  <span style={{ color: theme.accentColor }}>{textFields.eventTitle}</span> {textFields.eventYear}
-                </span>
-              </div>
-              <div style={{ display: "flex", gap: 12, fontSize: 12, color: theme.textMutedColor }}>
-                <span>Início</span>
-                <span>Programação</span>
-                <span>Lotes</span>
-              </div>
-            </div>
-
-            {/* Renderização Interativa das Seções */}
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              {sections
-                .filter((s) => s.enabled !== false)
-                .map((sec, idx) => {
-                  const isSelected = sec.id === selectedSectionId;
-                  const isDragOver = dragOverIndex === idx;
-
-                  return (
-                    <div
-                      key={sec.id}
-                      draggable
-                      onDragStart={() => handleDragStart(idx)}
-                      onDragOver={(e) => handleDragOver(e, idx)}
-                      onDrop={() => handleDrop(idx)}
-                      onClick={() => selectSection(sec.id)}
-                      style={{
-                        position: "relative",
-                        backgroundColor: sec.backgroundColor || "transparent",
-                        color: sec.textColor || "inherit",
-                        outline: isSelected
-                          ? "2.5px solid #38BDF8"
-                          : isDragOver
-                          ? "2.5px dashed #38BDF8"
-                          : "1px solid transparent",
-                        outlineOffset: "-2px",
-                        cursor: "pointer",
-                        transition: "outline 0.15s ease",
-                      }}
-                    >
-                      {/* Selo Flutuante indicando a Seção e Ação */}
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: 8,
-                          left: 12,
-                          zIndex: 10,
-                          background: isSelected ? "#38BDF8" : "rgba(0,0,0,0.75)",
-                          color: isSelected ? "#0F172A" : "#FFFFFF",
-                          padding: "3px 8px",
-                          borderRadius: 6,
-                          fontSize: 10,
-                          fontWeight: 700,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 6,
-                          boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-                        }}
-                      >
-                        <GripVerticalIcon size={12} />
-                        <span>{sec.title}</span>
-                        {isSelected && <span style={{ opacity: 0.8 }}>· Editando</span>}
-                      </div>
-
-                      {/* CONTEÚDO VISUAL DE CADA SEÇÃO NO CANVAS */}
-                      {sec.type === "hero" && (
-                        <div style={{ padding: "54px 20px 40px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
-                          <span
-                            style={{
-                              padding: "4px 12px",
-                              borderRadius: 999,
-                              background: "rgba(255,255,255,0.08)",
-                              border: "1px solid rgba(255,255,255,0.15)",
-                              fontSize: 11,
-                              color: theme.accentColor,
-                              fontWeight: 600,
-                            }}
-                          >
-                            {textFields.heroBadge}
-                          </span>
-                          <h1 style={{ margin: 0, fontSize: deviceMode === "mobile" ? 28 : 44, fontWeight: 800, lineHeight: 1.1 }}>
-                            <span style={{ color: theme.accentColor }}>{textFields.eventTitle}</span> {textFields.eventYear}
-                          </h1>
-                          <p style={{ margin: 0, maxWidth: 500, fontSize: deviceMode === "mobile" ? 13 : 15, color: theme.textMutedColor, lineHeight: 1.5 }}>
-                            {textFields.heroSubtitle}
-                          </p>
-                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
-                            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: theme.textMutedColor }}>
-                              <CalendarIcon size={12} color={theme.accentColor} /> 25 de Outubro de 2026
-                            </span>
-                            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: theme.textMutedColor }}>
-                              <MapPinIcon size={12} color={theme.accentColor} /> Teatro Positivo
-                            </span>
-                          </div>
-                          <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
-                            <span
-                              style={{
-                                background: `linear-gradient(135deg, ${theme.primaryColor}, #22B8A3)`,
-                                color: "#04302C",
-                                fontWeight: 700,
-                                padding: "10px 20px",
-                                borderRadius: 10,
-                                fontSize: 13,
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 6,
-                              }}
-                            >
-                              Garanta sua vaga <ArrowRightIcon size={14} />
-                            </span>
-                            <span
-                              style={{
-                                border: "1px solid rgba(255,255,255,0.2)",
-                                color: theme.textColor,
-                                padding: "10px 16px",
-                                borderRadius: 10,
-                                fontSize: 13,
-                              }}
-                            >
-                              Ver Programação
-                            </span>
-                          </div>
-                        </div>
-                      )}
-
-                      {sec.type === "about" && (
-                        <div style={{ padding: "40px 20px", borderTop: "1px solid rgba(255,255,255,0.08)", maxWidth: 640, margin: "0 auto" }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: theme.accentColor, textTransform: "uppercase" }}>Sobre</span>
-                          <h2 style={{ fontSize: 22, margin: "6px 0 12px" }}>{textFields.aboutTitle}</h2>
-                          <p style={{ fontSize: 13, color: theme.textMutedColor, lineHeight: 1.6, margin: 0 }}>
-                            {textFields.aboutText}
-                          </p>
-                        </div>
-                      )}
-
-                      {sec.type === "schedule" && (
-                        <div style={{ padding: "40px 20px", borderTop: "1px solid rgba(255,255,255,0.08)", textAlign: "center" }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: theme.accentColor, textTransform: "uppercase" }}>Cronograma</span>
-                          <h2 style={{ fontSize: 22, margin: "6px 0 16px" }}>Programação Oficial</h2>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 500, margin: "0 auto" }}>
-                            <div style={{ padding: 12, background: theme.surfaceColor, borderRadius: 8, display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                              <span style={{ display: "flex", alignItems: "center", gap: 6, color: theme.accentColor }}>
-                                <ClockIcon size={12} /> 08:30
-                              </span>
-                              <strong>Credenciamento e Welcome Coffee</strong>
-                            </div>
-                            <div style={{ padding: 12, background: theme.surfaceColor, borderRadius: 8, display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                              <span style={{ display: "flex", alignItems: "center", gap: 6, color: theme.accentColor }}>
-                                <ClockIcon size={12} /> 09:30
-                              </span>
-                              <strong>Abertura Oficial e Palestra Magna</strong>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {sec.type === "batches" && (
-                        <div style={{ padding: "40px 20px", borderTop: "1px solid rgba(255,255,255,0.08)", textAlign: "center" }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: theme.accentColor, textTransform: "uppercase" }}>Inscrições</span>
-                          <h2 style={{ fontSize: 22, margin: "6px 0 16px" }}>Lotes & Valores</h2>
-                          <div style={{ display: "grid", gridTemplateColumns: deviceMode === "mobile" ? "1fr" : "repeat(3, 1fr)", gap: 12, maxWidth: 640, margin: "0 auto" }}>
-                            <div style={{ padding: 16, background: theme.surfaceColor, border: `2px solid ${theme.accentColor}`, borderRadius: 12, textAlign: "left" }}>
-                              <span style={{ fontSize: 10, color: theme.accentColor, fontWeight: 700, textTransform: "uppercase" }}>1º Lote (Ativo)</span>
-                              <div style={{ fontSize: 22, fontWeight: 800, color: theme.accentColor, margin: "4px 0" }}>R$ 100,00</div>
-                              <span style={{ fontSize: 11, color: theme.textMutedColor }}>Vagas promocionais</span>
-                            </div>
-                            <div style={{ padding: 16, background: theme.surfaceColor, borderRadius: 12, textAlign: "left", opacity: 0.7 }}>
-                              <span style={{ fontSize: 10, color: theme.textMutedColor, fontWeight: 700, textTransform: "uppercase" }}>2º Lote</span>
-                              <div style={{ fontSize: 22, fontWeight: 800, margin: "4px 0" }}>R$ 150,00</div>
-                              <span style={{ fontSize: 11, color: theme.textMutedColor }}>Próximo lote</span>
-                            </div>
-                            <div style={{ padding: 16, background: theme.surfaceColor, borderRadius: 12, textAlign: "left", opacity: 0.5 }}>
-                              <span style={{ fontSize: 10, color: theme.textMutedColor, fontWeight: 700, textTransform: "uppercase" }}>3º Lote</span>
-                              <div style={{ fontSize: 22, fontWeight: 800, margin: "4px 0" }}>R$ 200,00</div>
-                              <span style={{ fontSize: 11, color: theme.textMutedColor }}>Lote final</span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {sec.type === "steps" && (
-                        <div style={{ padding: "40px 20px", borderTop: "1px solid rgba(255,255,255,0.08)", textAlign: "center" }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: theme.accentColor, textTransform: "uppercase" }}>Passo a Passo</span>
-                          <h2 style={{ fontSize: 22, margin: "6px 0 16px" }}>{textFields.stepsTitle}</h2>
-                          <div style={{ display: "grid", gridTemplateColumns: deviceMode === "mobile" ? "1fr" : `repeat(${Math.min(steps.length || 3, 3)}, 1fr)`, gap: 10, maxWidth: 640, margin: "0 auto" }}>
-                            {(steps.length > 0 ? steps : [{ title: "Inscreva-se", text: "Preencha seus dados" }, { title: "Pague com Pix", text: "Confirmação instantânea" }, { title: "Check-in QR", text: "Apresente na entrada" }]).map((st, i) => (
-                              <div key={i} style={{ padding: 14, background: theme.surfaceColor, borderRadius: 10, textAlign: "left" }}>
-                                <span style={{ fontSize: 16, fontWeight: 800, color: theme.accentColor }}>0{i + 1}</span>
-                                <strong style={{ display: "block", fontSize: 13, margin: "4px 0" }}>{st.title}</strong>
-                                <span style={{ fontSize: 11, color: theme.textMutedColor }}>{st.text}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {sec.type === "partners" && (
-                        <div style={{ padding: "40px 20px", borderTop: "1px solid rgba(255,255,255,0.08)", textAlign: "center" }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: theme.accentColor, textTransform: "uppercase" }}>Apoio</span>
-                          <h2 style={{ fontSize: 20, margin: "6px 0 16px" }}>{textFields.partnersTitle}</h2>
-                          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-                            {(partners.length > 0 ? partners : [{ name: "Universidade Positivo", role: "Realização" }, { name: "LSPK Tecnology", role: "Apoio" }]).map((p, i) => (
-                              <div key={i} style={{ padding: "10px 16px", background: theme.surfaceColor, borderRadius: 8, fontSize: 12 }}>
-                                <strong>{p.name}</strong>
-                                {p.role && <span style={{ display: "block", fontSize: 10, color: theme.accentColor }}>{p.role}</span>}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {sec.type === "faq" && (
-                        <div style={{ padding: "40px 20px", borderTop: "1px solid rgba(255,255,255,0.08)", maxWidth: 580, margin: "0 auto" }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: theme.accentColor, textTransform: "uppercase" }}>Dúvidas</span>
-                          <h2 style={{ fontSize: 20, margin: "6px 0 16px", textAlign: "center" }}>Perguntas Frequentes</h2>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                            {(faqs.length > 0 ? faqs : [{ question: "Como recebo meu QR Code?", answer: "Por e-mail após a confirmação do pagamento." }]).map((fq, i) => (
-                              <div key={i} style={{ padding: 12, background: theme.surfaceColor, borderRadius: 8, fontSize: 12 }}>
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                  <strong style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                    <QuestionIcon size={12} color={theme.accentColor} /> {fq.question}
-                                  </strong>
-                                  <ChevronDownIcon size={14} />
-                                </div>
-                                <p style={{ margin: "6px 0 0", color: theme.textMutedColor, fontSize: 11, paddingLeft: 18 }}>
-                                  {fq.answer}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-            </div>
-
-            {/* Rodapé Simulado */}
-            <div style={{ padding: "24px 20px", textAlign: "center", borderTop: "1px solid rgba(255,255,255,0.08)", fontSize: 11, color: theme.textMutedColor }}>
-              <p style={{ margin: 0 }}>{textFields.footerText}</p>
-            </div>
+            />
           </div>
         </div>
       </div>

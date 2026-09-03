@@ -6,6 +6,7 @@ import Link from "next/link";
 import { getPaymentStatus, type InscriptionPaymentStatus } from "@/lib/api";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
+import { CheckIcon, ExternalLinkIcon } from "@/components/Icons";
 
 export default function ConfirmationPage() {
   return (
@@ -125,11 +126,10 @@ function ConfirmationContent() {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: 44,
                   color: "var(--success)",
                 }}
               >
-                ✓
+                <CheckIcon size={44} />
               </div>
 
               <div>
@@ -270,9 +270,19 @@ function ConfirmationContent() {
                       fontSize: 15,
                       background: copied ? "var(--success)" : "var(--primary)",
                       transition: "all 0.2s ease",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 8,
                     }}
                   >
-                    {copied ? "✓ Código Pix Copiado!" : "Copiar Código Pix (Copia e Cola)"}
+                    {copied ? (
+                      <>
+                        <CheckIcon size={16} /> Código Pix Copiado!
+                      </>
+                    ) : (
+                      "Copiar Código Pix (Copia e Cola)"
+                    )}
                   </button>
 
                   {statusData.paymentUrl && (
@@ -292,7 +302,8 @@ function ConfirmationContent() {
                         gap: 8,
                       }}
                     >
-                      <span>Abrir no App PicPay</span> ↗
+                      <span>Abrir no App PicPay</span>
+                      <ExternalLinkIcon size={14} />
                     </a>
                   )}
                 </div>

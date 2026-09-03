@@ -1,17 +1,15 @@
 import { z } from "zod";
 
-/**
- * Conteúdo do site pre-copol, 100% editável pelo admin (sem precisar mexer
- * em código) — guardado como JSON livre em Event.siteContent (ver
- * schema.prisma). Nada aqui é obrigatório: campos ausentes caem no
- * fallback em DEFAULT_SITE_CONTENT, que reproduz o texto/preços que já
- * existiam fixos no código antes desta funcionalidade (evento COPOL real
- * continua funcionando sem reconfiguração).
- */
+export const siteThemeSchema = z.object({
+  primaryColor: z.string().default("#0E3634"),
+  accentColor: z.string().default("#C8A261"),
+  backgroundColor: z.string().default("#0B2928"),
+  surfaceColor: z.string().default("#134543"),
+  textColor: z.string().default("#FFFFFF"),
+  textMutedColor: z.string().default("#94A3B8"),
+});
+
 export const pricingTierSchema = z.object({
-  // key estável, usada como Inscription.category — trocar a key de um tier
-  // existente não invalida inscrições já feitas com a key antiga, só deixa
-  // de aparecer como opção nova.
   key: z
     .string()
     .trim()
@@ -27,7 +25,50 @@ export const stepSchema = z.object({
   text: z.string().trim().min(1).max(300),
 });
 
+export const faqItemSchema = z.object({
+  question: z.string().trim().min(1).max(200),
+  answer: z.string().trim().min(1).max(1000),
+});
+
+export const partnerItemSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  role: z.string().trim().max(100).optional(),
+  logoUrl: z.string().trim().optional().nullable(),
+});
+
+export const sectionTypeSchema = z.enum([
+  "hero",
+  "about",
+  "schedule",
+  "batches",
+  "steps",
+  "partners",
+  "faq",
+]);
+
+export const sectionConfigSchema = z.object({
+  id: z.string(),
+  type: sectionTypeSchema,
+  title: z.string().trim().min(1).max(200),
+  subtitle: z.string().trim().max(300).optional().nullable(),
+  enabled: z.boolean().default(true),
+  order: z.number().int().default(0),
+  backgroundColor: z.string().optional().nullable(),
+  textColor: z.string().optional().nullable(),
+  content: z.record(z.any()).optional(),
+});
+
 export const siteContentSchema = z.object({
+  // Identidade visual global
+  theme: siteThemeSchema.optional(),
+
+  // Ordem e configurações individuais das seções
+  sections: z.array(sectionConfigSchema).optional(),
+
+  // Dados auxiliares
+  faqs: z.array(faqItemSchema).optional(),
+  partnersList: z.array(partnerItemSchema).optional(),
+
   // Cabeçalho / topo do site
   eventTitle: z.string().trim().max(100).optional(),
   eventYear: z.string().trim().max(20).optional(),
@@ -40,7 +81,7 @@ export const siteContentSchema = z.object({
 
   // Seção "Como funciona"
   stepsTitle: z.string().trim().max(200).optional(),
-  steps: z.array(stepSchema).max(6).optional(),
+  steps: z.array(stepSchema).max(10).optional(),
 
   // Seção "Investimento"
   pricingTitle: z.string().trim().max(200).optional(),
@@ -54,12 +95,143 @@ export const siteContentSchema = z.object({
   footerText: z.string().trim().max(300).optional(),
 });
 
+export type SiteTheme = z.infer<typeof siteThemeSchema>;
+export type SectionType = z.infer<typeof sectionTypeSchema>;
+export type SiteSectionConfig = z.infer<typeof sectionConfigSchema>;
+export type FaqItem = z.infer<typeof faqItemSchema>;
+export type PartnerItem = z.infer<typeof partnerItemSchema>;
 export type PricingTier = z.infer<typeof pricingTierSchema>;
 export type Step = z.infer<typeof stepSchema>;
 export type SiteContent = z.infer<typeof siteContentSchema>;
-type ResolvedSiteContent = Required<SiteContent>;
+
+export const DEFAULT_SITE_THEME: SiteTheme = {
+  primaryColor: "#0E3634",
+  accentColor: "#C8A261",
+  backgroundColor: "#0B2928",
+  surfaceColor: "#134543",
+  textColor: "#FFFFFF",
+  textMutedColor: "#94A3B8",
+};
+
+export const DEFAULT_FAQS: FaqItem[] = [
+  {
+    question: "Como recebo meu QR Code de entrada?",
+    answer:
+      "Assim que seu pagamento for confirmado via PicPay/Pix, o sistema envia o comprovante oficial com o QR Code diretamente para seu e-mail cadastrado.",
+  },
+  {
+    question: "O evento oferece certificado de participação?",
+    answer:
+      "Sim! Todos os congressistas credenciados receberão certificado oficial com carga horária e código verificável de autenticidade.",
+  },
+  {
+    question: "Posso pagar via Pix?",
+    answer:
+      "Sim. Ao se inscrever, a tela gera instantaneamente o QR Code Pix e o código Copia e Cola para pagamento rápido pelo seu banco.",
+  },
+];
+
+export const DEFAULT_SITE_SECTIONS: SiteSectionConfig[] = [
+  {
+    id: "hero",
+    type: "hero",
+    title: "Início / Apresentação",
+    subtitle: "Destaque principal com data, local e chamada para inscrição",
+    enabled: true,
+    order: 0,
+    backgroundColor: null,
+    textColor: null,
+  },
+  {
+    id: "about",
+    type: "about",
+    title: "Sobre o Evento",
+    subtitle: "Apresentação e propósito do congresso",
+    enabled: true,
+    order: 1,
+    backgroundColor: null,
+    textColor: null,
+  },
+  {
+    id: "schedule",
+    type: "schedule",
+    title: "Programação Oficial",
+    subtitle: "Cronograma das palestras, horários e auditórios",
+    enabled: true,
+    order: 2,
+    backgroundColor: null,
+    textColor: null,
+  },
+  {
+    id: "batches",
+    type: "batches",
+    title: "Lotes & Inscrição",
+    subtitle: "Valores vigentes e garantia de vaga",
+    enabled: true,
+    order: 3,
+    backgroundColor: null,
+    textColor: null,
+  },
+  {
+    id: "steps",
+    type: "steps",
+    title: "Como Funciona",
+    subtitle: "Passo a passo da inscrição ao credenciamento",
+    enabled: true,
+    order: 4,
+    backgroundColor: null,
+    textColor: null,
+  },
+  {
+    id: "partners",
+    type: "partners",
+    title: "Realização e Apoio",
+    subtitle: "Instituições e marcas que apoiam o evento",
+    enabled: true,
+    order: 5,
+    backgroundColor: null,
+    textColor: null,
+  },
+  {
+    id: "faq",
+    type: "faq",
+    title: "Dúvidas Frequentes",
+    subtitle: "Perguntas comuns dos participantes",
+    enabled: true,
+    order: 6,
+    backgroundColor: null,
+    textColor: null,
+  },
+];
+
+export interface ResolvedSiteContent {
+  theme: SiteTheme;
+  sections: SiteSectionConfig[];
+  faqs: FaqItem[];
+  partnersList: PartnerItem[];
+  eventTitle: string;
+  eventYear: string;
+  heroBadge: string;
+  heroSubtitle: string;
+  aboutTitle: string;
+  aboutText: string;
+  stepsTitle: string;
+  steps: Step[];
+  pricingTitle: string;
+  pricingTiers: PricingTier[];
+  partnersTitle: string;
+  partnersText: string;
+  footerText: string;
+}
 
 export const DEFAULT_SITE_CONTENT: ResolvedSiteContent = {
+  theme: DEFAULT_SITE_THEME,
+  sections: DEFAULT_SITE_SECTIONS,
+  faqs: DEFAULT_FAQS,
+  partnersList: [
+    { name: "Universidade Positivo", role: "Realização" },
+    { name: "LSPK Tecnology", role: "Tecnologia e Apoio" },
+  ],
   eventTitle: "Pré-Copol",
   eventYear: "2026",
   heroBadge: "3º COPOL · Congresso Odontológico Positivo Londrinense",
@@ -94,14 +266,44 @@ export const DEFAULT_SITE_CONTENT: ResolvedSiteContent = {
   footerText: "3º COPOL — Congresso Odontológico Positivo Londrinense",
 };
 
-/** Mescla o conteúdo salvo com o padrão — cada campo cai no fallback
- * individualmente se não tiver sido configurado (inclusive dentro de
- * arrays: uma lista vazia ou ausente de steps/pricingTiers usa a lista
- * padrão inteira, não mistura itens customizados com itens padrão). */
+/**
+ * Mescla o conteúdo salvo com o padrão — cada campo cai no fallback individualmente.
+ */
 export function resolveSiteContent(stored: unknown): ResolvedSiteContent {
   const parsed = siteContentSchema.safeParse(stored ?? {});
   const content = parsed.success ? parsed.data : {};
+
+  // Mescla o tema
+  const theme: SiteTheme = {
+    primaryColor: content.theme?.primaryColor || DEFAULT_SITE_THEME.primaryColor,
+    accentColor: content.theme?.accentColor || DEFAULT_SITE_THEME.accentColor,
+    backgroundColor: content.theme?.backgroundColor || DEFAULT_SITE_THEME.backgroundColor,
+    surfaceColor: content.theme?.surfaceColor || DEFAULT_SITE_THEME.surfaceColor,
+    textColor: content.theme?.textColor || DEFAULT_SITE_THEME.textColor,
+    textMutedColor: content.theme?.textMutedColor || DEFAULT_SITE_THEME.textMutedColor,
+  };
+
+  // Mescla as seções
+  let sections: SiteSectionConfig[] = DEFAULT_SITE_SECTIONS;
+  if (content.sections && content.sections.length > 0) {
+    sections = content.sections.map((s, idx) => ({
+      id: s.id || `section-${idx}`,
+      type: s.type,
+      title: s.title,
+      subtitle: s.subtitle ?? null,
+      enabled: s.enabled !== false,
+      order: typeof s.order === "number" ? s.order : idx,
+      backgroundColor: s.backgroundColor ?? null,
+      textColor: s.textColor ?? null,
+      content: s.content ?? {},
+    }));
+  }
+
   return {
+    theme,
+    sections,
+    faqs: content.faqs && content.faqs.length > 0 ? content.faqs : DEFAULT_FAQS,
+    partnersList: content.partnersList && content.partnersList.length > 0 ? content.partnersList : DEFAULT_SITE_CONTENT.partnersList,
     eventTitle: content.eventTitle || DEFAULT_SITE_CONTENT.eventTitle,
     eventYear: content.eventYear || DEFAULT_SITE_CONTENT.eventYear,
     heroBadge: content.heroBadge || DEFAULT_SITE_CONTENT.heroBadge,

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { listActiveEvents, getSchedule, type EventData, type ScheduleItem } from "@/lib/api";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
+import { CalendarIcon, MapPinIcon } from "@/components/Icons";
 
 export default function SchedulePage() {
   const [events, setEvents] = useState<EventData[]>([]);
@@ -104,9 +105,12 @@ export default function SchedulePage() {
                         fontWeight: 700,
                         color: "var(--gold)",
                         textTransform: "capitalize",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
                       }}
                     >
-                      📅 {formatDateHeader(dateStr)}
+                      <CalendarIcon size={16} /> {formatDateHeader(dateStr)}
                     </div>
 
                     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -157,8 +161,8 @@ export default function SchedulePage() {
                             </div>
 
                             {item.location && (
-                              <span style={{ fontSize: 13, color: "var(--muted-foreground)" }}>
-                                📍 {item.location}
+                              <span style={{ fontSize: 13, color: "var(--muted-foreground)", display: "inline-flex", alignItems: "center", gap: 5 }}>
+                                <MapPinIcon size={14} /> {item.location}
                               </span>
                             )}
                           </div>

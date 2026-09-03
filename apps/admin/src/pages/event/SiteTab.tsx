@@ -1,10 +1,19 @@
 import { useEffect, useState } from "react";
 import * as api from "../../api/client";
-import { ContentSection, FieldRow, ListEditor, TextAreaField, TextField } from "../../components/FormFields";
+import {
+  PaletteIcon,
+  LayersIcon,
+  EditIcon,
+  GearIcon,
+  MoveUpIcon,
+  MoveDownIcon,
+  EyeIcon,
+  EyeOffIcon,
+  PlusIcon,
+  TrashIcon,
+  CheckIcon,
+} from "../../components/Icons";
 
-// Mesma lógica de conversão do EventDetailPage: datetime-local trabalha em
-// horário LOCAL do navegador, sem timezone — new Date(iso)/.toISOString()
-// fecham o round-trip de forma consistente.
 function toDatetimeLocal(iso: string): string {
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -15,61 +24,112 @@ function fromDatetimeLocal(value: string): string {
   return new Date(value).toISOString();
 }
 
-// Espelha DEFAULT_SITE_CONTENT do backend (site-content.ts) — usado só
-// pra preencher o formulário quando o evento ainda não tem nada
-// customizado, refletindo exatamente o que está no ar agora.
-const DEFAULT_TEXT = {
-  eventTitle: "Pré-Copol",
-  eventYear: "2026",
-  heroBadge: "3º COPOL · Congresso Odontológico Positivo Londrinense",
-  heroSubtitle:
-    "Toxina Botulínica: a ciência por trás do resultado natural. Evento preparatório do 3º COPOL, reunindo " +
-    "estudantes e profissionais da odontologia em Londrina.",
-  aboutTitle: "Um encontro pra quem leva a odontologia a sério",
-  aboutText:
-    "O Pré-Copol 2026 é a abertura do 3º Congresso Odontológico Positivo Londrinense (COPOL), realizado na " +
-    "Universidade Positivo — Campus Londrina. O evento tem como tema central a Toxina Botulínica, abordando a " +
-    "ciência por trás do resultado natural na prática odontológica. É voltado a estudantes e profissionais da " +
-    "odontologia que buscam atualização técnica e networking com a comunidade acadêmica de Londrina.",
-  stepsTitle: "Da inscrição ao credenciamento",
-  pricingTitle: "Escolha sua categoria",
-  partnersTitle: "Realização e apoio",
-  partnersText: "Universidade Positivo e LSPK Tecnology apoiam o Pré-Copol 2026.",
-  footerText: "3º COPOL — Congresso Odontológico Positivo Londrinense",
+const DEFAULT_THEME: api.SiteTheme = {
+  primaryColor: "#0E3634",
+  accentColor: "#C8A261",
+  backgroundColor: "#0B2928",
+  surfaceColor: "#134543",
+  textColor: "#FFFFFF",
+  textMutedColor: "#94A3B8",
 };
 
-const DEFAULT_STEPS: api.SiteStep[] = [
-  { title: "Inscreva-se", text: "Preencha seus dados e escolha sua categoria de participação." },
-  { title: "Pagamento", text: "Siga as instruções enviadas por e-mail para confirmar sua vaga." },
-  { title: "Credenciamento", text: "No dia do evento, retire seu QR Code e faça seu check-in na entrada." },
+const THEME_PRESETS = [
+  {
+    name: "COPOL Clássico",
+    theme: {
+      primaryColor: "#0E3634",
+      accentColor: "#C8A261",
+      backgroundColor: "#0B2928",
+      surfaceColor: "#134543",
+      textColor: "#FFFFFF",
+      textMutedColor: "#94A3B8",
+    },
+  },
+  {
+    name: "Azul Universitário",
+    theme: {
+      primaryColor: "#1E40AF",
+      accentColor: "#38BDF8",
+      backgroundColor: "#0F172A",
+      surfaceColor: "#1E293B",
+      textColor: "#F8FAFC",
+      textMutedColor: "#94A3B8",
+    },
+  },
+  {
+    name: "Dark Slate & Teal",
+    theme: {
+      primaryColor: "#0D9488",
+      accentColor: "#2DD4BF",
+      backgroundColor: "#111827",
+      surfaceColor: "#1F2937",
+      textColor: "#FFFFFF",
+      textMutedColor: "#9CA3AF",
+    },
+  },
+  {
+    name: "Bordeaux & Ouro",
+    theme: {
+      primaryColor: "#881337",
+      accentColor: "#F59E0B",
+      backgroundColor: "#1A0B10",
+      surfaceColor: "#2B141C",
+      textColor: "#FFFFFF",
+      textMutedColor: "#D1D5DB",
+    },
+  },
 ];
 
-const DEFAULT_TIERS: api.PricingTier[] = [
-  { key: "STUDENT_UP", label: "Aluno da Universidade Positivo", amount: 30 },
-  { key: "STUDENT_OTHER", label: "Aluno de outras instituições", amount: 35 },
-  { key: "PROFESSIONAL", label: "Profissional / Professor", amount: 50 },
+const DEFAULT_SECTIONS: api.SiteSectionConfig[] = [
+  { id: "hero", type: "hero", title: "Início / Apresentação", subtitle: "Destaque principal", enabled: true, order: 0 },
+  { id: "about", type: "about", title: "Sobre o Evento", subtitle: "Apresentação e propósito", enabled: true, order: 1 },
+  { id: "schedule", type: "schedule", title: "Programação Oficial", subtitle: "Cronograma das palestras", enabled: true, order: 2 },
+  { id: "batches", type: "batches", title: "Lotes & Inscrição", subtitle: "Valores vigentes", enabled: true, order: 3 },
+  { id: "steps", type: "steps", title: "Como Funciona", subtitle: "Passo a passo da inscrição", enabled: true, order: 4 },
+  { id: "partners", type: "partners", title: "Realização e Apoio", subtitle: "Marcas apoiadoras", enabled: true, order: 5 },
+  { id: "faq", type: "faq", title: "Dúvidas Frequentes", subtitle: "Perguntas comuns", enabled: true, order: 6 },
 ];
-
-type TextField = keyof typeof DEFAULT_TEXT;
 
 export function SiteTab({ eventId }: { eventId: string }) {
-  const [event, setEvent] = useState<api.EventRecord | null>(null);
+  const [, setEvent] = useState<api.EventRecord | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState<"deadline" | "close" | "reopen" | "content" | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  // Sub-aba ativa
+  const [subTab, setSubTab] = useState<"theme" | "sections" | "content" | "general">("theme");
+
+  // Estado do Construtor
+  const [theme, setTheme] = useState<api.SiteTheme>(DEFAULT_THEME);
+  const [sections, setSections] = useState<api.SiteSectionConfig[]>(DEFAULT_SECTIONS);
+  const [faqs, setFaqs] = useState<api.FaqItem[]>([]);
+  const [partners, setPartners] = useState<api.PartnerItem[]>([]);
+  const [steps, setSteps] = useState<api.SiteStep[]>([]);
+  const [textFields, setTextFields] = useState({
+    eventTitle: "Pré-Copol",
+    eventYear: "2026",
+    heroBadge: "3º COPOL · Congresso Odontológico Positivo Londrinense",
+    heroSubtitle: "Toxina Botulínica: a ciência por trás do resultado natural.",
+    aboutTitle: "Um encontro pra quem leva a odontologia a sério",
+    aboutText: "O Pré-Copol 2026 é a abertura do 3º Congresso Odontológico Positivo Londrinense.",
+    stepsTitle: "Da inscrição ao credenciamento",
+    pricingTitle: "Escolha sua categoria",
+    partnersTitle: "Realização e apoio",
+    partnersText: "Universidade Positivo e parceiros apoiam o evento.",
+    footerText: "3º COPOL — Todos os direitos reservados",
+  });
 
   const [deadlineEnabled, setDeadlineEnabled] = useState(false);
   const [deadline, setDeadline] = useState("");
-
-  const [text, setText] = useState<Record<TextField, string>>(DEFAULT_TEXT);
-  const [steps, setSteps] = useState<api.SiteStep[]>(DEFAULT_STEPS);
-  const [tiers, setTiers] = useState<api.PricingTier[]>(DEFAULT_TIERS);
 
   useEffect(() => {
     load();
   }, [eventId]);
 
   async function load() {
+    setLoading(true);
+    setError(null);
     try {
       const data = await api.getEvent(eventId);
       setEvent(data);
@@ -77,373 +137,524 @@ export function SiteTab({ eventId }: { eventId: string }) {
       setDeadline(data.registrationDeadline ? toDatetimeLocal(data.registrationDeadline) : "");
 
       const c = data.siteContent ?? {};
-      setText({
-        eventTitle: c.eventTitle || DEFAULT_TEXT.eventTitle,
-        eventYear: c.eventYear || DEFAULT_TEXT.eventYear,
-        heroBadge: c.heroBadge || DEFAULT_TEXT.heroBadge,
-        heroSubtitle: c.heroSubtitle || DEFAULT_TEXT.heroSubtitle,
-        aboutTitle: c.aboutTitle || DEFAULT_TEXT.aboutTitle,
-        aboutText: c.aboutText || DEFAULT_TEXT.aboutText,
-        stepsTitle: c.stepsTitle || DEFAULT_TEXT.stepsTitle,
-        pricingTitle: c.pricingTitle || DEFAULT_TEXT.pricingTitle,
-        partnersTitle: c.partnersTitle || DEFAULT_TEXT.partnersTitle,
-        partnersText: c.partnersText || DEFAULT_TEXT.partnersText,
-        footerText: c.footerText || DEFAULT_TEXT.footerText,
+      if (c.theme) setTheme({ ...DEFAULT_THEME, ...c.theme });
+      if (c.sections && c.sections.length > 0) {
+        setSections([...c.sections].sort((a, b) => a.order - b.order));
+      } else {
+        setSections(DEFAULT_SECTIONS);
+      }
+      if (c.faqs) setFaqs(c.faqs);
+      if (c.partnersList) setPartners(c.partnersList);
+      if (c.steps) setSteps(c.steps);
+
+      setTextFields({
+        eventTitle: c.eventTitle || "Pré-Copol",
+        eventYear: c.eventYear || "2026",
+        heroBadge: c.heroBadge || "3º COPOL · Congresso Odontológico Positivo Londrinense",
+        heroSubtitle: c.heroSubtitle || "Toxina Botulínica: a ciência por trás do resultado natural.",
+        aboutTitle: c.aboutTitle || "Um encontro pra quem leva a odontologia a sério",
+        aboutText: c.aboutText || "O Pré-Copol 2026 é a abertura do 3º Congresso Odontológico Positivo Londrinense.",
+        stepsTitle: c.stepsTitle || "Da inscrição ao credenciamento",
+        pricingTitle: c.pricingTitle || "Escolha sua categoria",
+        partnersTitle: c.partnersTitle || "Realização e apoio",
+        partnersText: c.partnersText || "Universidade Positivo e parceiros apoiam o evento.",
+        footerText: c.footerText || "3º COPOL — Todos os direitos reservados",
       });
-      setSteps(c.steps && c.steps.length > 0 ? c.steps : DEFAULT_STEPS);
-      setTiers(c.pricingTiers && c.pricingTiers.length > 0 ? c.pricingTiers : DEFAULT_TIERS);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao carregar evento");
+      setError(err instanceof Error ? err.message : "Erro ao carregar configurações do site");
+    } finally {
+      setLoading(false);
     }
   }
 
-  function updateText(field: TextField, value: string) {
-    setText((prev) => ({ ...prev, [field]: value }));
+  // Funções de manipulação de seções
+  function moveSection(index: number, direction: "up" | "down") {
+    const newSections = [...sections];
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= newSections.length) return;
+
+    const temp = newSections[index]!;
+    newSections[index] = newSections[targetIndex]!;
+    newSections[targetIndex] = temp;
+
+    // Atualiza order
+    newSections.forEach((s, idx) => {
+      s.order = idx;
+    });
+
+    setSections(newSections);
   }
 
-  async function handleSaveDeadline() {
-    setBusy("deadline");
+  function toggleSection(index: number) {
+    const newSections = [...sections];
+    const item = newSections[index];
+    if (!item) return;
+    item.enabled = !item.enabled;
+    setSections(newSections);
+  }
+
+  function updateSectionStyle(index: number, field: "backgroundColor" | "textColor", value: string) {
+    const newSections = [...sections];
+    const item = newSections[index];
+    if (!item) return;
+    item[field] = value.trim() ? value : null;
+    setSections(newSections);
+  }
+
+  // FAQ CRUD
+  function addFaq() {
+    setFaqs([...faqs, { question: "Nova Pergunta", answer: "Resposta aqui..." }]);
+  }
+  function updateFaq(idx: number, field: "question" | "answer", val: string) {
+    const updated = [...faqs];
+    if (updated[idx]) {
+      updated[idx][field] = val;
+      setFaqs(updated);
+    }
+  }
+  function removeFaq(idx: number) {
+    setFaqs(faqs.filter((_, i) => i !== idx));
+  }
+
+  // Salvar tudo
+  async function handleSaveAll() {
+    setSaving(true);
     setError(null);
     setNotice(null);
     try {
-      const updated = await api.updateEvent(eventId, {
+      const siteContent: api.SiteContent = {
+        theme,
+        sections,
+        faqs,
+        partnersList: partners,
+        steps,
+        ...textFields,
+      };
+
+      await api.updateEvent(eventId, {
+        siteContent,
         registrationDeadline: deadlineEnabled && deadline ? fromDatetimeLocal(deadline) : null,
       });
-      setEvent(updated);
-      setNotice("Prazo de inscrição salvo.");
+
+      setNotice("Configurações do site salvas com sucesso! O visual foi atualizado.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao salvar o prazo");
+      setError(err instanceof Error ? err.message : "Erro ao salvar alterações");
     } finally {
-      setBusy(null);
+      setSaving(false);
     }
   }
 
-  async function handleClose() {
-    if (!confirm("Encerrar as inscrições agora? O formulário de inscrição do site deixa de aceitar novos inscritos imediatamente.")) return;
-    setBusy("close");
-    setError(null);
-    try {
-      setEvent(await api.closeRegistrations(eventId));
-      setNotice("Inscrições encerradas.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao encerrar inscrições");
-    } finally {
-      setBusy(null);
-    }
+  function handleResetDefaults() {
+    if (!confirm("Deseja redefinir as cores e posições para o padrão oficial do COPOL?")) return;
+    setTheme(DEFAULT_THEME);
+    setSections(DEFAULT_SECTIONS);
   }
 
-  async function handleReopen() {
-    setBusy("reopen");
-    setError(null);
-    try {
-      const updated = await api.reopenRegistrations(eventId);
-      setEvent(updated);
-      setDeadlineEnabled(!!updated.registrationDeadline);
-      setDeadline(updated.registrationDeadline ? toDatetimeLocal(updated.registrationDeadline) : "");
-      setNotice("Inscrições reabertas.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao reabrir inscrições");
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  function updateStep<K extends keyof api.SiteStep>(index: number, key: K, value: api.SiteStep[K]) {
-    setSteps((prev) => prev.map((s, i) => (i === index ? { ...s, [key]: value } : s)));
-  }
-  function addStep() {
-    if (steps.length >= 6) return;
-    setSteps((prev) => [...prev, { title: "", text: "" }]);
-  }
-  function removeStep(index: number) {
-    setSteps((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  function updateTier<K extends keyof api.PricingTier>(index: number, key: K, value: api.PricingTier[K]) {
-    setTiers((prev) => prev.map((t, i) => (i === index ? { ...t, [key]: value } : t)));
-  }
-  function addTier() {
-    setTiers((prev) => [...prev, { key: "", label: "", amount: 0 }]);
-  }
-  function removeTier(index: number) {
-    setTiers((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  async function handleSaveContent() {
-    setError(null);
-    setNotice(null);
-
-    const cleanTiers = tiers
-      .map((t) => ({ key: t.key.trim(), label: t.label.trim(), amount: Number(t.amount) }))
-      .filter((t) => t.key && t.label);
-
-    if (cleanTiers.length === 0) {
-      setError("Configure pelo menos uma categoria de inscrição com valor.");
-      return;
-    }
-    const keyPattern = /^[a-zA-Z0-9_-]+$/;
-    const invalidKey = cleanTiers.find((t) => !keyPattern.test(t.key));
-    if (invalidKey) {
-      setError(`A categoria "${invalidKey.key}" só pode ter letras, números, - e _ (sem espaços/acentos).`);
-      return;
-    }
-    const duplicateKeys = new Set<string>();
-    for (const t of cleanTiers) {
-      if (duplicateKeys.has(t.key)) {
-        setError(`A categoria "${t.key}" está duplicada.`);
-        return;
-      }
-      duplicateKeys.add(t.key);
-    }
-
-    const cleanSteps = steps
-      .map((s) => ({ title: s.title.trim(), text: s.text.trim() }))
-      .filter((s) => s.title && s.text);
-
-    if (cleanSteps.length === 0) {
-      setError("Configure pelo menos um passo em \"Como funciona\".");
-      return;
-    }
-
-    if (!text.eventTitle.trim() || !text.aboutText.trim()) {
-      setError("Preencha ao menos o título do evento e o texto \"Sobre o evento\".");
-      return;
-    }
-
-    setBusy("content");
-    try {
-      const updated = await api.updateEvent(eventId, {
-        siteContent: {
-          eventTitle: text.eventTitle.trim(),
-          eventYear: text.eventYear.trim() || undefined,
-          heroBadge: text.heroBadge.trim() || undefined,
-          heroSubtitle: text.heroSubtitle.trim() || undefined,
-          aboutTitle: text.aboutTitle.trim() || undefined,
-          aboutText: text.aboutText.trim(),
-          stepsTitle: text.stepsTitle.trim() || undefined,
-          steps: cleanSteps,
-          pricingTitle: text.pricingTitle.trim() || undefined,
-          pricingTiers: cleanTiers,
-          partnersTitle: text.partnersTitle.trim() || undefined,
-          partnersText: text.partnersText.trim() || undefined,
-          footerText: text.footerText.trim() || undefined,
-        },
-      });
-      setEvent(updated);
-      setTiers(cleanTiers);
-      setSteps(cleanSteps);
-      setNotice("Conteúdo do site salvo.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao salvar o conteúdo do site");
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  if (!event) return <p className="muted">Carregando...</p>;
+  if (loading) return <p className="muted">Carregando construtor do site...</p>;
 
   return (
-    <div className="stack" style={{ gap: 24 }}>
-      {error ? <p className="error-text">{error}</p> : null}
-      {notice ? <p style={{ color: "var(--success)", margin: 0, fontSize: 13 }}>{notice}</p> : null}
-
-      {/* ---------- Status + encerrar/retomar ---------- */}
-      <div className="card" style={{ padding: 20 }}>
-        <div className="spread" style={{ marginBottom: 16 }}>
-          <h3 style={{ margin: 0, fontSize: 16 }}>Inscrições</h3>
-          <span className={`badge ${event.registrationsOpen ? "badge-success" : "badge-muted"}`}>
-            {event.registrationsOpen ? "Abertas" : "Encerradas"}
-          </span>
+    <div className="stack" style={{ gap: 20 }}>
+      {/* Topo com ações */}
+      <div className="spread" style={{ alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <h2 style={{ margin: "0 0 4px", fontSize: 18 }}>Construtor do Site (White-Label)</h2>
+          <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+            Personalize cores, organize a ordem das seções e altere todo o conteúdo do portal público.
+          </p>
         </div>
 
-        {event.registrationsClosedAt ? (
-          <p className="muted" style={{ fontSize: 13, margin: "0 0 8px" }}>
-            Encerradas manualmente em {new Date(event.registrationsClosedAt).toLocaleString("pt-BR")}.
-          </p>
-        ) : null}
-        {!event.registrationsOpen && !event.registrationsClosedAt && event.registrationDeadline ? (
-          <p className="muted" style={{ fontSize: 13, margin: "0 0 8px" }}>
-            Encerradas automaticamente pelo prazo, em {new Date(event.registrationDeadline).toLocaleString("pt-BR")}.
-            "Retomar" limpa esse prazo.
-          </p>
-        ) : null}
-
-        <div className="row" style={{ gap: 10, marginBottom: 20 }}>
-          <button className="btn btn-secondary btn-sm" onClick={handleClose} disabled={busy !== null || !event.registrationsOpen}>
-            {busy === "close" ? "Encerrando..." : "Encerrar inscrições"}
+        <div className="row" style={{ gap: 8 }}>
+          <button className="btn btn-secondary btn-sm" onClick={handleResetDefaults} disabled={saving}>
+            Restaurar Padrão
           </button>
-          <button className="btn btn-sm" onClick={handleReopen} disabled={busy !== null || event.registrationsOpen}>
-            {busy === "reopen" ? "Reabrindo..." : "Retomar inscrições"}
+          <button className="btn btn-sm" onClick={handleSaveAll} disabled={saving} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <CheckIcon size={14} /> {saving ? "Salvando..." : "Salvar Alterações do Site"}
           </button>
         </div>
+      </div>
 
-        <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16 }}>
-          <label className="row" style={{ gap: 8, marginBottom: 10, cursor: "pointer" }}>
+      {notice && <p className="badge badge-success" style={{ padding: "8px 14px", fontSize: 13 }}>{notice}</p>}
+      {error && <p className="error-text">{error}</p>}
+
+      {/* Menu de Sub-Abas */}
+      <div className="row" style={{ gap: 8, borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>
+        <button
+          className={`btn-sm ${subTab === "theme" ? "btn" : "btn-secondary"}`}
+          onClick={() => setSubTab("theme")}
+          style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+        >
+          <PaletteIcon size={14} /> Cores e Tema
+        </button>
+
+        <button
+          className={`btn-sm ${subTab === "sections" ? "btn" : "btn-secondary"}`}
+          onClick={() => setSubTab("sections")}
+          style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+        >
+          <LayersIcon size={14} /> Posição das Seções
+        </button>
+
+        <button
+          className={`btn-sm ${subTab === "content" ? "btn" : "btn-secondary"}`}
+          onClick={() => setSubTab("content")}
+          style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+        >
+          <EditIcon size={14} /> Conteúdo das Seções
+        </button>
+
+        <button
+          className={`btn-sm ${subTab === "general" ? "btn" : "btn-secondary"}`}
+          onClick={() => setSubTab("general")}
+          style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+        >
+          <GearIcon size={14} /> Prazos & Inscrições
+        </button>
+      </div>
+
+      {/* SUB-ABA 1: CORES E TEMA */}
+      {subTab === "theme" && (
+        <div className="stack" style={{ gap: 16 }}>
+          <div className="card" style={{ padding: 20 }}>
+            <h3 style={{ margin: "0 0 12px", fontSize: 16 }}>Paleta de Cores do Evento</h3>
+            <p className="muted" style={{ margin: "0 0 16px", fontSize: 13 }}>
+              Altere a identidade visual completa do site público. As mudanças refletem instantaneamente no portal.
+            </p>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
+              <ColorPickerField
+                label="Cor Primária"
+                value={theme.primaryColor}
+                onChange={(val) => setTheme({ ...theme, primaryColor: val })}
+              />
+              <ColorPickerField
+                label="Cor de Destaque (Dourado)"
+                value={theme.accentColor}
+                onChange={(val) => setTheme({ ...theme, accentColor: val })}
+              />
+              <ColorPickerField
+                label="Fundo da Página"
+                value={theme.backgroundColor}
+                onChange={(val) => setTheme({ ...theme, backgroundColor: val })}
+              />
+              <ColorPickerField
+                label="Fundo dos Cards"
+                value={theme.surfaceColor}
+                onChange={(val) => setTheme({ ...theme, surfaceColor: val })}
+              />
+              <ColorPickerField
+                label="Texto Principal"
+                value={theme.textColor}
+                onChange={(val) => setTheme({ ...theme, textColor: val })}
+              />
+              <ColorPickerField
+                label="Texto Suave"
+                value={theme.textMutedColor}
+                onChange={(val) => setTheme({ ...theme, textMutedColor: val })}
+              />
+            </div>
+          </div>
+
+          {/* Presets Rápidos */}
+          <div className="card" style={{ padding: 20 }}>
+            <h4 style={{ margin: "0 0 12px", fontSize: 14 }}>Temas Predefinidos (1 Clique)</h4>
+            <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+              {THEME_PRESETS.map((p) => (
+                <button
+                  key={p.name}
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setTheme(p.theme)}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+                >
+                  <span
+                    style={{
+                      width: 12,
+                      height: 12,
+                      borderRadius: "50%",
+                      background: p.theme.primaryColor,
+                      border: `2px solid ${p.theme.accentColor}`,
+                    }}
+                  />
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUB-ABA 2: POSIÇÃO E ORDEM DAS SEÇÕES */}
+      {subTab === "sections" && (
+        <div className="stack" style={{ gap: 16 }}>
+          <div className="card" style={{ padding: 20 }}>
+            <h3 style={{ margin: "0 0 6px", fontSize: 16 }}>Estrutura e Ordem da Página Inicial</h3>
+            <p className="muted" style={{ margin: "0 0 16px", fontSize: 13 }}>
+              Use os botões de subir e descer para alterar a ordem em que as seções aparecem no site, ou oculte as que não deseja exibir.
+            </p>
+
+            <div className="stack" style={{ gap: 10 }}>
+              {sections.map((sec, idx) => (
+                <div
+                  key={sec.id}
+                  className="spread"
+                  style={{
+                    padding: "12px 16px",
+                    background: sec.enabled ? "var(--surface, #1e293b)" : "rgba(0,0,0,0.05)",
+                    opacity: sec.enabled ? 1 : 0.6,
+                    border: "1px solid var(--border)",
+                    borderRadius: 8,
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: 10,
+                  }}
+                >
+                  <div className="row" style={{ gap: 12, alignItems: "center" }}>
+                    <span style={{ fontFamily: "monospace", fontWeight: 700, width: 24, textAlign: "center", color: "var(--muted-foreground)" }}>
+                      {idx + 1}º
+                    </span>
+                    <div>
+                      <strong style={{ fontSize: 14 }}>{sec.title}</strong>
+                      <span className="muted" style={{ fontSize: 12, display: "block" }}>
+                        Tipo: {sec.type}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Cores individuais da seção */}
+                  <div className="row" style={{ gap: 10, alignItems: "center" }}>
+                    <label style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}>
+                      <span className="muted">Fundo Seção:</span>
+                      <input
+                        type="color"
+                        value={sec.backgroundColor || theme.backgroundColor}
+                        onChange={(e) => updateSectionStyle(idx, "backgroundColor", e.target.value)}
+                        style={{ width: 28, height: 28, padding: 0, border: "none", borderRadius: 4, cursor: "pointer" }}
+                      />
+                    </label>
+
+                    <label style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}>
+                      <span className="muted">Texto:</span>
+                      <input
+                        type="color"
+                        value={sec.textColor || theme.textColor}
+                        onChange={(e) => updateSectionStyle(idx, "textColor", e.target.value)}
+                        style={{ width: 28, height: 28, padding: 0, border: "none", borderRadius: 4, cursor: "pointer" }}
+                      />
+                    </label>
+
+                    {/* Botões de Ação */}
+                    <div className="row" style={{ gap: 4 }}>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => toggleSection(idx)}
+                        title={sec.enabled ? "Ocultar seção" : "Ativar seção"}
+                        style={{ padding: "6px 8px" }}
+                      >
+                        {sec.enabled ? <EyeIcon size={14} /> : <EyeOffIcon size={14} />}
+                      </button>
+
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        disabled={idx === 0}
+                        onClick={() => moveSection(idx, "up")}
+                        title="Subir seção"
+                        style={{ padding: "6px 8px" }}
+                      >
+                        <MoveUpIcon size={14} />
+                      </button>
+
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        disabled={idx === sections.length - 1}
+                        onClick={() => moveSection(idx, "down")}
+                        title="Descer seção"
+                        style={{ padding: "6px 8px" }}
+                      >
+                        <MoveDownIcon size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUB-ABA 3: CONTEÚDO DAS SEÇÕES */}
+      {subTab === "content" && (
+        <div className="stack" style={{ gap: 20 }}>
+          {/* Header & Hero */}
+          <div className="card stack" style={{ padding: 20, gap: 14 }}>
+            <h3 style={{ margin: 0, fontSize: 16 }}>Seção Hero / Apresentação</h3>
+            <div className="row" style={{ gap: 12 }}>
+              <label className="stack" style={{ flex: 1, gap: 4, fontSize: 12 }}>
+                <span>Título do Evento</span>
+                <input
+                  type="text"
+                  value={textFields.eventTitle}
+                  onChange={(e) => setTextFields({ ...textFields, eventTitle: e.target.value })}
+                />
+              </label>
+              <label className="stack" style={{ width: 120, gap: 4, fontSize: 12 }}>
+                <span>Ano</span>
+                <input
+                  type="text"
+                  value={textFields.eventYear}
+                  onChange={(e) => setTextFields({ ...textFields, eventYear: e.target.value })}
+                />
+              </label>
+            </div>
+
+            <label className="stack" style={{ gap: 4, fontSize: 12 }}>
+              <span>Badge / Selo Superior</span>
+              <input
+                type="text"
+                value={textFields.heroBadge}
+                onChange={(e) => setTextFields({ ...textFields, heroBadge: e.target.value })}
+              />
+            </label>
+
+            <label className="stack" style={{ gap: 4, fontSize: 12 }}>
+              <span>Subtítulo do Hero</span>
+              <textarea
+                rows={2}
+                value={textFields.heroSubtitle}
+                onChange={(e) => setTextFields({ ...textFields, heroSubtitle: e.target.value })}
+              />
+            </label>
+          </div>
+
+          {/* Sobre o Evento */}
+          <div className="card stack" style={{ padding: 20, gap: 14 }}>
+            <h3 style={{ margin: 0, fontSize: 16 }}>Seção Sobre o Evento</h3>
+            <label className="stack" style={{ gap: 4, fontSize: 12 }}>
+              <span>Título</span>
+              <input
+                type="text"
+                value={textFields.aboutTitle}
+                onChange={(e) => setTextFields({ ...textFields, aboutTitle: e.target.value })}
+              />
+            </label>
+            <label className="stack" style={{ gap: 4, fontSize: 12 }}>
+              <span>Texto Descritivo</span>
+              <textarea
+                rows={5}
+                value={textFields.aboutText}
+                onChange={(e) => setTextFields({ ...textFields, aboutText: e.target.value })}
+              />
+            </label>
+          </div>
+
+          {/* Dúvidas Frequentes (FAQ) */}
+          <div className="card stack" style={{ padding: 20, gap: 14 }}>
+            <div className="spread" style={{ alignItems: "center" }}>
+              <h3 style={{ margin: 0, fontSize: 16 }}>Perguntas Frequentes (FAQ)</h3>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={addFaq} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <PlusIcon size={14} /> Adicionar Pergunta
+              </button>
+            </div>
+
+            <div className="stack" style={{ gap: 12 }}>
+              {faqs.map((faq, idx) => (
+                <div key={idx} className="card stack" style={{ padding: 14, gap: 8, background: "rgba(0,0,0,0.02)" }}>
+                  <div className="spread">
+                    <input
+                      type="text"
+                      placeholder="Pergunta..."
+                      value={faq.question}
+                      onChange={(e) => updateFaq(idx, "question", e.target.value)}
+                      style={{ flex: 1, marginRight: 10, fontWeight: 600 }}
+                    />
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => removeFaq(idx)}>
+                      <TrashIcon size={14} />
+                    </button>
+                  </div>
+                  <textarea
+                    rows={2}
+                    placeholder="Resposta..."
+                    value={faq.answer}
+                    onChange={(e) => updateFaq(idx, "answer", e.target.value)}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Rodapé */}
+          <div className="card stack" style={{ padding: 20, gap: 14 }}>
+            <h3 style={{ margin: 0, fontSize: 16 }}>Texto do Rodapé</h3>
+            <input
+              type="text"
+              value={textFields.footerText}
+              onChange={(e) => setTextFields({ ...textFields, footerText: e.target.value })}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* SUB-ABA 4: PRAZOS E INSCRIÇÕES */}
+      {subTab === "general" && (
+        <div className="card stack" style={{ padding: 20, gap: 16 }}>
+          <h3 style={{ margin: 0, fontSize: 16 }}>Prazos de Inscrição Automáticos</h3>
+          <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+            Defina uma data limite para as inscrições encerrarem automaticamente, se desejar.
+          </p>
+
+          <label className="row" style={{ gap: 8, alignItems: "center", cursor: "pointer" }}>
             <input
               type="checkbox"
               checked={deadlineEnabled}
               onChange={(e) => setDeadlineEnabled(e.target.checked)}
-              style={{ width: "auto", flexShrink: 0, padding: 0, background: "none", border: "none" }}
             />
-            <span>Encerrar inscrições automaticamente numa data</span>
+            <span>Ativar data e horário limite de inscrição</span>
           </label>
 
-          {deadlineEnabled ? (
-            <input
-              type="datetime-local"
-              value={deadline}
-              onChange={(e) => setDeadline(e.target.value)}
-              style={{ maxWidth: 260 }}
-            />
-          ) : null}
-
-          <div style={{ marginTop: 12 }}>
-            <button className="btn btn-sm" onClick={handleSaveDeadline} disabled={busy !== null || (deadlineEnabled && !deadline)}>
-              {busy === "deadline" ? "Salvando..." : "Salvar prazo"}
-            </button>
-          </div>
+          {deadlineEnabled && (
+            <label className="stack" style={{ gap: 4, maxWidth: 300, fontSize: 12 }}>
+              <span>Data e Hora Limite</span>
+              <input
+                type="datetime-local"
+                value={deadline}
+                onChange={(e) => setDeadline(e.target.value)}
+              />
+            </label>
+          )}
         </div>
-      </div>
-
-      {/* ---------- Conteúdo do site ---------- */}
-      <div className="card" style={{ padding: 20 }}>
-        <div className="spread" style={{ marginBottom: 4 }}>
-          <h3 style={{ margin: 0, fontSize: 16 }}>Conteúdo do site (precopol.vercel.app)</h3>
-        </div>
-        <p className="muted" style={{ fontSize: 12, margin: "0 0 20px" }}>
-          Tudo aqui aparece direto no site, sem precisar mexer em código. Campos deixados em branco usam o texto
-          padrão que já está no ar.
-        </p>
-
-        <div className="stack" style={{ gap: 28 }}>
-          {/* Cabeçalho / Hero */}
-          <ContentSection title="Cabeçalho e topo da página">
-            <FieldRow>
-              <TextField label="Nome do evento (destaque dourado)" value={text.eventTitle} onChange={(v) => updateText("eventTitle", v)} />
-              <TextField label="Ano / edição" value={text.eventYear} onChange={(v) => updateText("eventYear", v)} narrow />
-            </FieldRow>
-            <TextField
-              label="Selo/badge acima do título"
-              value={text.heroBadge}
-              onChange={(v) => updateText("heroBadge", v)}
-            />
-            <TextAreaField
-              label="Texto de abertura (tema do evento)"
-              value={text.heroSubtitle}
-              onChange={(v) => updateText("heroSubtitle", v)}
-              rows={3}
-            />
-          </ContentSection>
-
-          {/* Sobre */}
-          <ContentSection title='Seção "Sobre o evento"'>
-            <TextField label="Título da seção" value={text.aboutTitle} onChange={(v) => updateText("aboutTitle", v)} />
-            <TextAreaField label="Texto" value={text.aboutText} onChange={(v) => updateText("aboutText", v)} rows={5} required />
-          </ContentSection>
-
-          {/* Como funciona */}
-          <ContentSection title='Seção "Como funciona"'>
-            <TextField label="Título da seção" value={text.stepsTitle} onChange={(v) => updateText("stepsTitle", v)} />
-            <ListEditor
-              label="Passos"
-              onAdd={addStep}
-              addDisabled={steps.length >= 6}
-            >
-              {steps.map((step, i) => (
-                <div key={i} className="row" style={{ gap: 8, alignItems: "flex-start" }}>
-                  <span className="muted" style={{ fontSize: 13, marginTop: 10, flexShrink: 0, width: 16 }}>
-                    {i + 1}.
-                  </span>
-                  <div className="stack" style={{ gap: 6, flex: 1 }}>
-                    <input
-                      value={step.title}
-                      onChange={(e) => updateStep(i, "title", e.target.value)}
-                      placeholder="Título do passo"
-                    />
-                    <input
-                      value={step.text}
-                      onChange={(e) => updateStep(i, "text", e.target.value)}
-                      placeholder="Descrição curta"
-                    />
-                  </div>
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => removeStep(i)}
-                    type="button"
-                    disabled={steps.length <= 1}
-                    title="Remover passo"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </ListEditor>
-          </ContentSection>
-
-          {/* Investimento */}
-          <ContentSection title='Seção "Investimento" (categorias e valores)'>
-            <TextField label="Título da seção" value={text.pricingTitle} onChange={(v) => updateText("pricingTitle", v)} />
-            <ListEditor label="Categorias e valores de inscrição" onAdd={addTier}>
-              {tiers.map((tier, i) => (
-                <div key={i} className="row" style={{ gap: 8, alignItems: "center" }}>
-                  <input
-                    value={tier.label}
-                    onChange={(e) => updateTier(i, "label", e.target.value)}
-                    placeholder="Nome da categoria"
-                    style={{ flex: 2 }}
-                  />
-                  <input
-                    value={tier.key}
-                    onChange={(e) => updateTier(i, "key", e.target.value.toUpperCase().replace(/\s+/g, "_"))}
-                    placeholder="CHAVE_INTERNA"
-                    title="Identificador interno, sem espaços ou acentos"
-                    style={{ flex: 1, fontFamily: "monospace", fontSize: 12 }}
-                  />
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={tier.amount}
-                    onChange={(e) => updateTier(i, "amount", Number(e.target.value))}
-                    style={{ width: 100 }}
-                  />
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => removeTier(i)}
-                    type="button"
-                    disabled={tiers.length <= 1}
-                    title="Remover categoria"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </ListEditor>
-            <p className="muted" style={{ fontSize: 12, margin: 0 }}>
-              A chave interna identifica a categoria nas inscrições já feitas — evite trocar a chave de uma
-              categoria que já tem gente inscrita, só o nome/valor.
-            </p>
-          </ContentSection>
-
-          {/* Parceiros */}
-          <ContentSection title='Bloco "Realização e apoio" (na home)'>
-            <TextField label="Título" value={text.partnersTitle} onChange={(v) => updateText("partnersTitle", v)} />
-            <TextAreaField label="Texto" value={text.partnersText} onChange={(v) => updateText("partnersText", v)} rows={2} />
-          </ContentSection>
-
-          {/* Rodapé */}
-          <ContentSection title="Rodapé">
-            <TextField label="Texto do rodapé" value={text.footerText} onChange={(v) => updateText("footerText", v)} />
-          </ContentSection>
-
-          <div>
-            <button className="btn" onClick={handleSaveContent} disabled={busy !== null}>
-              {busy === "content" ? "Salvando..." : "Salvar conteúdo do site"}
-            </button>
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
 
+function ColorPickerField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+}) {
+  return (
+    <label className="stack" style={{ gap: 6, fontSize: 12 }}>
+      <span>{label}</span>
+      <div className="row" style={{ gap: 8, alignItems: "center" }}>
+        <input
+          type="color"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          style={{ width: 36, height: 36, padding: 0, border: "none", borderRadius: 6, cursor: "pointer" }}
+        />
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          style={{ flex: 1, fontFamily: "monospace", textTransform: "uppercase" }}
+        />
+      </div>
+    </label>
+  );
+}

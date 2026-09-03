@@ -189,7 +189,52 @@ export interface SiteStep {
   title: string;
   text: string;
 }
+export interface SiteTheme {
+  primaryColor: string;
+  accentColor: string;
+  backgroundColor: string;
+  surfaceColor: string;
+  textColor: string;
+  textMutedColor: string;
+}
+
+export type SectionType =
+  | "hero"
+  | "about"
+  | "schedule"
+  | "batches"
+  | "steps"
+  | "partners"
+  | "faq";
+
+export interface SiteSectionConfig {
+  id: string;
+  type: SectionType;
+  title: string;
+  subtitle?: string | null;
+  enabled: boolean;
+  order: number;
+  backgroundColor?: string | null;
+  textColor?: string | null;
+  content?: Record<string, any>;
+}
+
+export interface FaqItem {
+  question: string;
+  answer: string;
+}
+
+export interface PartnerItem {
+  name: string;
+  role?: string;
+  logoUrl?: string | null;
+}
+
 export interface SiteContent {
+  theme?: SiteTheme;
+  sections?: SiteSectionConfig[];
+  faqs?: FaqItem[];
+  partnersList?: PartnerItem[];
   eventTitle?: string;
   eventYear?: string;
   heroBadge?: string;

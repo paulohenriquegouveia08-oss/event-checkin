@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import * as api from "../../api/client";
+import { CheckIcon, GearIcon, PlusIcon } from "../../components/Icons";
 
 interface BatchFormData {
   id?: string;
@@ -157,7 +158,11 @@ export function BatchesTab({ eventId }: { eventId: string }) {
 
   function formatStatus(b: api.BatchItem) {
     if (b.status === "ACTIVE") {
-      return <span className="badge badge-success">✓ Ativo Agora</span>;
+      return (
+        <span className="badge badge-success" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <CheckIcon size={12} /> Ativo Agora
+        </span>
+      );
     }
     if (b.status === "CLOSED") {
       return <span className="badge" style={{ background: "rgba(100, 116, 139, 0.15)", color: "#64748B" }}>Encerrado</span>;
@@ -215,11 +220,11 @@ export function BatchesTab({ eventId }: { eventId: string }) {
         </div>
 
         <div className="row" style={{ gap: 10 }}>
-          <button className="btn btn-secondary btn-sm" onClick={handleSeedDefault}>
-            ⚙️ Carregar Padrão COPOL
+          <button className="btn btn-secondary btn-sm" onClick={handleSeedDefault} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <GearIcon size={14} /> Carregar Padrão COPOL
           </button>
-          <button className="btn btn-sm" onClick={handleOpenCreate}>
-            + Adicionar Lote
+          <button className="btn btn-sm" onClick={handleOpenCreate} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <PlusIcon size={14} /> Adicionar Lote
           </button>
         </div>
       </div>

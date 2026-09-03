@@ -13,6 +13,7 @@ import {
 } from "@/lib/api";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
+import { ArrowRightIcon } from "@/components/Icons";
 
 export default function InscriptionPage() {
   return (
@@ -110,7 +111,7 @@ function InscriptionContent() {
         <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 16, alignItems: "center" }}>
           <p style={{ color: "var(--destructive)" }}>Evento não encontrado.</p>
           <Link href="/" className="btn-secondary">
-            ← Voltar
+            Voltar
           </Link>
         </div>
       </PageShell>
@@ -166,7 +167,7 @@ function InscriptionContent() {
         <div className="wave-bg" style={{ opacity: 0.5 }} />
         <div className="container-page" style={{ position: "relative", maxWidth: 640, padding: "48px 24px 64px" }}>
           <Link href="/" style={{ color: "var(--muted-foreground)", fontSize: 13, textDecoration: "none" }}>
-            ← Voltar
+            Voltar
           </Link>
           <h1 style={{ margin: "12px 0 4px", fontSize: "clamp(24px, 4vw, 32px)" }}>Inscrição</h1>
           <p style={{ margin: "0 0 24px", color: "var(--muted-foreground)" }}>{event.name}</p>
@@ -298,9 +299,10 @@ function InscriptionContent() {
               type="submit"
               disabled={submitting}
               className="btn-primary"
-              style={{ width: "100%", padding: 14, fontSize: 16, marginTop: 8 }}
+              style={{ width: "100%", padding: 14, fontSize: 16, marginTop: 8, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}
             >
-              {submitting ? "Gerando cobrança..." : "Avançar para Pagamento →"}
+              <span>{submitting ? "Gerando cobrança..." : "Avançar para Pagamento"}</span>
+              <ArrowRightIcon size={16} />
             </button>
           </form>
         </div>

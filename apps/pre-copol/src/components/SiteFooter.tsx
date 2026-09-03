@@ -3,9 +3,11 @@ import { CreditosParceiros } from "./CreditosParceiros";
 
 interface Props {
   text?: string;
+  footerText?: string;
 }
 
-export function SiteFooter({ text = "3º COPOL — Congresso Odontológico Positivo Londrinense" }: Props) {
+export function SiteFooter({ text, footerText }: Props) {
+  const displayText = footerText || text || "3º COPOL — Congresso Odontológico Positivo Londrinense";
   return (
     <footer
       style={{
@@ -25,7 +27,7 @@ export function SiteFooter({ text = "3º COPOL — Congresso Odontológico Posit
         }}
       >
         <Image src="/icon-mark.png" alt="" width={28} height={28} style={{ opacity: 0.85 }} />
-        <p style={{ margin: 0, fontSize: 13, color: "var(--muted-foreground)" }}>{text}</p>
+        <p style={{ margin: 0, fontSize: 13, color: "var(--muted-foreground)" }}>{displayText}</p>
         <p style={{ margin: 0, fontSize: 12, color: "var(--muted-foreground)", opacity: 0.7 }}>
           Copol | LSPK Tecnology
         </p>

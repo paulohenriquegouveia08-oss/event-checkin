@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import * as api from "../../api/client";
+import { CalendarIcon, PlusIcon } from "../../components/Icons";
 
 interface FormData {
   id?: string;
@@ -142,8 +143,8 @@ export function ScheduleTab({ eventId }: { eventId: string }) {
           </p>
         </div>
 
-        <button className="btn btn-sm" onClick={handleOpenCreate}>
-          + Nova Atividade
+        <button className="btn btn-sm" onClick={handleOpenCreate} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <PlusIcon size={14} /> Nova Atividade
         </button>
       </div>
 
@@ -164,8 +165,8 @@ export function ScheduleTab({ eventId }: { eventId: string }) {
             const items = grouped[dateStr] ?? [];
             return (
               <div key={dateStr} className="stack" style={{ gap: 10 }}>
-                <h3 style={{ margin: 0, fontSize: 15, color: "var(--primary, #0E3634)" }}>
-                  📅 {dateStr}
+                <h3 style={{ margin: 0, fontSize: 15, color: "var(--primary, #0E3634)", display: "flex", alignItems: "center", gap: 8 }}>
+                  <CalendarIcon size={16} /> {dateStr}
                 </h3>
 
                 <div className="card" style={{ padding: 0, overflow: "hidden" }}>

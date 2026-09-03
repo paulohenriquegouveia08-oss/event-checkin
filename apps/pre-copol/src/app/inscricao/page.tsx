@@ -323,7 +323,10 @@ function InscriptionContent() {
                 {/* Aba nova: clicar para ler nao pode apagar o que a
                     pessoa ja digitou no formulario. */}
                 <Link
-                  href="/termos"
+                  // O id vai junto para o termo saber voltar. Como ele
+                  // abre em aba nova, nao ha historico — sem isto o
+                  // botao "voltar" caia numa tela sem evento.
+                  href={`/termos?eventId=${encodeURIComponent(eventId)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{ textDecoration: "underline", fontWeight: 500 }}

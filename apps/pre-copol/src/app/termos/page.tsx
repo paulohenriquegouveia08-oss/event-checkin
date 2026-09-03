@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { SiteHeader } from "@/components/SiteHeader";
+import { VoltarParaInscricao } from "./VoltarParaInscricao";
 import { SiteFooter } from "@/components/SiteFooter";
 import { CONTROLADOR, SECOES, VERSAO_TERMOS, VIGENTE_DESDE } from "@/lib/termos";
 
@@ -114,9 +114,7 @@ export default function TermosPage() {
               Este texto é a versão {VERSAO_TERMOS}. Alterações futuras não afetam quem
               já se inscreveu: cada inscrição guarda a versão vigente na data do aceite.
             </p>
-            <Link href="/inscricao" className="btn-secondary">
-              Voltar à inscrição
-            </Link>
+            <VoltarParaInscricao />
           </footer>
         </article>
       </main>

@@ -800,6 +800,49 @@ export function getBatches(eventId: string) {
   return request<{ batches: BatchItem[]; activeBatch: BatchItem | null }>(`/events/${eventId}/batches`);
 }
 
+export function createBatch(
+  eventId: string,
+  body: {
+    batchNumber?: number;
+    name: string;
+    price: number;
+    maxQuantity?: number | null;
+    endDate?: string | null;
+  }
+) {
+  return request<BatchItem>(`/events/${eventId}/batches`, { method: "POST", body });
+}
+
+export function updateBatch(
+  id: string,
+  body: {
+    batchNumber?: number;
+    name?: string;
+    price?: number;
+    maxQuantity?: number | null;
+    endDate?: string | null;
+    isClosed?: boolean;
+    isActive?: boolean;
+  }
+) {
+  return request<BatchItem>(`/batches/${id}`, { method: "PUT", body });
+}
+
+export function deleteBatch(id: string) {
+  return request<{ deleted: boolean }>(`/batches/${id}`, { method: "DELETE" });
+}
+
+export function activateBatch(eventId: string, id: string) {
+  return request<{ batches: BatchItem[]; activeBatch: BatchItem | null }>(
+    `/events/${eventId}/batches/${id}/activate`,
+    { method: "POST" }
+  );
+}
+
+export function seedDefaultBatches(eventId: string) {
+  return request<BatchItem[]>(`/events/${eventId}/batches/seed-default`, { method: "POST" });
+}
+
 // --- Programação do Evento ---
 export interface ScheduleItem {
   id: string;

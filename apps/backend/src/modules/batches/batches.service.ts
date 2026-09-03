@@ -1,4 +1,5 @@
 import { prisma } from "../../database/prisma.js";
+import { NotFoundError, ValidationError } from "../../shared/errors.js";
 import type { EventBatch } from "@prisma/client";
 
 export interface BatchViewItem {
@@ -11,6 +12,25 @@ export interface BatchViewItem {
   endDate: string | null;
   status: "ACTIVE" | "CLOSED" | "UPCOMING" | "FINISHED";
   isActive: boolean;
+  isClosed: boolean;
+}
+
+export interface CreateBatchInput {
+  batchNumber?: number;
+  name: string;
+  price: number;
+  maxQuantity?: number | null;
+  endDate?: string | null;
+}
+
+export interface UpdateBatchInput {
+  batchNumber?: number;
+  name?: string;
+  price?: number;
+  maxQuantity?: number | null;
+  endDate?: string | null;
+  isClosed?: boolean;
+  isActive?: boolean;
 }
 
 export const DEFAULT_BATCH_DEFINITIONS = [
@@ -45,7 +65,7 @@ export const DEFAULT_BATCH_DEFINITIONS = [
 ];
 
 /**
- * Garante que os 4 lotes oficiais existam no banco para o evento.
+ * Garante que lotes existam para o evento. Se nenhum existir, cria os 4 padrão.
  */
 export async function ensureDefaultBatches(eventId: string): Promise<EventBatch[]> {
   const existing = await prisma.eventBatch.findMany({
@@ -74,85 +94,88 @@ export async function ensureDefaultBatches(eventId: string): Promise<EventBatch[
 }
 
 /**
- * Identifica e resolve qual lote está ativo no momento, calculando
- * a contagem de vagas do Lote 1 e as datas de encerramento dos lotes 2, 3 e 4.
+ * Resolução dinâmica do lote ativo:
+ * 1. Verifica se algum lote foi fixado manualmente como ativo (isActive = true e !isClosed).
+ * 2. Caso contrário, percorre os lotes em ordem de batchNumber:
+ *    - Se fechado manualmente -> pula;
+ *    - Se atingiu maxQuantity de confirmados -> pula;
+ *    - Se passou da data de encerramento -> pula;
+ *    - O primeiro lote elegível é o ativo!
  */
 export async function resolveActiveBatch(eventId: string, now: Date = new Date()) {
   const batches = await ensureDefaultBatches(eventId);
 
-  // Conta quantas inscrições confirmadas existem no Lote 1
+  // Busca contagem de inscrições confirmadas por lote
+  const counts = await prisma.inscription.groupBy({
+    by: ["batchId"],
+    where: { eventId, status: "CONFIRMED" },
+    _count: { id: true },
+  });
+
+  const countMap = new Map<string, number>();
+  counts.forEach((c) => {
+    if (c.batchId) countMap.set(c.batchId, c._count.id);
+  });
+
+  // Também conta inscrições legadas com category "LOTE_1"
   const lote1 = batches.find((b) => b.batchNumber === 1);
-  const lote1ConfirmedCount = lote1
-    ? await prisma.inscription.count({
-        where: {
-          eventId,
-          status: "CONFIRMED",
-          OR: [
-            { batchId: lote1.id },
-            { category: "LOTE_1" },
-          ],
-        },
-      })
-    : 0;
+  if (lote1) {
+    const legacyCount = await prisma.inscription.count({
+      where: {
+        eventId,
+        status: "CONFIRMED",
+        category: "LOTE_1",
+        batchId: null,
+      },
+    });
+    const current = countMap.get(lote1.id) ?? 0;
+    countMap.set(lote1.id, current + legacyCount);
+  }
 
-  const lote2 = batches.find((b) => b.batchNumber === 2);
-  const lote3 = batches.find((b) => b.batchNumber === 3);
-  const lote4 = batches.find((b) => b.batchNumber === 4);
-
-  // 1. Regra Lote 1: Até 60 inscrições válidas/confirmadas
-  if (lote1 && (!lote1.maxQuantity || lote1ConfirmedCount < lote1.maxQuantity)) {
+  // 1. Checa fixação manual ativa
+  const manualActive = batches.find((b) => b.isActive && !b.isClosed);
+  if (manualActive) {
     return {
-      activeBatch: lote1,
-      lote1Count: lote1ConfirmedCount,
+      activeBatch: manualActive,
+      lote1Count: lote1 ? (countMap.get(lote1.id) ?? 0) : 0,
       allBatches: batches,
     };
   }
 
-  // 2. Regra Lote 2: Até 22/09/2026
-  if (lote2 && lote2.endDate && now <= lote2.endDate) {
-    return {
-      activeBatch: lote2,
-      lote1Count: lote1ConfirmedCount,
-      allBatches: batches,
-    };
+  // 2. Resolução automática por regras
+  let resolvedActive: EventBatch | null = null;
+
+  for (const b of batches) {
+    if (b.isClosed) continue;
+
+    const count = countMap.get(b.id) ?? 0;
+    if (b.maxQuantity !== null && count >= b.maxQuantity) {
+      continue;
+    }
+
+    if (b.endDate !== null && now > b.endDate) {
+      continue;
+    }
+
+    resolvedActive = b;
+    break;
   }
 
-  // 3. Regra Lote 3: Até 22/10/2026
-  if (lote3 && lote3.endDate && now <= lote3.endDate) {
-    return {
-      activeBatch: lote3,
-      lote1Count: lote1ConfirmedCount,
-      allBatches: batches,
-    };
-  }
-
-  // 4. Regra Lote 4: Até 05/11/2026
-  if (lote4 && lote4.endDate && now <= lote4.endDate) {
-    return {
-      activeBatch: lote4,
-      lote1Count: lote1ConfirmedCount,
-      allBatches: batches,
-    };
-  }
-
-  // Se passou de 05/11/2026, todos os lotes estão encerrados
   return {
-    activeBatch: null,
-    lote1Count: lote1ConfirmedCount,
+    activeBatch: resolvedActive,
+    lote1Count: lote1 ? (countMap.get(lote1.id) ?? 0) : 0,
     allBatches: batches,
   };
 }
 
 /**
- * Retorna os dados completos dos lotes para exibição no painel administrativo
- * e na interface pública.
+ * Retorna visão completa dos lotes para o painel admin e página pública.
  */
 export async function getBatchesOverview(eventId: string): Promise<BatchViewItem[]> {
-  const { activeBatch, lote1Count, allBatches } = await resolveActiveBatch(eventId);
-
+  const { activeBatch, allBatches } = await resolveActiveBatch(eventId);
+  const activeId = activeBatch?.id ?? null;
   const activeNum = activeBatch?.batchNumber ?? 999;
 
-  // Busca a contagem de inscritos confirmados em cada lote
   const countsByBatch = await prisma.inscription.groupBy({
     by: ["batchId"],
     where: { eventId, status: "CONFIRMED" },
@@ -165,18 +188,19 @@ export async function getBatchesOverview(eventId: string): Promise<BatchViewItem
   });
 
   return allBatches.map((b) => {
-    const isThisActive = b.batchNumber === activeNum;
-    let status: BatchViewItem["status"] = "UPCOMING";
+    const isThisActive = b.id === activeId;
+    const confirmed = countMap.get(b.id) ?? 0;
 
-    if (isThisActive) {
+    let status: BatchViewItem["status"] = "UPCOMING";
+    if (b.isClosed) {
+      status = "CLOSED";
+    } else if (isThisActive) {
       status = "ACTIVE";
     } else if (b.batchNumber < activeNum) {
       status = "CLOSED";
     } else {
       status = "UPCOMING";
     }
-
-    const confirmed = b.batchNumber === 1 ? lote1Count : (countMap.get(b.id) ?? 0);
 
     return {
       id: b.id,
@@ -188,6 +212,116 @@ export async function getBatchesOverview(eventId: string): Promise<BatchViewItem
       endDate: b.endDate ? b.endDate.toISOString() : null,
       status,
       isActive: isThisActive,
+      isClosed: b.isClosed,
     };
   });
+}
+
+/**
+ * Criação de um novo lote para qualquer evento.
+ */
+export async function createBatch(eventId: string, input: CreateBatchInput) {
+  // Se batchNumber não for passado, pega o próximo disponível
+  let batchNum = input.batchNumber;
+  if (!batchNum) {
+    const highest = await prisma.eventBatch.findFirst({
+      where: { eventId },
+      orderBy: { batchNumber: "desc" },
+    });
+    batchNum = (highest?.batchNumber ?? 0) + 1;
+  }
+
+  const existing = await prisma.eventBatch.findUnique({
+    where: { eventId_batchNumber: { eventId, batchNumber: batchNum } },
+  });
+  if (existing) {
+    throw new ValidationError(`Já existe um lote #${batchNum} para este evento.`);
+  }
+
+  const batch = await prisma.eventBatch.create({
+    data: {
+      eventId,
+      batchNumber: batchNum,
+      name: input.name,
+      price: input.price,
+      maxQuantity: input.maxQuantity ?? null,
+      endDate: input.endDate ? new Date(input.endDate) : null,
+    },
+  });
+
+  return batch;
+}
+
+/**
+ * Atualização dos parâmetros de um lote (preço, nome, vagas, data, status).
+ */
+export async function updateBatch(id: string, input: UpdateBatchInput) {
+  const existing = await prisma.eventBatch.findUnique({ where: { id } });
+  if (!existing) throw new NotFoundError("Lote não encontrado");
+
+  const updated = await prisma.eventBatch.update({
+    where: { id },
+    data: {
+      name: input.name ?? undefined,
+      batchNumber: input.batchNumber ?? undefined,
+      price: input.price !== undefined ? input.price : undefined,
+      maxQuantity: input.maxQuantity !== undefined ? input.maxQuantity : undefined,
+      endDate: input.endDate !== undefined ? (input.endDate ? new Date(input.endDate) : null) : undefined,
+      isClosed: input.isClosed !== undefined ? input.isClosed : undefined,
+      isActive: input.isActive !== undefined ? input.isActive : undefined,
+    },
+  });
+
+  return updated;
+}
+
+/**
+ * Exclui um lote caso não possua inscrições confirmadas vinculadas.
+ */
+export async function deleteBatch(id: string) {
+  const existing = await prisma.eventBatch.findUnique({ where: { id } });
+  if (!existing) throw new NotFoundError("Lote não encontrado");
+
+  const confirmedInscriptions = await prisma.inscription.count({
+    where: { batchId: id, status: "CONFIRMED" },
+  });
+  if (confirmedInscriptions > 0) {
+    throw new ValidationError("Não é possível excluir um lote que já possui inscrições confirmadas.");
+  }
+
+  await prisma.eventBatch.delete({ where: { id } });
+}
+
+/**
+ * Força a ativação manual de um lote específico para o evento.
+ */
+export async function setActiveBatchManual(eventId: string, batchId: string) {
+  await prisma.$transaction([
+    prisma.eventBatch.updateMany({
+      where: { eventId },
+      data: { isActive: false },
+    }),
+    prisma.eventBatch.update({
+      where: { id: batchId },
+      data: { isActive: true, isClosed: false },
+    }),
+  ]);
+
+  return getBatchesOverview(eventId);
+}
+
+/**
+ * Reseta e aplica os lotes padrão do Copol no evento selecionado.
+ */
+export async function seedDefaultBatches(eventId: string) {
+  // Apaga lotes existentes sem inscrições
+  const existing = await prisma.eventBatch.findMany({ where: { eventId } });
+  for (const b of existing) {
+    const hasInscriptions = await prisma.inscription.count({ where: { batchId: b.id } });
+    if (hasInscriptions === 0) {
+      await prisma.eventBatch.delete({ where: { id: b.id } });
+    }
+  }
+
+  return ensureDefaultBatches(eventId);
 }

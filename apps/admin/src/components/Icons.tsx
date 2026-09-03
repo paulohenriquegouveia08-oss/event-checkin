@@ -145,3 +145,52 @@ export function QuestionIcon({ size = 16, color = "currentColor", ...props }: Ic
     </svg>
   );
 }
+
+export function GripVerticalIcon({ size = 16, color = "currentColor", ...props }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <circle cx="9" cy="5" r="1" fill={color} />
+      <circle cx="9" cy="12" r="1" fill={color} />
+      <circle cx="9" cy="19" r="1" fill={color} />
+      <circle cx="15" cy="5" r="1" fill={color} />
+      <circle cx="15" cy="12" r="1" fill={color} />
+      <circle cx="15" cy="19" r="1" fill={color} />
+    </svg>
+  );
+}
+
+export function DesktopIcon({ size = 16, color = "currentColor", ...props }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+      <line x1="8" y1="21" x2="16" y2="21" />
+      <line x1="12" y1="17" x2="12" y2="21" />
+    </svg>
+  );
+}
+
+export function MobileIcon({ size = 16, color = "currentColor", ...props }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+      <line x1="12" y1="18" x2="12.01" y2="18" />
+    </svg>
+  );
+}
+
+export function ArrowRightIcon({ size = 16, color = "currentColor", ...props }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <line x1="5" y1="12" x2="19" y2="12" />
+      <polyline points="12 5 19 12 12 19" />
+    </svg>
+  );
+}
+
+export function ChevronDownIcon({ size = 16, color = "currentColor", ...props }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}

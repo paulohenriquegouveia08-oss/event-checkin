@@ -13,9 +13,10 @@ const LINKS = [
 interface Props {
   eventTitle?: string;
   eventYear?: string;
+  subtitle?: string;
 }
 
-export function SiteHeader({ eventTitle = "Pré-Copol", eventYear = "2026" }: Props) {
+export function SiteHeader({ eventTitle = "Pré-Copol", eventYear = "2026", subtitle }: Props) {
   const pathname = usePathname();
 
   return (
@@ -24,8 +25,7 @@ export function SiteHeader({ eventTitle = "Pré-Copol", eventYear = "2026" }: Pr
         position: "sticky",
         top: 0,
         zIndex: 20,
-        background: "rgba(14, 54, 52, 0.85)",
-        backdropFilter: "blur(10px)",
+        background: "var(--background)",
         borderBottom: "1px solid var(--border)",
       }}
     >
@@ -48,7 +48,7 @@ export function SiteHeader({ eventTitle = "Pré-Copol", eventYear = "2026" }: Pr
               className="hidden sm:block"
               style={{ fontSize: 11, color: "var(--muted-foreground)", letterSpacing: "0.04em", whiteSpace: "nowrap" }}
             >
-              3º COPOL · Londrina
+              {subtitle || "3º COPOL · Londrina"}
             </div>
           </div>
         </Link>

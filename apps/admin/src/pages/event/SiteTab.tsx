@@ -222,6 +222,36 @@ export function SiteTab({ eventId }: { eventId: string }) {
     setFaqs(faqs.filter((_, i) => i !== idx));
   }
 
+  // Passos CRUD
+  function addStep() {
+    setSteps([...steps, { title: "Novo Passo", text: "Descrição da etapa..." }]);
+  }
+  function updateStep(idx: number, field: "title" | "text", val: string) {
+    const updated = [...steps];
+    if (updated[idx]) {
+      updated[idx][field] = val;
+      setSteps(updated);
+    }
+  }
+  function removeStep(idx: number) {
+    setSteps(steps.filter((_, i) => i !== idx));
+  }
+
+  // Parceiros CRUD
+  function addPartner() {
+    setPartners([...partners, { name: "Nome da Organização", role: "Apoio" }]);
+  }
+  function updatePartner(idx: number, field: "name" | "role", val: string) {
+    const updated = [...partners];
+    if (updated[idx]) {
+      updated[idx][field] = val;
+      setPartners(updated);
+    }
+  }
+  function removePartner(idx: number) {
+    setPartners(partners.filter((_, i) => i !== idx));
+  }
+
   // Salvar tudo
   async function handleSaveAll() {
     setSaving(true);
@@ -585,6 +615,110 @@ export function SiteTab({ eventId }: { eventId: string }) {
                     value={faq.answer}
                     onChange={(e) => updateFaq(idx, "answer", e.target.value)}
                   />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Como Funciona (Passos) */}
+          <div className="card stack" style={{ padding: 20, gap: 14 }}>
+            <div className="spread" style={{ alignItems: "center" }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 16 }}>Como Funciona (Passos)</h3>
+                <span className="muted" style={{ fontSize: 12 }}>Instruções visuais do fluxo de participação</span>
+              </div>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={addStep} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <PlusIcon size={14} /> Adicionar Passo
+              </button>
+            </div>
+
+            <label className="stack" style={{ gap: 4, fontSize: 12 }}>
+              <span>Título da Seção</span>
+              <input
+                type="text"
+                value={textFields.stepsTitle}
+                onChange={(e) => setTextFields({ ...textFields, stepsTitle: e.target.value })}
+              />
+            </label>
+
+            <div className="stack" style={{ gap: 12 }}>
+              {steps.map((step, idx) => (
+                <div key={idx} className="card stack" style={{ padding: 14, gap: 8, background: "rgba(0,0,0,0.02)" }}>
+                  <div className="spread" style={{ alignItems: "center" }}>
+                    <span style={{ fontWeight: 700, fontSize: 13, color: "var(--primary)" }}>Passo {idx + 1}</span>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => removeStep(idx)}>
+                      <TrashIcon size={14} />
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Título do passo..."
+                    value={step.title}
+                    onChange={(e) => updateStep(idx, "title", e.target.value)}
+                    style={{ fontWeight: 600 }}
+                  />
+                  <textarea
+                    rows={2}
+                    placeholder="Descrição..."
+                    value={step.text}
+                    onChange={(e) => updateStep(idx, "text", e.target.value)}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Realização e Apoio (Parceiros) */}
+          <div className="card stack" style={{ padding: 20, gap: 14 }}>
+            <div className="spread" style={{ alignItems: "center" }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 16 }}>Realização e Apoio</h3>
+                <span className="muted" style={{ fontSize: 12 }}>Entidades, marcas e patrocinadores</span>
+              </div>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={addPartner} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <PlusIcon size={14} /> Adicionar Marca/Parceiro
+              </button>
+            </div>
+
+            <div className="row" style={{ gap: 12 }}>
+              <label className="stack" style={{ flex: 1, gap: 4, fontSize: 12 }}>
+                <span>Título da Seção</span>
+                <input
+                  type="text"
+                  value={textFields.partnersTitle}
+                  onChange={(e) => setTextFields({ ...textFields, partnersTitle: e.target.value })}
+                />
+              </label>
+              <label className="stack" style={{ flex: 1, gap: 4, fontSize: 12 }}>
+                <span>Texto de Apoio</span>
+                <input
+                  type="text"
+                  value={textFields.partnersText}
+                  onChange={(e) => setTextFields({ ...textFields, partnersText: e.target.value })}
+                />
+              </label>
+            </div>
+
+            <div className="stack" style={{ gap: 10 }}>
+              {partners.map((partner, idx) => (
+                <div key={idx} className="spread" style={{ padding: "10px 14px", background: "rgba(0,0,0,0.02)", borderRadius: 8, alignItems: "center", gap: 10 }}>
+                  <input
+                    type="text"
+                    placeholder="Nome da instituição..."
+                    value={partner.name}
+                    onChange={(e) => updatePartner(idx, "name", e.target.value)}
+                    style={{ flex: 2, fontWeight: 600 }}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Papel (Ex: Realização, Apoio)..."
+                    value={partner.role ?? ""}
+                    onChange={(e) => updatePartner(idx, "role", e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => removePartner(idx)}>
+                    <TrashIcon size={14} />
+                  </button>
                 </div>
               ))}
             </div>

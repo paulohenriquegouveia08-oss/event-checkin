@@ -92,14 +92,21 @@ export default function HomePage() {
           --primary: ${theme.primaryColor} !important;
           --primary-foreground: #04302C !important;
           --gold: ${theme.accentColor} !important;
+          --gold-soft: ${theme.accentColor} !important;
           --background: ${theme.backgroundColor} !important;
+          --background-deep: ${theme.backgroundColor} !important;
           --card: ${theme.surfaceColor} !important;
+          --muted: ${theme.surfaceColor} !important;
           --foreground: ${theme.textColor} !important;
           --muted-foreground: ${theme.textMutedColor} !important;
         }
       `}</style>
 
-      <SiteHeader eventTitle={eventTitle} eventYear={eventYear} />
+      <SiteHeader
+        eventTitle={eventTitle}
+        eventYear={eventYear}
+        subtitle={mainEvent?.location || undefined}
+      />
 
       <main style={{ flex: 1 }}>
         {sections.map((sec) => {

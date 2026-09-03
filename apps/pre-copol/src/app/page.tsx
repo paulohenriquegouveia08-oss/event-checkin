@@ -63,13 +63,18 @@ export default function HomePage() {
   const registrationsOpen = mainEvent?.registrationsOpen ?? true;
   const content = mainEvent?.siteContent;
 
-  const theme = content?.theme || {
-    primaryColor: "#0E3634",
-    accentColor: "#C8A261",
-    backgroundColor: "#0B2928",
-    surfaceColor: "#134543",
-    textColor: "#FFFFFF",
-    textMutedColor: "#94A3B8",
+  let rawPrimary = content?.theme?.primaryColor || "#2DD4BF";
+  if (rawPrimary.toUpperCase() === "#0E3634" || rawPrimary.toUpperCase() === "#0B2928") {
+    rawPrimary = "#2DD4BF";
+  }
+
+  const theme = {
+    primaryColor: rawPrimary,
+    accentColor: content?.theme?.accentColor || "#D4A853",
+    backgroundColor: content?.theme?.backgroundColor || "#0E3634",
+    surfaceColor: content?.theme?.surfaceColor || "#154B4C",
+    textColor: content?.theme?.textColor || "#F0FAF9",
+    textMutedColor: content?.theme?.textMutedColor || "#9FC4C2",
   };
 
   const sections = (content?.sections && content.sections.length > 0 ? content.sections : DEFAULT_SECTIONS)
@@ -84,12 +89,13 @@ export default function HomePage() {
       {/* Injeção Dinâmica das Variáveis de Estilo do Tema */}
       <style>{`
         :root {
-          --primary: ${theme.primaryColor};
-          --gold: ${theme.accentColor};
-          --background: ${theme.backgroundColor};
-          --card: ${theme.surfaceColor};
-          --foreground: ${theme.textColor};
-          --muted-foreground: ${theme.textMutedColor};
+          --primary: ${theme.primaryColor} !important;
+          --primary-foreground: #04302C !important;
+          --gold: ${theme.accentColor} !important;
+          --background: ${theme.backgroundColor} !important;
+          --card: ${theme.surfaceColor} !important;
+          --foreground: ${theme.textColor} !important;
+          --muted-foreground: ${theme.textMutedColor} !important;
         }
       `}</style>
 

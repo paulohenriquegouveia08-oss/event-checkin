@@ -105,12 +105,12 @@ export type Step = z.infer<typeof stepSchema>;
 export type SiteContent = z.infer<typeof siteContentSchema>;
 
 export const DEFAULT_SITE_THEME: SiteTheme = {
-  primaryColor: "#0E3634",
-  accentColor: "#C8A261",
-  backgroundColor: "#0B2928",
-  surfaceColor: "#134543",
-  textColor: "#FFFFFF",
-  textMutedColor: "#94A3B8",
+  primaryColor: "#2DD4BF",
+  accentColor: "#D4A853",
+  backgroundColor: "#0E3634",
+  surfaceColor: "#154B4C",
+  textColor: "#F0FAF9",
+  textMutedColor: "#9FC4C2",
 };
 
 export const DEFAULT_FAQS: FaqItem[] = [
@@ -274,8 +274,13 @@ export function resolveSiteContent(stored: unknown): ResolvedSiteContent {
   const content = parsed.success ? parsed.data : {};
 
   // Mescla o tema
+  let primaryColor = content.theme?.primaryColor || DEFAULT_SITE_THEME.primaryColor;
+  if (primaryColor.toUpperCase() === "#0E3634" || primaryColor.toUpperCase() === "#0B2928") {
+    primaryColor = "#2DD4BF";
+  }
+
   const theme: SiteTheme = {
-    primaryColor: content.theme?.primaryColor || DEFAULT_SITE_THEME.primaryColor,
+    primaryColor,
     accentColor: content.theme?.accentColor || DEFAULT_SITE_THEME.accentColor,
     backgroundColor: content.theme?.backgroundColor || DEFAULT_SITE_THEME.backgroundColor,
     surfaceColor: content.theme?.surfaceColor || DEFAULT_SITE_THEME.surfaceColor,

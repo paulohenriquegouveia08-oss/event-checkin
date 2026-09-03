@@ -25,31 +25,31 @@ function fromDatetimeLocal(value: string): string {
 }
 
 const DEFAULT_THEME: api.SiteTheme = {
-  primaryColor: "#0E3634",
-  accentColor: "#C8A261",
-  backgroundColor: "#0B2928",
-  surfaceColor: "#134543",
-  textColor: "#FFFFFF",
-  textMutedColor: "#94A3B8",
+  primaryColor: "#2DD4BF",
+  accentColor: "#D4A853",
+  backgroundColor: "#0E3634",
+  surfaceColor: "#154B4C",
+  textColor: "#F0FAF9",
+  textMutedColor: "#9FC4C2",
 };
 
 const THEME_PRESETS = [
   {
-    name: "COPOL Clássico",
+    name: "COPOL Clássico (Turquesa & Ouro)",
     theme: {
-      primaryColor: "#0E3634",
-      accentColor: "#C8A261",
-      backgroundColor: "#0B2928",
-      surfaceColor: "#134543",
-      textColor: "#FFFFFF",
-      textMutedColor: "#94A3B8",
+      primaryColor: "#2DD4BF",
+      accentColor: "#D4A853",
+      backgroundColor: "#0E3634",
+      surfaceColor: "#154B4C",
+      textColor: "#F0FAF9",
+      textMutedColor: "#9FC4C2",
     },
   },
   {
     name: "Azul Universitário",
     theme: {
-      primaryColor: "#1E40AF",
-      accentColor: "#38BDF8",
+      primaryColor: "#38BDF8",
+      accentColor: "#FBBF24",
       backgroundColor: "#0F172A",
       surfaceColor: "#1E293B",
       textColor: "#F8FAFC",
@@ -137,7 +137,13 @@ export function SiteTab({ eventId }: { eventId: string }) {
       setDeadline(data.registrationDeadline ? toDatetimeLocal(data.registrationDeadline) : "");
 
       const c = data.siteContent ?? {};
-      if (c.theme) setTheme({ ...DEFAULT_THEME, ...c.theme });
+      if (c.theme) {
+        let pColor = c.theme.primaryColor || DEFAULT_THEME.primaryColor;
+        if (pColor.toUpperCase() === "#0E3634" || pColor.toUpperCase() === "#0B2928") {
+          pColor = "#2DD4BF";
+        }
+        setTheme({ ...DEFAULT_THEME, ...c.theme, primaryColor: pColor });
+      }
       if (c.sections && c.sections.length > 0) {
         setSections([...c.sections].sort((a, b) => a.order - b.order));
       } else {

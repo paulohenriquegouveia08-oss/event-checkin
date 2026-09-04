@@ -2,13 +2,20 @@ import Image from "next/image";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 
-// Parceiros com logo em imagem. LSPK já vem com fundo preto na própria
-// arte (mantido, a pedido) — as outras logos têm fundo transparente, então
-// usam cartão claro pra ficarem legíveis com qualquer paleta.
-const LOGO_PARTNERS = [
-  { name: "LSPK", subtitle: "LSPK Tecnology", src: "/partners/lspk.png", width: 200, card: "dark" as const },
-  { name: "Universidade Positivo", subtitle: "Campus Londrina", src: "/partners/positivo.png", width: 210, card: "light" as const },
-  { name: "Ecohub", subtitle: "Ecossistema de Inovação", src: "/partners/ecohub.png", width: 180, card: "light" as const },
+// Parceiros com logo em imagem em cartão claro unificado, com fundo
+// transparente para máxima legibilidade e padrão consistente em qualquer paleta.
+interface LogoPartner {
+  name: string;
+  subtitle: string;
+  src: string;
+  width: number;
+  card: "light" | "dark";
+}
+
+const LOGO_PARTNERS: LogoPartner[] = [
+  { name: "LSPK", subtitle: "LSPK Technology", src: "/partners/lspk.png", width: 200, card: "light" },
+  { name: "Universidade Positivo", subtitle: "Campus Londrina", src: "/partners/positivo.png", width: 210, card: "light" },
+  { name: "Ecohub", subtitle: "Ecossistema de Inovação", src: "/partners/ecohub.png", width: 180, card: "light" },
 ];
 
 export default function ParceriasPage() {

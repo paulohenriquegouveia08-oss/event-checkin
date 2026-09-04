@@ -494,14 +494,14 @@ export default function HomePage() {
                         {sec.title || content?.partnersTitle || "Realização e Apoio"}
                       </h2>
                       <p style={{ color: "var(--muted-foreground)", fontSize: 16, lineHeight: 1.7, margin: "0 0 32px" }}>
-                        {content?.partnersText || "Universidade Positivo, Ecohub e LSPK Tecnology apoiam o Pré-Copol 2026."}
+                        {content?.partnersText || "Universidade Positivo, Ecohub e LSPK Technology apoiam o Pré-Copol 2026."}
                       </p>
 
                       <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 16 }}>
                         {(content?.partnersList || [
                           { name: "Universidade Positivo", role: "Realização" },
                           { name: "Ecohub", role: "Apoio" },
-                          { name: "LSPK Tecnology", role: "Tecnologia e Apoio" },
+                          { name: "LSPK Technology", role: "Tecnologia e Apoio" },
                         ]).map((p) => (
                           <div key={p.name} className="card" style={{ padding: "16px 24px", minWidth: 200, textAlign: "center" }}>
                             <strong style={{ fontSize: 16, display: "block" }}>{p.name}</strong>

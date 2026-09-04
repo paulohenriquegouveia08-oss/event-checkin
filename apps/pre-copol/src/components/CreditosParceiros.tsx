@@ -7,14 +7,11 @@ import Image from "next/image";
  * desenvolveu; o Ecohub e a Universidade Positivo apoiaram. Um bloco
  * único com os três logos lado a lado diria que fizeram a mesma coisa.
  *
- * Por que a LSPK aparece "solta" e as outras duas em cartão branco
- * ---------------------------------------------------------------
- * Não é inconsistência: é o que cada marca exige. A arte da LSPK é
- * branca e azul, feita para fundo escuro — sobre o verde do rodapé ela
- * lê direto (o fundo preto original foi removido). As artes do Ecohub e
- * da Positivo são escuras sobre transparente; no mesmo verde elas
- * praticamente desapareceriam, e recolori-las seria alterar marca de
- * terceiro. O cartão branco preserva as cores originais das duas.
+ * Padrão visual consistente
+ * -------------------------
+ * Todas as marcas (desenvolvimento e apoio) são exibidas dentro de
+ * cartões brancos arredondados para manter harmonia, legibilidade e
+ * integridade visual das cores originais sobre o fundo escuro do rodapé.
  */
 
 const APOIO = [
@@ -35,13 +32,23 @@ export function CreditosParceiros() {
       }}
     >
       <Credito rotulo="Desenvolvido por">
-        <Image
-          src="/partners/lspk-rodape.png"
-          alt="LSPK Tecnology"
-          width={412}
-          height={132}
-          style={{ height: 30, width: "auto" }}
-        />
+        <span
+          style={{
+            background: "#ffffff",
+            borderRadius: 8,
+            padding: "6px 10px",
+            display: "inline-flex",
+            alignItems: "center",
+          }}
+        >
+          <Image
+            src="/partners/lspk-rodape.png"
+            alt="LSPK Technology"
+            width={249}
+            height={96}
+            style={{ height: 20, width: "auto" }}
+          />
+        </span>
       </Credito>
 
       <Credito rotulo="Apoio">

@@ -561,7 +561,7 @@ export default function CheckInPage() {
 
         {/* Footer */}
         <p className="text-center text-xs text-[--muted-foreground] pt-4">
-          Copol | LSPK Tecnology
+          Copol | LSPK Technology
         </p>
 
         <CreditosParceiros className="border-t border-[--border] pt-6 mt-2" />

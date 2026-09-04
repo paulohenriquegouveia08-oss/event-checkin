@@ -11,10 +11,8 @@ import Image from "next/image";
  * Duas linhas porque os papéis são diferentes: a LSPK desenvolveu; o
  * Ecohub e a Universidade Positivo apoiaram.
  *
- * A LSPK aparece direto sobre o fundo (a arte é branca e azul, feita
- * para escuro — o preto original foi removido) e as outras duas em
- * cartão branco, porque são escuras sobre transparente e sumiriam no
- * verde do app. Recolorir marca de terceiro não é opção.
+ * Padrão visual consistente: todas as marcas em cartões brancos arredondados
+ * para máxima legibilidade e harmonia sobre o fundo escuro.
  */
 
 const APOIO = [
@@ -29,13 +27,15 @@ export function CreditosParceiros({ className = "" }: { className?: string }) {
     >
       <div className="flex flex-col items-center gap-2">
         <Rotulo>Desenvolvido por</Rotulo>
-        <Image
-          src="/partners/lspk-rodape.png"
-          alt="LSPK Tecnology"
-          width={412}
-          height={132}
-          className="h-[26px] w-auto"
-        />
+        <span className="inline-flex items-center rounded-lg bg-white px-2.5 py-1.5">
+          <Image
+            src="/partners/lspk-rodape.png"
+            alt="LSPK Technology"
+            width={249}
+            height={96}
+            className="h-[18px] w-auto"
+          />
+        </span>
       </div>
 
       <div className="flex flex-col items-center gap-2">

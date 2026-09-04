@@ -29,7 +29,7 @@ export function SiteFooter({ text, footerText }: Props) {
         <Image src="/icon-mark.png" alt="" width={28} height={28} style={{ opacity: 0.85 }} />
         <p style={{ margin: 0, fontSize: 13, color: "var(--muted-foreground)" }}>{displayText}</p>
         <p style={{ margin: 0, fontSize: 12, color: "var(--muted-foreground)", opacity: 0.7 }}>
-          Copol | LSPK Tecnology
+          Copol | LSPK Technology
         </p>
 
         {/* Créditos de quem desenvolveu e de quem apoiou. Separado por

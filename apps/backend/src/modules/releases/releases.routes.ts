@@ -3,7 +3,6 @@ import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { FastifyInstance } from "fastify";
 import { env } from "../../config/env.js";
-import { requireAdmin } from "../../middleware/auth.js";
 import { NotFoundError } from "../../shared/errors.js";
 import { ok } from "../../shared/response.js";
 
@@ -20,10 +19,8 @@ const APK_PATH = join(env.STORAGE_DIR, "releases", "app-release.apk");
 const APK_DOWNLOAD_NAME = "pk-digital-credenciamento.apk";
 
 export async function releasesRoutes(app: FastifyInstance) {
-  // Qualquer admin autenticado pode ver/baixar — não é dado sensível de
-  // participante/evento, é só um artefato de deploy, então não exige
-  // permissão granular (diferente de certificates.view, users.view etc.).
-  app.get("/apk/info", { preHandler: requireAdmin }, async () => {
+  // Disponível publicamente e no painel admin — artefato de instalação do app leitor de QR Code
+  app.get("/apk/info", async () => {
     try {
       const stats = await stat(APK_PATH);
       return ok({ available: true, sizeBytes: stats.size, updatedAt: stats.mtime.toISOString() });
@@ -32,7 +29,7 @@ export async function releasesRoutes(app: FastifyInstance) {
     }
   });
 
-  app.get("/apk", { preHandler: requireAdmin }, async (_request, reply) => {
+  app.get("/apk", async (_request, reply) => {
     let stats;
     try {
       stats = await stat(APK_PATH);

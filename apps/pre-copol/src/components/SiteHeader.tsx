@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { handleLogoDoubleAction, handleLogoTouchEnd } from "@/lib/download-apk";
 
 const LINKS = [
   // `soNoAmplo`: escondido no celular. "Eventos" aponta para a home, e
@@ -41,9 +42,23 @@ export function SiteHeader({ eventTitle = "Pré-Copol", eventYear = "2026", subt
           padding: "14px 24px",
         }}
       >
-        <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", minWidth: 0 }}>
-          <Image src="/icon-mark.png" alt="" width={30} height={29} priority style={{ display: "block", flexShrink: 0 }} />
-          <div style={{ minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+          <Image
+            src="/icon-mark.png"
+            alt="Copol"
+            width={30}
+            height={29}
+            priority
+            title="Dois cliques para baixar o app leitor de QR Code (APK)"
+            style={{ display: "block", flexShrink: 0, cursor: "pointer", userSelect: "none" }}
+            onDoubleClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleLogoDoubleAction(e);
+            }}
+            onTouchEnd={handleLogoTouchEnd}
+          />
+          <Link href="/" style={{ textDecoration: "none", minWidth: 0 }}>
             <div
               style={{
                 fontWeight: 800,
@@ -77,8 +92,8 @@ export function SiteHeader({ eventTitle = "Pré-Copol", eventYear = "2026", subt
             >
               {subtitle || "3º COPOL · Londrina"}
             </div>
-          </div>
-        </Link>
+          </Link>
+        </div>
 
         <nav style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
           {LINKS.map((link) => {

@@ -27,7 +27,13 @@ export function CreditosParceiros({ className = "" }: { className?: string }) {
     >
       <div className="flex flex-col items-center gap-2">
         <Rotulo>Desenvolvido por</Rotulo>
-        <span className="inline-flex items-center rounded-lg bg-white px-2.5 py-1.5">
+        <a
+          href="https://www.instagram.com/lspktech"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="LSPK Technology no Instagram"
+          className="inline-flex items-center rounded-lg bg-white px-2.5 py-1.5 transition-transform hover:scale-105 cursor-pointer"
+        >
           <Image
             src="/partners/lspk-rodape.png"
             alt="LSPK Technology"
@@ -35,7 +41,7 @@ export function CreditosParceiros({ className = "" }: { className?: string }) {
             height={96}
             className="h-[18px] w-auto"
           />
-        </span>
+        </a>
       </div>
 
       <div className="flex flex-col items-center gap-2">

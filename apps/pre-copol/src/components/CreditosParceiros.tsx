@@ -32,13 +32,20 @@ export function CreditosParceiros() {
       }}
     >
       <Credito rotulo="Desenvolvido por">
-        <span
+        <a
+          href="https://www.instagram.com/lspktech"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="LSPK Technology no Instagram"
           style={{
             background: "#ffffff",
             borderRadius: 8,
             padding: "6px 10px",
             display: "inline-flex",
             alignItems: "center",
+            textDecoration: "none",
+            cursor: "pointer",
+            transition: "transform 0.15s ease, box-shadow 0.15s ease",
           }}
         >
           <Image
@@ -48,7 +55,7 @@ export function CreditosParceiros() {
             height={96}
             style={{ height: 20, width: "auto" }}
           />
-        </span>
+        </a>
       </Credito>
 
       <Credito rotulo="Apoio">

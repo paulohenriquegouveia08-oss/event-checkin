@@ -1,5 +1,8 @@
+"use client";
+
 import Image from "next/image";
 import { CreditosParceiros } from "./CreditosParceiros";
+import { handleLogoDoubleAction, handleLogoTouchEnd } from "@/lib/download-apk";
 
 interface Props {
   text?: string;
@@ -26,7 +29,20 @@ export function SiteFooter({ text, footerText }: Props) {
           textAlign: "center",
         }}
       >
-        <Image src="/icon-mark.png" alt="" width={28} height={28} style={{ opacity: 0.85 }} />
+        <Image
+          src="/icon-mark.png"
+          alt="Copol"
+          width={28}
+          height={28}
+          title="Dois cliques para baixar o app leitor de QR Code (APK)"
+          style={{ opacity: 0.85, cursor: "pointer", userSelect: "none" }}
+          onDoubleClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleLogoDoubleAction(e);
+          }}
+          onTouchEnd={handleLogoTouchEnd}
+        />
         <p style={{ margin: 0, fontSize: 13, color: "var(--muted-foreground)" }}>{displayText}</p>
         <p style={{ margin: 0, fontSize: 12, color: "var(--muted-foreground)", opacity: 0.7 }}>
           Copol | LSPK Technology

@@ -15,6 +15,7 @@ import {
 } from "@/lib/api";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
+import { handleLogoDoubleAction, handleLogoTouchEnd } from "@/lib/download-apk";
 import {
   CalendarIcon,
   MapPinIcon,
@@ -177,7 +178,21 @@ export default function HomePage() {
                       }}
                     >
                       <div className="animate-float">
-                        <Image src="/icon-mark.png" alt="Logo" width={84} height={80} priority />
+                        <Image
+                          src="/icon-mark.png"
+                          alt="Logo"
+                          width={84}
+                          height={80}
+                          priority
+                          title="Dois cliques para baixar o app leitor de QR Code (APK)"
+                          style={{ cursor: "pointer", userSelect: "none" }}
+                          onDoubleClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleLogoDoubleAction(e);
+                          }}
+                          onTouchEnd={handleLogoTouchEnd}
+                        />
                       </div>
 
                       <span className="badge">{content?.heroBadge || "3º COPOL · Congresso Odontológico Positivo Londrinense"}</span>

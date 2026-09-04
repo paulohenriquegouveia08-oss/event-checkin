@@ -10,10 +10,11 @@ interface LogoPartner {
   src: string;
   width: number;
   card: "light" | "dark";
+  url?: string;
 }
 
 const LOGO_PARTNERS: LogoPartner[] = [
-  { name: "LSPK", subtitle: "LSPK Technology", src: "/partners/lspk.png", width: 200, card: "light" },
+  { name: "LSPK", subtitle: "LSPK Technology", src: "/partners/lspk.png", width: 200, card: "light", url: "https://www.instagram.com/lspktech" },
   { name: "Universidade Positivo", subtitle: "Campus Londrina", src: "/partners/positivo.png", width: 210, card: "light" },
   { name: "Ecohub", subtitle: "Ecossistema de Inovação", src: "/partners/ecohub.png", width: 180, card: "light" },
 ];
@@ -50,43 +51,69 @@ export default function ParceriasPage() {
               gap: 20,
             }}
           >
-            {LOGO_PARTNERS.map((partner) => (
-              <div
-                key={partner.name}
-                style={{
-                  background: partner.card === "dark" ? "#000000" : "#ffffff",
-                  border: partner.card === "dark" ? "1px solid var(--border)" : "none",
-                  borderRadius: 16,
-                  padding: 28,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 12,
-                  minHeight: 160,
-                  textAlign: "center",
-                  boxShadow: "var(--shadow-card)",
-                }}
-              >
-                <Image
-                  src={partner.src}
-                  alt={partner.name}
-                  width={partner.width}
-                  height={partner.width / 3.3}
-                  style={{ width: partner.width, height: "auto" }}
-                />
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: partner.card === "dark" ? "var(--muted-foreground)" : "#4b5563",
-                  }}
-                >
-                  {partner.subtitle}
-                </p>
-              </div>
-            ))}
+            {LOGO_PARTNERS.map((partner) => {
+              const cardContent = (
+                <>
+                  <Image
+                    src={partner.src}
+                    alt={partner.name}
+                    width={partner.width}
+                    height={partner.width / 3.3}
+                    style={{ width: partner.width, height: "auto" }}
+                  />
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: partner.card === "dark" ? "var(--muted-foreground)" : "#4b5563",
+                    }}
+                  >
+                    {partner.subtitle}
+                  </p>
+                </>
+              );
+
+              const cardStyle: React.CSSProperties = {
+                background: partner.card === "dark" ? "#000000" : "#ffffff",
+                border: partner.card === "dark" ? "1px solid var(--border)" : "none",
+                borderRadius: 16,
+                padding: 28,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 12,
+                minHeight: 160,
+                textAlign: "center",
+                boxShadow: "var(--shadow-card)",
+                textDecoration: "none",
+                transition: "transform 0.2s ease, box-shadow 0.2s ease",
+                cursor: partner.url ? "pointer" : "default",
+              };
+
+              if (partner.url) {
+                return (
+                  <a
+                    key={partner.name}
+                    href={partner.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={cardStyle}
+                    title={`${partner.name} no Instagram`}
+                    className="hover:scale-[1.02]"
+                  >
+                    {cardContent}
+                  </a>
+                );
+              }
+
+              return (
+                <div key={partner.name} style={cardStyle}>
+                  {cardContent}
+                </div>
+              );
+            })}
 
             <div
               style={{

@@ -15,6 +15,7 @@ import {
 } from "@/lib/api";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
+import { EventJsonLd } from "@/components/EventJsonLd";
 import { handleLogoDoubleAction, handleLogoTouchEnd } from "@/lib/download-apk";
 import {
   CalendarIcon,
@@ -141,6 +142,15 @@ export default function HomePage() {
           --muted-foreground: ${theme.textMutedColor} !important;
         }
       `}</style>
+
+      {mainEvent?.startDate ? (
+        <EventJsonLd
+          name={`${eventTitle} ${eventYear} — Congresso de Odontologia de Londrina`}
+          startDate={mainEvent.startDate}
+          endDate={mainEvent.endDate}
+          locationName={mainEvent.location || undefined}
+        />
+      ) : null}
 
       <SiteHeader
         eventTitle={eventTitle}

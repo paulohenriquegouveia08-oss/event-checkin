@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
+  listActiveEvents,
   getEvent,
   getBatches,
   createInscription,
@@ -50,18 +51,44 @@ function InscriptionContent() {
   const [aceitou, setAceitou] = useState(false);
 
   useEffect(() => {
-    if (!eventId) {
-      setLoading(false);
-      return;
+    let isMounted = true;
+
+    async function load() {
+      try {
+        let targetId = eventId;
+        if (!targetId) {
+          const activeList = await listActiveEvents().catch(() => []);
+          if (activeList.length > 0 && activeList[0]) {
+            targetId = activeList[0].id;
+          }
+        }
+
+        if (!targetId) {
+          if (isMounted) setLoading(false);
+          return;
+        }
+
+        const [eventData, batchData] = await Promise.all([
+          getEvent(targetId),
+          getBatches(targetId).catch(() => ({ batches: [], activeBatch: null })),
+        ]);
+
+        if (isMounted) {
+          setEvent(eventData);
+          setActiveBatch(batchData.activeBatch);
+        }
+      } catch {
+        if (isMounted) setError("Evento não encontrado");
+      } finally {
+        if (isMounted) setLoading(false);
+      }
     }
 
-    Promise.all([getEvent(eventId), getBatches(eventId).catch(() => ({ batches: [], activeBatch: null }))])
-      .then(([eventData, batchData]) => {
-        setEvent(eventData);
-        setActiveBatch(batchData.activeBatch);
-      })
-      .catch(() => setError("Evento não encontrado"))
-      .finally(() => setLoading(false));
+    load();
+
+    return () => {
+      isMounted = false;
+    };
   }, [eventId]);
 
   function updateField<K extends keyof InscriptionInput>(key: K, value: InscriptionInput[K]) {
@@ -123,10 +150,13 @@ function InscriptionContent() {
   if (!event) {
     return (
       <PageShell>
-        <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 16, alignItems: "center" }}>
-          <p style={{ color: "var(--destructive)" }}>Evento não encontrado.</p>
-          <Link href="/" className="btn-secondary">
-            Voltar
+        <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 14, alignItems: "center", padding: "40px 20px" }}>
+          <h2 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Inscrições em Breve</h2>
+          <p style={{ color: "var(--muted-foreground)", maxWidth: 460, margin: 0, lineHeight: 1.6 }}>
+            Não encontramos um lote de inscrições aberto no momento. Acompanhe a programação oficial e as divulgações do COPOL 2026.
+          </p>
+          <Link href="/" className="btn-secondary" style={{ marginTop: 8 }}>
+            Voltar para a página inicial
           </Link>
         </div>
       </PageShell>

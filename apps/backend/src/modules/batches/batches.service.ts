@@ -1,6 +1,6 @@
 import { prisma } from "../../database/prisma.js";
-import { NotFoundError, ValidationError } from "../../shared/errors.js";
-import type { EventBatch } from "@prisma/client";
+import { ConflictError, NotFoundError, ValidationError } from "../../shared/errors.js";
+import type { EventBatch, Prisma } from "@prisma/client";
 
 export interface BatchViewItem {
   id: string;
@@ -111,13 +111,69 @@ export async function ensureDefaultBatches(eventId: string): Promise<EventBatch[
  *    - Se a data atual ainda é anterior à data de início (startDate) -> pula;
  *    - O primeiro lote elegível é o ativo automaticamente!
  */
+/**
+ * O QUE OCUPA UMA VAGA NO LOTE.
+ *
+ * Uma definicao so, usada tanto pela rolagem automatica de lote quanto
+ * pela reserva atomica. Se as duas contassem diferente, o sistema
+ * rolaria para o lote 2 num momento e aceitaria mais uma no lote 1 no
+ * seguinte — e ninguem entenderia por que.
+ *
+ * Ocupa vaga:
+ *   - inscricao CONFIRMED (pagou);
+ *   - inscricao PENDING dentro do prazo de pagamento.
+ *
+ * A segunda linha e' a correcao principal. Antes so CONFIRMED contava:
+ * entre criar a inscricao e o webhook confirmar passam ATE 24 HORAS, e
+ * nessa janela o lote parecia vazio para todo mundo. Nao era uma corrida
+ * de milissegundos — 100 pessoas podiam receber inscricao no lote de 60
+ * ao longo de um dia inteiro, pagar todas, e todas serem confirmadas.
+ *
+ * PENDING vencida NAO ocupa: quem nao pagou em 24h libera a vaga.
+ */
+export function ocupaVagaWhere(batchId: string, agora: Date = new Date()) {
+  return {
+    batchId,
+    OR: [
+      { status: "CONFIRMED" as const },
+      { status: "PENDING" as const, paymentExpiresAt: { gt: agora } },
+    ],
+  };
+}
+
+/**
+ * Quantas vagas do lote estao ocupadas AGORA.
+ *
+ * `tx` para poder rodar dentro da transacao da reserva — a contagem
+ * precisa enxergar o mesmo instante do bloqueio da linha do lote.
+ */
+export async function contarOcupadas(
+  tx: Prisma.TransactionClient,
+  batchId: string,
+  agora: Date = new Date(),
+): Promise<number> {
+  return tx.inscription.count({ where: ocupaVagaWhere(batchId, agora) });
+}
+
 export async function resolveActiveBatch(eventId: string, now: Date = new Date()) {
   const batches = await ensureDefaultBatches(eventId);
 
-  // Busca contagem de inscrições confirmadas por lote
+  // Conta o que OCUPA VAGA, não só o que já foi pago.
+  //
+  // Antes contava apenas CONFIRMED. Como a confirmação só chega pelo
+  // webhook do pagamento — até 24h depois —, o lote parecia vazio
+  // durante toda essa janela, e a rolagem para o lote seguinte só
+  // acontecia tarde demais. Ver `ocupaVagaWhere` acima.
+  const agora = new Date();
   const counts = await prisma.inscription.groupBy({
     by: ["batchId"],
-    where: { eventId, status: "CONFIRMED" },
+    where: {
+      eventId,
+      OR: [
+        { status: "CONFIRMED" },
+        { status: "PENDING", paymentExpiresAt: { gt: agora } },
+      ],
+    },
     _count: { id: true },
   });
 
@@ -132,9 +188,12 @@ export async function resolveActiveBatch(eventId: string, now: Date = new Date()
     const legacyCount = await prisma.inscription.count({
       where: {
         eventId,
-        status: "CONFIRMED",
         category: "LOTE_1",
         batchId: null,
+        OR: [
+          { status: "CONFIRMED" },
+          { status: "PENDING", paymentExpiresAt: { gt: agora } },
+        ],
       },
     });
     const current = countMap.get(lote1.id) ?? 0;
@@ -344,4 +403,73 @@ export async function seedDefaultBatches(eventId: string) {
   }
 
   return ensureDefaultBatches(eventId);
+}
+
+/**
+ * Erro de lote esgotado. Existe como classe própria para a rota poder
+ * responder 409 (conflito) em vez de 500 — quem tentou não fez nada
+ * errado, só chegou depois.
+ */
+export class LoteEsgotadoError extends ConflictError {
+  constructor(readonly batchName: string) {
+    super(
+      "LOTE_ESGOTADO",
+      `O ${batchName} esgotou enquanto você preenchia o formulário. ` +
+        `Recarregue a página para ver o lote e o valor atuais.`,
+    );
+    this.name = "LoteEsgotadoError";
+  }
+}
+
+/**
+ * Toma uma vaga do lote, ou recusa. ATOMICAMENTE.
+ *
+ * Precisa rodar DENTRO de uma transação, junto com a criação da
+ * inscrição — senão a vaga é conferida e a inscrição é criada em
+ * momentos diferentes, que é exatamente o problema que isto resolve.
+ *
+ * Como funciona
+ * -------------
+ * `SELECT ... FOR UPDATE` na linha do lote. A primeira transação que
+ * chega trava a linha; a segunda FICA ESPERANDO nesse ponto, não
+ * prossegue com uma contagem velha. Quando a primeira comita, a
+ * segunda acorda e conta de novo — já enxergando a inscrição que a
+ * primeira acabou de criar.
+ *
+ * É por isso que a checagem não é `SELECT` seguido de `UPDATE`: entre
+ * um e outro qualquer número de requisições passa. Aqui não existe
+ * "entre".
+ *
+ * O bloqueio é por LOTE, não global: reservas em lotes diferentes (ou
+ * em eventos diferentes) não esperam umas pelas outras.
+ */
+export async function reservarVaga(
+  tx: Prisma.TransactionClient,
+  batchId: string,
+): Promise<void> {
+  // Trava a linha do lote. O retorno não interessa — o efeito é o
+  // bloqueio.
+  //
+  // Sem cast de tipo: `event_batches.id` é TEXT (o `@default(uuid())`
+  // do Prisma gera o valor na aplicação, a coluna continua texto).
+  // Um `::uuid` aqui faz o Postgres recusar a comparação com
+  // "operator does not exist: text = uuid".
+  const travado = await tx.$queryRaw<{ id: string; name: string; maxQuantity: number | null }[]>`
+    SELECT id, name, "maxQuantity"
+      FROM event_batches
+     WHERE id = ${batchId}
+       FOR UPDATE
+  `;
+
+  const lote = travado[0];
+  if (!lote) throw new NotFoundError("Lote de inscrição não encontrado");
+
+  // Lote sem teto não pode esgotar — nada a conferir.
+  if (lote.maxQuantity === null) return;
+
+  const ocupadas = await contarOcupadas(tx, batchId);
+  if (ocupadas >= lote.maxQuantity) {
+    // O rollback da transação desfaz o bloqueio e a inscrição.
+    throw new LoteEsgotadoError(lote.name);
+  }
 }

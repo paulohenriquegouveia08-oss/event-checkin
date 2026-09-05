@@ -55,26 +55,41 @@ export async function createInscription(
     }
   }
 
-  // 2. Salva o registro da inscrição como PENDING (sem criar Participant)
+  // 2. Reserva a vaga e cria a inscrição PENDING — NA MESMA TRANSAÇÃO.
+  //
+  // As duas coisas juntas são o ponto todo. Antes, a vaga era conferida
+  // em `resolveActiveBatch` e a inscrição era criada depois, em outra
+  // consulta: entre uma e outra, qualquer número de requisições passava
+  // pela mesma brecha. Duas pessoas viam "resta 1" e as duas entravam.
+  //
+  // Dentro da transação, `reservarVaga` trava a linha do lote e conta;
+  // quem chega depois espera o commit e conta de novo, já enxergando a
+  // inscrição anterior.
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h para pagamento
-  const inscription = await inscriptionsRepository.createInscription({
-    eventId,
-    name: input.name,
-    email: input.email,
-    document: input.document,
-    phone: input.phone,
-    institution: input.institution,
-    category,
-    amount,
-    batchId,
-    notes: input.notes,
-    paymentExpiresAt: expiresAt,
-    consentVersion: input.consentVersion,
-    // A hora e' a do SERVIDOR. O relogio do visitante pode estar
-    // errado, ou ajustado de proposito — e e' justamente contra a
-    // versao dele que o registro precisa valer.
-    consentAcceptedAt: new Date(),
-    consentIp: consentIp ?? null,
+  const inscription = await prisma.$transaction(async (tx) => {
+    if (batchId) {
+      await batchesService.reservarVaga(tx, batchId);
+    }
+
+    return inscriptionsRepository.createInscription(tx, {
+      eventId,
+      name: input.name,
+      email: input.email,
+      document: input.document,
+      phone: input.phone,
+      institution: input.institution,
+      category,
+      amount,
+      batchId,
+      notes: input.notes,
+      paymentExpiresAt: expiresAt,
+      consentVersion: input.consentVersion,
+      // A hora e' a do SERVIDOR. O relogio do visitante pode estar
+      // errado, ou ajustado de proposito — e e' justamente contra a
+      // versao dele que o registro precisa valer.
+      consentAcceptedAt: new Date(),
+      consentIp: consentIp ?? null,
+    });
   });
 
   // 3. Gera a cobrança no PicPay
@@ -149,6 +164,22 @@ export async function listInscriptions(eventId: string) {
  */
 export async function confirmInscriptionPayment(inscriptionId: string, authorizationId?: string) {
   const result = await prisma.$transaction(async (tx) => {
+    // TRAVA a linha da inscrição antes de olhar o status.
+    //
+    // O PicPay reenvia o webhook quando não recebe resposta a tempo, e
+    // as reentregas se CRUZAM — não chegam uma depois da outra. Sem o
+    // bloqueio, cinco reentregas simultâneas liam a inscrição como
+    // PENDING antes de qualquer uma comitar, todas passavam pela
+    // guarda abaixo e todas criavam um participante.
+    //
+    // Cinco participantes para uma inscrição são cinco credenciais,
+    // cinco QR codes e cinco entradas no evento por um pagamento só.
+    // Medido: era exatamente isso que acontecia.
+    //
+    // Com o FOR UPDATE, a segunda reentrega espera o commit da
+    // primeira e então enxerga CONFIRMED — e sai pela guarda.
+    await tx.$queryRaw`SELECT id FROM inscriptions WHERE id = ${inscriptionId} FOR UPDATE`;
+
     const inscription = await tx.inscription.findUnique({
       where: { id: inscriptionId },
       include: { event: true, batch: true },

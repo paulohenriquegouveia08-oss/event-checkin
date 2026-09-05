@@ -1,5 +1,5 @@
 import { prisma } from "../../database/prisma.js";
-import type { InscriptionStatus } from "@prisma/client";
+import type { InscriptionStatus, Prisma } from "@prisma/client";
 
 export interface CreateInscriptionParams {
   eventId: string;
@@ -22,8 +22,18 @@ export interface CreateInscriptionParams {
   consentIp?: string | null;
 }
 
-export function createInscription(params: CreateInscriptionParams) {
-  return prisma.inscription.create({
+/**
+ * `db` permite rodar dentro de uma transação.
+ *
+ * A criação da inscrição precisa acontecer na MESMA transação que
+ * reserva a vaga no lote — separadas, existe uma janela entre conferir
+ * e criar, e é por essa janela que o lote é vendido além do teto.
+ */
+export function createInscription(
+  db: Prisma.TransactionClient | typeof prisma,
+  params: CreateInscriptionParams,
+) {
+  return db.inscription.create({
     data: {
       eventId: params.eventId,
       name: params.name,

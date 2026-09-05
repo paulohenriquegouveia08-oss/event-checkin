@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /confirmacao/
+
+Sitemap: https://copol2026.com.br/sitemap.xml

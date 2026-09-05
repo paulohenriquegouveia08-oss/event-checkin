@@ -180,7 +180,7 @@ export default function HomePage() {
                       <div className="animate-float">
                         <Image
                           src="/icon-mark.png"
-                          alt="Logo"
+                          alt="COPOL — Congresso de Odontologia de Londrina"
                           width={84}
                           height={80}
                           priority
@@ -197,8 +197,20 @@ export default function HomePage() {
 
                       <span className="badge">{content?.heroBadge || "3º COPOL · Congresso Odontológico Positivo Londrinense"}</span>
 
-                      <h1 style={{ margin: 0, fontSize: "clamp(36px, 6vw, 64px)", fontWeight: 800, lineHeight: 1.05 }}>
+                      <h1 style={{ margin: 0, fontSize: "clamp(34px, 5.5vw, 60px)", fontWeight: 800, lineHeight: 1.1 }}>
                         <span style={{ color: "var(--gold)" }}>{eventTitle}</span> {eventYear}
+                        <span
+                          style={{
+                            display: "block",
+                            fontSize: "clamp(18px, 2.8vw, 24px)",
+                            fontWeight: 600,
+                            color: "var(--foreground)",
+                            marginTop: 8,
+                            opacity: 0.95,
+                          }}
+                        >
+                          Congresso de Odontologia de Londrina
+                        </span>
                       </h1>
 
                       <p
@@ -233,7 +245,7 @@ export default function HomePage() {
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center", marginTop: 8 }}>
                         {mainEvent && registrationsOpen ? (
                           <Link
-                            href={editorMode ? "#" : `/inscricao?eventId=${mainEvent.id}`}
+                            href={editorMode ? "#" : `/inscricao/?eventId=${mainEvent.id}`}
                             onClick={(e) => {
                               if (editorMode) e.preventDefault();
                             }}
@@ -245,7 +257,7 @@ export default function HomePage() {
                           </Link>
                         ) : null}
                         <Link
-                          href={editorMode ? "#" : "/programacao"}
+                          href={editorMode ? "#" : "/programacao/"}
                           onClick={(e) => {
                             if (editorMode) e.preventDefault();
                           }}
@@ -318,7 +330,7 @@ export default function HomePage() {
 
                           <div style={{ textAlign: "center", marginTop: 16 }}>
                             <Link
-                              href={editorMode ? "#" : "/programacao"}
+                              href={editorMode ? "#" : "/programacao/"}
                               onClick={(e) => {
                                 if (editorMode) e.preventDefault();
                               }}

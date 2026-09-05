@@ -31,7 +31,7 @@ export function SiteFooter({ text, footerText }: Props) {
       >
         <Image
           src="/icon-mark.png"
-          alt="Copol"
+          alt="COPOL — Congresso de Odontologia de Londrina"
           width={28}
           height={28}
           title="Dois cliques para baixar o app leitor de QR Code (APK)"

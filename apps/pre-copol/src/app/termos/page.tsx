@@ -1,12 +1,22 @@
+import type { Metadata } from "next";
 import { SiteHeader } from "@/components/SiteHeader";
 import { VoltarParaInscricao } from "./VoltarParaInscricao";
 import { SiteFooter } from "@/components/SiteFooter";
 import { CONTROLADOR, SECOES, VERSAO_TERMOS, VIGENTE_DESDE } from "@/lib/termos";
 
-export const metadata = {
-  title: "Termo de inscrição e privacidade — 3º COPOL",
+export const metadata: Metadata = {
+  title: "Termo de Inscrição e Privacidade",
   description:
-    "Condições de participação no 3º COPOL e como os seus dados pessoais são tratados, conforme a LGPD.",
+    "Condições de participação no 3º COPOL 2026 e como os seus dados pessoais são tratados, conforme a LGPD.",
+  alternates: {
+    canonical: "/termos/",
+  },
+  openGraph: {
+    title: "Termo de Inscrição e Privacidade | COPOL 2026",
+    description:
+      "Condições de participação no 3º COPOL 2026 e como os seus dados pessoais são tratados, conforme a LGPD.",
+    url: "https://copol2026.com.br/termos/",
+  },
 };
 
 /**

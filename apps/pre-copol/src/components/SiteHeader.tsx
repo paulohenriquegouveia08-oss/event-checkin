@@ -10,8 +10,8 @@ const LINKS = [
   // o logo ao lado ja faz isso — em tela estreita ele so roubava o
   // espaco de que o nome do evento precisava para nao ser truncado.
   { href: "/", label: "Eventos", soNoAmplo: true },
-  { href: "/programacao", label: "Programação" },
-  { href: "/parcerias", label: "Parcerias" },
+  { href: "/programacao/", label: "Programação" },
+  { href: "/parcerias/", label: "Parcerias" },
 ];
 
 interface Props {
@@ -45,7 +45,7 @@ export function SiteHeader({ eventTitle = "Pré-Copol", eventYear = "2026", subt
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
           <Image
             src="/icon-mark.png"
-            alt="Copol"
+            alt="COPOL — Congresso de Odontologia de Londrina"
             width={30}
             height={29}
             priority

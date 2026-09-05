@@ -1,6 +1,30 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
+
+export const metadata: Metadata = {
+  title: "Realização e Apoio",
+  description:
+    "Instituições e empresas parceiras do COPOL 2026: Universidade Positivo (Campus Londrina), Ecohub e LSPK Technology.",
+  alternates: {
+    canonical: "/parcerias/",
+  },
+  openGraph: {
+    title: "Realização e Apoio | COPOL 2026 — Congresso de Odontologia de Londrina",
+    description:
+      "Instituições e empresas parceiras do COPOL 2026: Universidade Positivo, Ecohub e LSPK Technology.",
+    url: "https://copol2026.com.br/parcerias/",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Parcerias COPOL 2026",
+      },
+    ],
+  },
+};
 
 // Parceiros com logo em imagem em cartão claro unificado, com fundo
 // transparente para máxima legibilidade e padrão consistente em qualquer paleta.

@@ -93,7 +93,7 @@ export default function LoginPage() {
             <img src="/lspk-symbol.svg" alt="LSPK Technology" className="h-14 w-14" />
           </div>
           <h1 className="text-2xl font-bold">Credenciamento</h1>
-          <p className="mt-2 text-sm text-[--muted-foreground]">
+          <p className="mt-2 text-sm text-[var(--muted-foreground)]">
             Acesse seu QR Code, comprovante de presença e certificado
           </p>
         </div>
@@ -109,7 +109,7 @@ export default function LoginPage() {
             <div>
               <label
                 htmlFor="email"
-                className="mb-1 block text-sm text-[--muted-foreground]"
+                className="mb-1 block text-sm text-[var(--muted-foreground)]"
               >
                 E-mail cadastrado
               </label>
@@ -120,25 +120,25 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="seu@email.com"
-                className="w-full rounded-lg border border-[--border] bg-[--muted] px-4 py-3 text-[--foreground] placeholder:text-[--muted-foreground] focus:border-[--primary] focus:outline-none"
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--muted)] px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:outline-none"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-[--primary] px-4 py-3 font-semibold text-[--primary-foreground] transition-colors hover:brightness-110 disabled:opacity-50"
+              className="w-full rounded-lg bg-[var(--primary)] px-4 py-3 font-semibold text-[var(--primary-foreground)] transition-colors hover:brightness-110 disabled:opacity-50"
             >
               {loading ? "Buscando..." : "Entrar"}
             </button>
 
             {abertos.length > 0 && (
-              <div className="rounded-lg border border-[--border] bg-[--muted] px-4 py-3 text-sm">
-                <p className="text-[--muted-foreground]">Ainda não se inscreveu?</p>
+              <div className="rounded-lg border border-[var(--border)] bg-[var(--muted)] px-4 py-3 text-sm">
+                <p className="text-[var(--muted-foreground)]">Ainda não se inscreveu?</p>
                 <ul className="mt-2 space-y-1">
                   {abertos.map((e) => (
                     <li key={e.slug}>
-                      <a href={`/inscricao/${e.slug}`} className="font-semibold text-[--primary] hover:underline">
+                      <a href={`/inscricao/${e.slug}`} className="font-semibold text-[var(--primary)] hover:underline">
                         Inscrever-se em {e.name}
                       </a>
                     </li>
@@ -155,7 +155,7 @@ export default function LoginPage() {
               </div>
             )}
 
-            <p className="text-sm text-[--muted-foreground] text-center">
+            <p className="text-sm text-[var(--muted-foreground)] text-center">
               Você está cadastrado em {events.length} eventos. Qual deseja acessar?
             </p>
 
@@ -165,10 +165,10 @@ export default function LoginPage() {
                   key={p.id}
                   onClick={() => handleSelectEvent(p.id)}
                   disabled={loading}
-                  className="w-full rounded-lg border border-[--border] bg-[--muted] px-4 py-3 text-left transition-colors hover:border-[--primary] hover:bg-[--primary]/5 disabled:opacity-50"
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--muted)] px-4 py-3 text-left transition-colors hover:border-[var(--primary)] hover:bg-[var(--primary)]/5 disabled:opacity-50"
                 >
                   <p className="font-medium">{p.event.name}</p>
-                  <p className="text-xs text-[--muted-foreground]">
+                  <p className="text-xs text-[var(--muted-foreground)]">
                     {p.event.location || "Sem local definido"} •{" "}
                     {new Date(p.event.startDate).toLocaleDateString("pt-BR")}
                   </p>
@@ -182,14 +182,14 @@ export default function LoginPage() {
                 setEmail("");
                 setError(null);
               }}
-              className="w-full text-sm text-[--muted-foreground] hover:text-[--foreground]"
+              className="w-full text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
             >
               Voltar
             </button>
           </div>
         )}
 
-        <CreditosParceiros className="border-t border-[--border] pt-6 mt-8" />
+        <CreditosParceiros className="border-t border-[var(--border)] pt-6 mt-8" />
       </div>
     </div>
   );

@@ -69,7 +69,7 @@ export function CreditosParceiros({ className = "" }: { className?: string }) {
 
 function Rotulo({ children }: { children: React.ReactNode }) {
   return (
-    <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[--muted-foreground] opacity-75">
+    <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--muted-foreground)] opacity-75">
       {children}
     </span>
   );

@@ -6,6 +6,7 @@ import * as repo from "./certificates.repository.js";
 import { certificateFileKey, attendanceProofFileKey, certificateStorage, signatureImageKey } from "./certificate-storage.js";
 import { renderCertificatePdf, validateEmbeddableImage, type CertificateSignatory } from "./certificate-template.js";
 import { renderAttendanceProofPdf } from "./attendance-proof-template.js";
+import { resolveCertificateLayout } from "./certificate-layout.js";
 import { isEligible, resolveDisplayStatus, type EligibilityResult } from "./certificate-eligibility.service.js";
 import { resolveCertificateSettings, type CertificateSettings } from "./certificate-settings.js";
 
@@ -210,6 +211,7 @@ export async function getOrGenerateCertificatePdf(eventId: string, participantId
     paragraphSegments: settings.paragraphSegments,
     verificationUrl: verificationUrl(certificate.verificationCode),
     templateAssetKey: settings.templateAssetKey,
+    layout: resolveCertificateLayout(settings.layout),
     signatories: await resolveSignatoryImages(settings.signatories),
     primaryColor: settings.primaryColor,
     textColor: settings.textColor,
@@ -310,6 +312,7 @@ export async function generateTestCertificatePdf(eventId: string, participantNam
     paragraphSegments: settings.paragraphSegments,
     verificationUrl: verificationUrl("preview"),
     templateAssetKey: settings.templateAssetKey,
+    layout: resolveCertificateLayout(settings.layout),
     signatories: await resolveSignatoryImages(settings.signatories),
     primaryColor: settings.primaryColor,
     textColor: settings.textColor,

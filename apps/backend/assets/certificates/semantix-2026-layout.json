@@ -1,0 +1,17 @@
+{
+  "_leiame": "Layout medido no arquivo semantix-2026-base.png (1536x1024). Cole em Event.certificateSettings.layout do evento da Semantix. A linha roxa sob o nome está em y=514, de x=142 a x=1047; a região do QR (1300,870)-(1450,1000) foi conferida como 100% branca. paragrafo, chipData e assinaturas são null porque a arte JÁ traz esse conteúdo impresso — desenhar por cima duplicaria o texto.",
+  "imagemLargura": 1536,
+  "imagemAltura": 1024,
+  "nome": {
+    "xEsquerda": 142,
+    "xDireita": 1047,
+    "yBase": 498,
+    "tamanhoMaximo": 62,
+    "alinhamento": "esquerda",
+    "fonte": "sem-serifa"
+  },
+  "paragrafo": null,
+  "chipData": null,
+  "assinaturas": null,
+  "qr": { "xEsquerda": 1310, "yTopo": 880, "tamanho": 120 }
+}

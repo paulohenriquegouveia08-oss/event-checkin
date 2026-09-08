@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PDFDocument, PDFFont, PDFPage, StandardFonts, rgb, type RGB } from "pdf-lib";
+import type { CertificateLayout } from "./certificate-layout.js";
 import QRCode from "qrcode";
 import { formatEventDateRange, formatEventDateRangeShort } from "../../shared/br-date.js";
 import { numberToWordsPtBr } from "../../shared/number-to-words-pt-br.js";
@@ -46,6 +47,8 @@ export interface CertificateData {
   paragraphSegments: ParagraphSegment[];
   verificationUrl: string;
   templateAssetKey: string;
+  /** Onde desenhar cada coisa nesta arte. Ver certificate-layout.ts. */
+  layout: CertificateLayout;
   signatories: CertificateSignatory[];
   // Hex "#RRGGBB" — vem de CertificateSettings (certificate-settings.ts),
   // sempre já resolvido (nunca undefined) por resolveCertificateSettings.
@@ -73,14 +76,8 @@ function hexToRgb(hex: string): RGB {
 // dinamicamente ficam mascaradas (em branco) na imagem-base; o resto
 // (logos, ondas, título, signatários, moldura) é pixel-a-pixel o
 // fornecido, como pedido ("não altere a identidade visual").
-const IMG_W = 1491;
-const IMG_H = 1055;
 
-const NAME_BOX = { xLeft: 478, xRight: 1351, yBaseline: 372 }; // acima do traço em y≈406
-const PARAGRAPH_BOX = { xLeft: 478, xRight: 1330, yTop: 470, lineHeight: 40 };
 // xRight é o limite antes do logo da Universidade Positivo (começa ≈735px)
-const DATE_CHIP = { x: 508, xRight: 722, yLine1: 973, yLine2: 1000 };
-const QR_BOX = { xLeft: 1206, yTop: 946, size: 88 };
 
 // Faixa onde os signatários são desenhados — dividida em N colunas iguais
 // (N = quantidade de signatários cadastrados) na hora de gerar cada
@@ -284,10 +281,19 @@ export async function renderCertificatePdf(data: CertificateData): Promise<Buffe
   pdf.setSubject(`Certificado de participação de ${data.participantName}`);
   pdf.setProducer("event-checkin");
 
-  const page = pdf.addPage([841.89, 595.28]); // A4 landscape, em pontos
+  // A PÁGINA SEGUE A PROPORÇÃO DA ARTE, não o contrário.
+  //
+  // Era A4 paisagem fixo, porque a arte do COPOL (1491×1055 = 1,4133)
+  // já era quase exatamente A4 (1,4142). A arte da Semantix é 1536×1024
+  // = 1,5 — forçá-la em A4 esticaria a imagem 6% na vertical, e os
+  // círculos roxos dos ícones sairiam ovais. Mantém-se a largura de A4
+  // e a altura sai da proporção da imagem.
+  const LARGURA_A4_PAISAGEM = 841.89;
+  const alturaDaPagina = (LARGURA_A4_PAISAGEM * data.layout.imagemAltura) / data.layout.imagemLargura;
+  const page = pdf.addPage([LARGURA_A4_PAISAGEM, alturaDaPagina]);
   const { width: pageWidth, height: pageHeight } = page.getSize();
-  const scaleX = pageWidth / IMG_W;
-  const scaleY = pageHeight / IMG_H;
+  const scaleX = pageWidth / data.layout.imagemLargura;
+  const scaleY = pageHeight / data.layout.imagemAltura;
   const toX = (xPx: number) => xPx * scaleX;
   const toY = (yPx: number) => pageHeight - yPx * scaleY;
 
@@ -319,15 +325,21 @@ export async function renderCertificatePdf(data: CertificateData): Promise<Buffe
   const textColor = hexToRgb(data.textColor);
 
   // --- Nome do participante ---
-  const nameMaxWidthPx = NAME_BOX.xRight - NAME_BOX.xLeft;
-  const nameFontSize = fitFontSize(data.participantName, timesBold, toX(nameMaxWidthPx) - toX(0), 30, 16);
-  const nameWidth = timesBold.widthOfTextAtSize(data.participantName, nameFontSize);
-  const nameCenterX = toX((NAME_BOX.xLeft + NAME_BOX.xRight) / 2);
+  const caixaNome = data.layout.nome;
+  // A fonte segue a arte: serifada no COPOL, sem serifa na Semantix.
+  const fonteDoNome = caixaNome.fonte === "sem-serifa" ? helveticaBold : timesBold;
+  const nameMaxWidthPx = caixaNome.xDireita - caixaNome.xEsquerda;
+  const corpoMaximo = toX(caixaNome.tamanhoMaximo ?? 55);
+  const nameFontSize = fitFontSize(data.participantName, fonteDoNome, toX(nameMaxWidthPx), corpoMaximo, 16);
+  const nameWidth = fonteDoNome.widthOfTextAtSize(data.participantName, nameFontSize);
   page.drawText(data.participantName, {
-    x: nameCenterX - nameWidth / 2,
-    y: toY(NAME_BOX.yBaseline),
+    x:
+      caixaNome.alinhamento === "esquerda"
+        ? toX(caixaNome.xEsquerda)
+        : toX((caixaNome.xEsquerda + caixaNome.xDireita) / 2) - nameWidth / 2,
+    y: toY(caixaNome.yBase),
     size: nameFontSize,
-    font: timesBold,
+    font: fonteDoNome,
     color: primaryColor,
   });
 
@@ -356,49 +368,61 @@ export async function renderCertificatePdf(data: CertificateData): Promise<Buffe
     size: 15,
     color: segment.color ? hexToRgb(segment.color) : textColor,
   }));
-  const paragraphMaxWidth = toX(PARAGRAPH_BOX.xRight) - toX(PARAGRAPH_BOX.xLeft);
-  const lines = wrapRuns(paragraphRuns, paragraphMaxWidth);
-  let lineY = toY(PARAGRAPH_BOX.yTop);
-  for (const line of lines) {
-    drawRunsLine(page, line, toX(PARAGRAPH_BOX.xLeft), lineY);
-    lineY -= PARAGRAPH_BOX.lineHeight * scaleY;
+  // Só desenha se a arte não trouxer o texto pronta. Na arte da Semantix
+  // o parágrafo já está impresso; escrever por cima duplicaria tudo.
+  if (data.layout.paragrafo) {
+    const cx = data.layout.paragrafo;
+    const paragraphMaxWidth = toX(cx.xDireita) - toX(cx.xEsquerda);
+    const lines = wrapRuns(paragraphRuns, paragraphMaxWidth);
+    let lineY = toY(cx.yTopo);
+    for (const line of lines) {
+      drawRunsLine(page, line, toX(cx.xEsquerda), lineY);
+      lineY -= cx.alturaDaLinha * scaleY;
+    }
   }
 
   // --- Chip de data/local (ícone de calendário já está na imagem-base) ---
-  // Formato curto (o parágrafo acima já mostra a data por extenso) — ainda
-  // assim protegido com fitFontSize, pra nunca colidir com o logo ao lado
-  // não importa o tamanho do texto (nome de evento/local diferente no futuro).
-  const dateChipMaxWidth = toX(DATE_CHIP.xRight) - toX(DATE_CHIP.x);
-  const dateChipText = formatEventDateRangeShort(data.eventStartDate, data.eventEndDate);
-  const dateChipSize = fitFontSize(dateChipText, helveticaBold, dateChipMaxWidth, 12, 8);
-  page.drawText(dateChipText, {
-    x: toX(DATE_CHIP.x),
-    y: toY(DATE_CHIP.yLine1),
-    size: dateChipSize,
-    font: helveticaBold,
-    color: primaryColor,
-  });
-  const locationSize = fitFontSize(data.locationLabel, helvetica, dateChipMaxWidth, 11, 8);
-  page.drawText(data.locationLabel, {
-    x: toX(DATE_CHIP.x),
-    y: toY(DATE_CHIP.yLine2),
-    size: locationSize,
-    font: helvetica,
-    color: textColor,
-  });
+  // Só desenha se a arte não trouxer. Na Semantix, data, local e carga
+  // horária já estão impressos.
+  if (data.layout.chipData) {
+    const chip = data.layout.chipData;
+    const dateChipMaxWidth = toX(chip.xDireita) - toX(chip.x);
+    const dateChipText = formatEventDateRangeShort(data.eventStartDate, data.eventEndDate);
+    const dateChipSize = fitFontSize(dateChipText, helveticaBold, dateChipMaxWidth, 12, 8);
+    page.drawText(dateChipText, {
+      x: toX(chip.x),
+      y: toY(chip.yLinha1),
+      size: dateChipSize,
+      font: helveticaBold,
+      color: primaryColor,
+    });
+    const locationSize = fitFontSize(data.locationLabel, helvetica, dateChipMaxWidth, 11, 8);
+    page.drawText(data.locationLabel, {
+      x: toX(chip.x),
+      y: toY(chip.yLinha2),
+      size: locationSize,
+      font: helvetica,
+      color: textColor,
+    });
+  }
 
   // --- Signatários (colunas calculadas conforme a quantidade cadastrada) ---
-  const signatories = data.signatories.slice(0, MAX_SIGNATORIES_ON_CERTIFICATE);
+  // Na Semantix as assinaturas já estão na arte; desenhar por cima
+  // sobreporia os logos.
+  const signatories = data.layout.assinaturas
+    ? data.signatories.slice(0, MAX_SIGNATORIES_ON_CERTIFICATE)
+    : [];
   const columns = computeSignatoryColumns(signatories.length);
 
   // Linha de assinatura — uma por coluna, na largura inteira dela (era
   // fixa na imagem-base; agora é desenhada aqui pra funcionar com
   // qualquer quantidade de signatários). Sem divisória vertical entre
   // colunas — o espaçamento entre elas já separa uma pessoa da outra.
+  const yLinhaAssinatura = data.layout.assinaturas?.yLinha ?? SIGNATORY_LINE_Y;
   for (const column of columns) {
     page.drawLine({
-      start: { x: toX(column.xLeft), y: toY(SIGNATORY_LINE_Y) },
-      end: { x: toX(column.xRight), y: toY(SIGNATORY_LINE_Y) },
+      start: { x: toX(column.xLeft), y: toY(yLinhaAssinatura) },
+      end: { x: toX(column.xRight), y: toY(yLinhaAssinatura) },
       thickness: 1,
       color: primaryColor,
     });
@@ -465,16 +489,23 @@ export async function renderCertificatePdf(data: CertificateData): Promise<Buffe
   }
 
   // --- QR Code de validação pública ---
-  const qrPngDataUrl = await QRCode.toDataURL(data.verificationUrl, { margin: 0, width: 300 });
-  const qrPngBytes = Buffer.from(qrPngDataUrl.split(",")[1], "base64");
-  const qrImage = await pdf.embedPng(qrPngBytes);
-  const qrSizePt = toX(QR_BOX.size);
-  page.drawImage(qrImage, {
-    x: toX(QR_BOX.xLeft),
-    y: toY(QR_BOX.yTop) - qrSizePt,
-    width: qrSizePt,
-    height: qrSizePt,
-  });
+  //
+  // Sem ele, a página de conferência continua existindo mas ninguém
+  // chega nela olhando o papel impresso. Só some se o evento desligar
+  // de propósito.
+  if (data.layout.qr) {
+    const q = data.layout.qr;
+    const qrPngDataUrl = await QRCode.toDataURL(data.verificationUrl, { margin: 0, width: 300 });
+    const qrPngBytes = Buffer.from(qrPngDataUrl.split(",")[1], "base64");
+    const qrImage = await pdf.embedPng(qrPngBytes);
+    const qrSizePt = toX(q.tamanho);
+    page.drawImage(qrImage, {
+      x: toX(q.xEsquerda),
+      y: toY(q.yTopo) - qrSizePt,
+      width: qrSizePt,
+      height: qrSizePt,
+    });
+  }
 
   const bytes = await pdf.save();
   return Buffer.from(bytes);

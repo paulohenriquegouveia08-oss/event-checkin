@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { certificateLayoutSchema, LAYOUT_PADRAO } from "./certificate-layout.js";
 
 /**
  * Configuração do certificado/comprovante de um evento — mesmo princípio
@@ -66,6 +67,11 @@ export const certificateSettingsSchema = z.object({
   // no futuro outro evento usar outro template sem mudar código.
   templateAssetKey: z.string().trim().max(60).optional(),
 
+  // ONDE cada coisa é desenhada nessa arte. Trocar a imagem sem trocar as
+  // posições faz o nome cair no lugar errado — ver certificate-layout.ts.
+  // Ausente = layout do COPOL, que é o de todo evento já cadastrado.
+  layout: certificateLayoutSchema.optional(),
+
   // Cor de destaque (nome do participante, título do chip de data, nomes
   // dos signatários, e cor padrão de qualquer token no parágrafo) — era
   // um teal fixo (#044544) no código; agora configurável por evento.
@@ -89,6 +95,7 @@ export type CertificateSettings = z.infer<typeof certificateSettingsSchema>;
 type ResolvedCertificateSettings = Required<CertificateSettings>;
 
 export const DEFAULT_CERTIFICATE_SETTINGS: ResolvedCertificateSettings = {
+  layout: LAYOUT_PADRAO,
   workloadHours: 16,
   closingText: "O evento proporcionou atualização científica e integração entre profissionais e acadêmicos da odontologia.",
   locationLabel: "Londrina/PR",
@@ -135,6 +142,9 @@ export function resolveCertificateSettings(stored: unknown): ResolvedCertificate
   const primaryColor = content.primaryColor || DEFAULT_CERTIFICATE_SETTINGS.primaryColor;
   const closingText = content.closingText || DEFAULT_CERTIFICATE_SETTINGS.closingText;
   return {
+    // Ausente = COPOL inteiro. Presente = usado como está, sem herdar
+    // posição nenhuma — ver resolveCertificateLayout.
+    layout: content.layout ?? DEFAULT_CERTIFICATE_SETTINGS.layout,
     workloadHours: content.workloadHours || DEFAULT_CERTIFICATE_SETTINGS.workloadHours,
     closingText,
     locationLabel: content.locationLabel || DEFAULT_CERTIFICATE_SETTINGS.locationLabel,

@@ -3,10 +3,12 @@ import { env } from "../../config/env.js";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../shared/errors.js";
 import { hasEventEnded } from "../../shared/br-date.js";
 import * as repo from "./certificates.repository.js";
+import { prisma } from "../../database/prisma.js";
 import { certificateFileKey, attendanceProofFileKey, certificateStorage, signatureImageKey } from "./certificate-storage.js";
 import { renderCertificatePdf, validateEmbeddableImage, type CertificateSignatory } from "./certificate-template.js";
 import { renderAttendanceProofPdf } from "./attendance-proof-template.js";
 import { resolveCertificateLayout } from "./certificate-layout.js";
+import { loadBackground } from "./certificate-template.js";
 import { isEligible, resolveDisplayStatus, type EligibilityResult } from "./certificate-eligibility.service.js";
 import { resolveCertificateSettings, type CertificateSettings } from "./certificate-settings.js";
 
@@ -95,7 +97,7 @@ async function resolveSignatoryImages(
  * desde a última geração, o hash não bate mais e o PDF em cache é
  * considerado desatualizado — ver getOrGenerateCertificatePdf. */
 function computeCertificateContentHash(
-  event: { name: string; startDate: Date; endDate: Date },
+  event: { name: string; startDate: Date; endDate: Date; certificateTemplateId?: string | null },
   settings: ReturnType<typeof resolveCertificateSettings>
 ): string {
   const payload = JSON.stringify({
@@ -103,8 +105,60 @@ function computeCertificateContentHash(
     startDate: event.startDate.toISOString(),
     endDate: event.endDate.toISOString(),
     settings,
+    // O MODELO ENTRA NO HASH.
+    //
+    // Sem isto, trocar o modelo do evento no painel não invalidaria os
+    // PDFs já gerados: quem já tinha baixado continuaria recebendo o
+    // certificado com a arte antiga, e ninguém entenderia por quê. O
+    // `updatedAt` do modelo não entra aqui porque não está carregado
+    // neste ponto — editar a ARTE de um modelo em uso exige regerar, e
+    // isso está dito na tela.
+    certificateTemplateId: event.certificateTemplateId ?? null,
   });
   return createHash("sha256").update(payload).digest("hex");
+}
+
+/**
+ * De onde sai a arte e as posições deste evento.
+ *
+ * Preferência para o modelo escolhido na biblioteca do painel; sem ele,
+ * cai no arquivo do repositório e nas posições do `certificateSettings` —
+ * que é o que todo evento anterior à biblioteca usa.
+ *
+ * As dimensões vêm do REGISTRO do modelo, medidas do arquivo no envio, e
+ * não do que alguém digitou: coordenadas numa escala que não é a da arte
+ * põem o nome no lugar errado sem erro nenhum.
+ */
+async function resolverArteELayout(
+  event: { certificateTemplateId?: string | null },
+  settings: ReturnType<typeof resolveCertificateSettings>,
+): Promise<{ backgroundBytes: Buffer; layout: ReturnType<typeof resolveCertificateLayout>; origem: string }> {
+  if (event.certificateTemplateId) {
+    const modelo = await prisma.certificateTemplate.findUnique({
+      where: { id: event.certificateTemplateId },
+    });
+
+    if (modelo) {
+      return {
+        backgroundBytes: await certificateStorage.read(modelo.fileKey),
+        layout: resolveCertificateLayout({
+          ...(modelo.layout as object),
+          imagemLargura: modelo.imageWidth,
+          imagemAltura: modelo.imageHeight,
+        }),
+        origem: `modelo:${modelo.id}`,
+      };
+    }
+    // Modelo apagado por fora do sistema (a FK é RESTRICT, então não
+    // deveria acontecer): melhor gerar com o padrão do que falhar.
+    console.warn(`[Certificados] Modelo ${event.certificateTemplateId} não encontrado; usando o padrão.`);
+  }
+
+  return {
+    backgroundBytes: await loadBackground(settings.templateAssetKey),
+    layout: resolveCertificateLayout(settings.layout),
+    origem: `asset:${settings.templateAssetKey}`,
+  };
 }
 
 async function loadEventOrThrow(eventId: string) {
@@ -201,6 +255,8 @@ export async function getOrGenerateCertificatePdf(eventId: string, participantId
 
   const certificate = await repo.ensureCertificate(eventId, participantId);
 
+  const arte = await resolverArteELayout(event, settings);
+
   const buffer = await renderCertificatePdf({
     participantName: participant.name,
     eventName: event.name,
@@ -210,8 +266,8 @@ export async function getOrGenerateCertificatePdf(eventId: string, participantId
     workloadHours: settings.workloadHours,
     paragraphSegments: settings.paragraphSegments,
     verificationUrl: verificationUrl(certificate.verificationCode),
-    templateAssetKey: settings.templateAssetKey,
-    layout: resolveCertificateLayout(settings.layout),
+    backgroundBytes: arte.backgroundBytes,
+    layout: arte.layout,
     signatories: await resolveSignatoryImages(settings.signatories),
     primaryColor: settings.primaryColor,
     textColor: settings.textColor,
@@ -302,6 +358,8 @@ export async function generateTestCertificatePdf(eventId: string, participantNam
   const event = await loadEventOrThrow(eventId);
   const settings = resolveCertificateSettings(event.certificateSettings);
 
+  const arte = await resolverArteELayout(event, settings);
+
   return renderCertificatePdf({
     participantName,
     eventName: event.name,
@@ -311,8 +369,8 @@ export async function generateTestCertificatePdf(eventId: string, participantNam
     workloadHours: settings.workloadHours,
     paragraphSegments: settings.paragraphSegments,
     verificationUrl: verificationUrl("preview"),
-    templateAssetKey: settings.templateAssetKey,
-    layout: resolveCertificateLayout(settings.layout),
+    backgroundBytes: arte.backgroundBytes,
+    layout: arte.layout,
     signatories: await resolveSignatoryImages(settings.signatories),
     primaryColor: settings.primaryColor,
     textColor: settings.textColor,

@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { CertificateTemplatesPage } from "./pages/CertificateTemplatesPage";
 import { Layout } from "./components/Layout";
 import { LoginPage } from "./pages/LoginPage";
 import { EventsPage } from "./pages/EventsPage";
@@ -20,6 +21,9 @@ export default function App() {
             <Route element={<Layout />}>
               <Route path="/eventos" element={<EventsPage />} />
               <Route path="/eventos/:eventId" element={<EventDetailPage />} />
+              <Route element={<ProtectedRoute permission="certificates.view" />}>
+                <Route path="/modelos-certificado" element={<CertificateTemplatesPage />} />
+              </Route>
               <Route element={<ProtectedRoute permission="users.view" />}>
                 <Route path="/usuarios" element={<UsersPage />} />
               </Route>

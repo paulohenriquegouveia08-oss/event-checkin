@@ -102,11 +102,42 @@ export function CertificatesTab({ eventId }: { eventId: string }) {
       .catch((err) => setError(err instanceof Error ? err.message : "Falha ao carregar certificados"));
   }
 
+  // --- Modelo de certificado (biblioteca) ---
+  const [modelos, setModelos] = useState<api.CertificateTemplateRecord[]>([]);
+  const [modeloId, setModeloId] = useState<string | null>(null);
+  const [trocandoModelo, setTrocandoModelo] = useState(false);
+
+  useEffect(() => {
+    api.listCertificateTemplates().then(setModelos).catch(() => setModelos([]));
+  }, []);
+
+  async function trocarModelo(novo: string | null) {
+    setTrocandoModelo(true);
+    setSettingsError(null);
+    try {
+      await api.updateEvent(eventId, { certificateTemplateId: novo } as never);
+      setModeloId(novo);
+      // Trocar o modelo invalida os PDFs já gerados (o modelo entra no
+      // hash de conteúdo). Quem já baixou continua com o arquivo antigo
+      // no computador — isso precisa ser dito, não descoberto.
+      setSettingsNotice(
+        novo
+          ? "Modelo trocado. Os certificados já gerados serão refeitos no próximo download — quem já baixou continua com o arquivo antigo."
+          : "Voltou ao certificado padrão.",
+      );
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : "Falha ao trocar o modelo");
+    } finally {
+      setTrocandoModelo(false);
+    }
+  }
+
   function loadSettings() {
     setSettingsLoaded(false);
     api
       .getEvent(eventId)
       .then((event) => {
+        setModeloId(event.certificateTemplateId ?? null);
         const c = event.certificateSettings ?? {};
         const resolvedPrimaryColor = c.primaryColor || DEFAULT_SETTINGS.primaryColor;
         setWorkloadHours(c.workloadHours || DEFAULT_SETTINGS.workloadHours);
@@ -274,6 +305,37 @@ export function CertificatesTab({ eventId }: { eventId: string }) {
         <StatCard label="Gerados" value={stats.generated} color="var(--success)" />
         <StatCard label="Pendentes" value={stats.pending} color="var(--warning)" />
         <StatCard label="Revogados" value={stats.revoked} color="var(--danger)" />
+      </div>
+
+      <div className="card">
+        <h2 style={{ fontSize: 15, margin: "0 0 4px" }}>Modelo do certificado</h2>
+        <p className="muted" style={{ margin: "0 0 12px", fontSize: 13 }}>
+          Escolha a arte deste evento. Os modelos são cadastrados em{" "}
+          <strong>Modelos de certificado</strong>, no menu, e servem a qualquer evento.
+        </p>
+        <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <select
+            value={modeloId ?? ""}
+            disabled={trocandoModelo}
+            onChange={(e) => void trocarModelo(e.target.value || null)}
+            style={{ flex: 1, maxWidth: 360 }}
+          >
+            <option value="">Certificado padrão (COPOL)</option>
+            {modelos.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name} — {m.imageWidth}×{m.imageHeight}px
+              </option>
+            ))}
+          </select>
+          {trocandoModelo && <span className="muted">trocando…</span>}
+        </div>
+        {modeloId && (
+          <img
+            src={api.certificateTemplateImageUrl(modeloId)}
+            alt="Arte do modelo escolhido"
+            style={{ marginTop: 12, width: "100%", maxWidth: 420, borderRadius: 6, border: "1px solid var(--linha)" }}
+          />
+        )}
       </div>
 
       <div className="card">

@@ -20,6 +20,7 @@ import { rolesRoutes } from "./modules/roles/roles.routes.js";
 import { usersRoutes } from "./modules/users/users.routes.js";
 import { auditRoutes } from "./modules/audit/audit.routes.js";
 import { certificatesRoutes } from "./modules/certificates/certificates.routes.js";
+import { certificateTemplatesRoutes } from "./modules/certificate-templates/certificate-templates.routes.js";
 import { releasesRoutes } from "./modules/releases/releases.routes.js";
 import { batchesRoutes } from "./modules/batches/batches.routes.js";
 import { scheduleRoutes } from "./modules/schedule/schedule.routes.js";
@@ -95,6 +96,7 @@ export function buildApp() {
   app.register(usersRoutes);
   app.register(auditRoutes);
   app.register(certificatesRoutes);
+  app.register(certificateTemplatesRoutes);
   app.register(releasesRoutes);
   app.register(batchesRoutes);
   app.register(scheduleRoutes);

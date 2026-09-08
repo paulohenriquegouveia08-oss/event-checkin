@@ -49,3 +49,27 @@ só o nome e o QR são desenhados por código.
 A proporção é 3:2, diferente do COPOL (~A4). A página do PDF passou a sair
 da proporção da própria arte — antes era A4 fixo, o que esticaria esta
 imagem em 6% na vertical e deixaria os círculos dos ícones ovais.
+
+## Biblioteca de modelos (painel)
+
+Desde a biblioteca, **a arte não precisa mais entrar no repositório**. No
+menu do painel, em *Modelos de certificado*, envia-se o PNG, marcam-se as
+posições clicando na prévia, e o modelo fica disponível para escolher em
+qualquer evento (aba *Certificados* → *Modelo do certificado*).
+
+Os arquivos deste diretório continuam sendo o padrão: evento sem modelo
+escolhido usa `copol-2026-base.png` e as posições do COPOL, que é o
+comportamento de todo evento criado antes da biblioteca existir.
+
+Detalhes que valem saber:
+
+- As **dimensões são medidas do arquivo** no envio, nunca recebidas do
+  cliente — uma escala declarada diferente da real poria o nome no lugar
+  errado sem erro nenhum.
+- Coordenada **fora da arte é recusada** na hora de salvar, com o motivo.
+- **Só PNG.** JPEG perde qualidade em texto e linhas finas.
+- Apagar um modelo **em uso é recusado**, dizendo quantos eventos usam.
+  Desvincular em silêncio faria esses eventos voltarem ao certificado do
+  COPOL sem ninguém perceber.
+- Trocar o modelo de um evento **invalida os PDFs já gerados** (o modelo
+  entra no hash de conteúdo); o próximo download regenera com a arte nova.

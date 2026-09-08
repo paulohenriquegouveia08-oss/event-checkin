@@ -296,6 +296,7 @@ export interface EventRecord {
   siteContent: SiteContent | null;
   certificateSettings: CertificateSettings | null;
   emailSettings: EmailSettings | null;
+  certificateTemplateId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -353,6 +354,50 @@ export function sendAttendanceProofsBulk(eventId: string, participantIds?: strin
     method: "POST",
     body: participantIds ? { participantIds } : {},
   });
+}
+
+// --- Modelos de certificado (biblioteca) ---
+
+export interface CertificateTemplateRecord {
+  id: string;
+  name: string;
+  description: string | null;
+  imageWidth: number;
+  imageHeight: number;
+  layout: Record<string, unknown>;
+  createdAt: string;
+  /** Quantos eventos usam — é por isso que um modelo pode não ser apagável. */
+  eventosUsando: number;
+}
+
+export function listCertificateTemplates() {
+  return request<CertificateTemplateRecord[]>("/certificate-templates");
+}
+
+export function createCertificateTemplate(input: {
+  name: string;
+  description?: string;
+  mimeType: string;
+  dataBase64: string;
+  layout: Record<string, unknown>;
+}) {
+  return request<CertificateTemplateRecord>("/certificate-templates", { method: "POST", body: input });
+}
+
+export function updateCertificateTemplate(
+  templateId: string,
+  input: { name?: string; description?: string | null; layout?: Record<string, unknown>; mimeType?: string; dataBase64?: string },
+) {
+  return request<CertificateTemplateRecord>(`/certificate-templates/${templateId}`, { method: "PATCH", body: input });
+}
+
+export function deleteCertificateTemplate(templateId: string) {
+  return request<{ ok: boolean }>(`/certificate-templates/${templateId}`, { method: "DELETE" });
+}
+
+/** A arte, para a prévia. Token na query porque <img> não manda header. */
+export function certificateTemplateImageUrl(templateId: string): string {
+  return `${API_URL}/certificate-templates/${templateId}/image?token=${encodeURIComponent(getToken() ?? "")}`;
 }
 
 export function listEvents() {

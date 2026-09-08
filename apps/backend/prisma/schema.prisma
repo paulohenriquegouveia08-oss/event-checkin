@@ -207,6 +207,12 @@ model Event {
   // valores do COPOL, para o evento existente não mudar de comportamento.
   emailSettings Json?
 
+  /// Modelo de certificado escolhido para este evento (biblioteca do
+  /// painel). Null = usa o modelo embutido do COPOL, que é o
+  /// comportamento de todo evento criado antes desta biblioteca existir.
+  certificateTemplateId String?
+  certificateTemplate   CertificateTemplate? @relation(fields: [certificateTemplateId], references: [id], onDelete: Restrict)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -688,4 +694,41 @@ model AttendanceProof {
   @@unique([eventId, participantId])
   @@index([eventId])
   @@map("attendance_proofs")
+}
+
+/// Biblioteca de modelos de certificado.
+///
+/// A arte de cada evento era um arquivo dentro do repositório
+/// (assets/certificates/) e as posições eram constantes no código: um
+/// evento novo exigia programador. Aqui a arte é enviada pelo painel e
+/// fica no mesmo volume persistente dos PDFs gerados, e as posições vão
+/// junto — é o modelo inteiro, não só a imagem.
+model CertificateTemplate {
+  id          String  @id @default(uuid())
+  name        String  @db.VarChar(120)
+  description String? @db.Text
+
+  /// Chave no storage (ver certificate-storage.ts) da imagem-base PNG.
+  /// Nunca vem do cliente: é montada pelo backend a partir de um uuid.
+  fileKey String @db.VarChar(300)
+
+  /// Dimensões da imagem, lidas do arquivo no envio. As coordenadas de
+  /// `layout` são nessa escala — guardá-las junto é o que permite medir
+  /// as posições direto no arquivo, sem conversão.
+  imageWidth  Int
+  imageHeight Int
+
+  /// Onde cada elemento é desenhado sobre esta arte.
+  /// Ver src/modules/certificates/certificate-layout.ts.
+  layout Json
+
+  /// User.id de quem enviou. Null quando veio de uma migração do sistema.
+  createdBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events Event[]
+
+  @@map("certificate_templates")
 }

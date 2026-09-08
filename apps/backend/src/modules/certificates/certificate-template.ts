@@ -46,7 +46,15 @@ export interface CertificateData {
   // pra texto de verdade aqui dentro, em resolveParagraphTokenText().
   paragraphSegments: ParagraphSegment[];
   verificationUrl: string;
-  templateAssetKey: string;
+  /**
+   * A arte de fundo, em PNG, já carregada.
+   *
+   * Era uma CHAVE de arquivo dentro do repositório. Passou a ser o
+   * conteúdo porque a arte agora pode vir da biblioteca do painel, que
+   * mora no volume de storage — quem sabe de onde ela vem é o serviço,
+   * não o desenhista do PDF.
+   */
+  backgroundBytes: Buffer;
   /** Onde desenhar cada coisa nesta arte. Ver certificate-layout.ts. */
   layout: CertificateLayout;
   signatories: CertificateSignatory[];
@@ -126,7 +134,7 @@ function computeSignatoryColumns(count: number): { xLeft: number; xRight: number
   });
 }
 
-async function loadBackground(templateAssetKey: string): Promise<Buffer> {
+export async function loadBackground(templateAssetKey: string): Promise<Buffer> {
   const path = join(ASSETS_DIR, `${templateAssetKey}-base.png`);
   try {
     return await readFile(path);
@@ -297,8 +305,7 @@ export async function renderCertificatePdf(data: CertificateData): Promise<Buffe
   const toX = (xPx: number) => xPx * scaleX;
   const toY = (yPx: number) => pageHeight - yPx * scaleY;
 
-  const backgroundBytes = await loadBackground(data.templateAssetKey);
-  const backgroundImage = await pdf.embedPng(backgroundBytes);
+  const backgroundImage = await pdf.embedPng(data.backgroundBytes);
   page.drawImage(backgroundImage, { x: 0, y: 0, width: pageWidth, height: pageHeight });
 
   const helvetica = await pdf.embedFont(StandardFonts.Helvetica);

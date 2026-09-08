@@ -14,6 +14,13 @@ export const createEventSchema = z
     siteContent: siteContentSchema.optional(),
     certificateSettings: certificateSettingsSchema.optional(),
     emailSettings: emailSettingsSchema.optional(),
+  /**
+   * Modelo de certificado da biblioteca. `null` volta ao modelo embutido.
+   *
+   * Trocar isto invalida os PDFs já gerados deste evento (o modelo entra
+   * no hash de conteúdo), e o próximo download regenera com a arte nova.
+   */
+  certificateTemplateId: z.string().uuid().nullable().optional(),
   })
   .refine((data) => data.endDate >= data.startDate, {
     message: "endDate deve ser igual ou posterior a startDate",
@@ -35,6 +42,13 @@ export const updateEventSchema = z.object({
   siteContent: siteContentSchema.optional(),
   certificateSettings: certificateSettingsSchema.optional(),
   emailSettings: emailSettingsSchema.optional(),
+  /**
+   * Modelo de certificado da biblioteca. `null` volta ao modelo embutido.
+   *
+   * Trocar isto invalida os PDFs já gerados deste evento (o modelo entra
+   * no hash de conteúdo), e o próximo download regenera com a arte nova.
+   */
+  certificateTemplateId: z.string().uuid().nullable().optional(),
 });
 
 export type UpdateEventInput = z.infer<typeof updateEventSchema>;

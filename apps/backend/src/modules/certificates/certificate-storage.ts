@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, normalize, resolve } from "node:path";
 import { env } from "../../config/env.js";
 
@@ -15,6 +15,14 @@ export interface CertificateStorage {
   save(key: string, data: Buffer): Promise<void>;
   read(key: string): Promise<Buffer>;
   exists(key: string): Promise<boolean>;
+  /**
+   * Apaga o arquivo. Não falha se ele já não existir.
+   *
+   * Faltava, e a falta vazava disco: apagar um modelo de certificado
+   * removia a linha do banco e deixava a arte — até 8 MB — órfã para
+   * sempre, sem nada apontando para ela.
+   */
+  remove(key: string): Promise<void>;
 }
 
 /**
@@ -55,6 +63,13 @@ class LocalDiskCertificateStorage implements CertificateStorage {
     } catch {
       return false;
     }
+  }
+
+  async remove(key: string): Promise<void> {
+    // `force` ignora arquivo inexistente: apagar duas vezes, ou apagar um
+    // registro cujo arquivo já sumiu, não é erro — o objetivo é que ele
+    // não esteja lá.
+    await rm(this.resolveKey(key), { force: true });
   }
 }
 

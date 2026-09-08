@@ -24,6 +24,12 @@ export function CertificateTemplatesPage() {
   const [salvando, setSalvando] = useState(false);
 
   // Formulário de novo modelo
+  // Id do modelo em edição. Null = criando um novo.
+  //
+  // Editar precisa existir: apagar um modelo EM USO é recusado (e deve
+  // ser), então sem edição uma coordenada marcada errada num modelo já
+  // escolhido por um evento ficaria impossível de corrigir pela tela.
+  const [editandoId, setEditandoId] = useState<string | null>(null);
   const [nome, setNome] = useState("");
   const [descricao, setDescricao] = useState("");
   const [arquivo, setArquivo] = useState<{ base64: string; url: string; largura: number; altura: number } | null>(null);
@@ -45,6 +51,48 @@ export function CertificateTemplatesPage() {
   }
 
   useEffect(carregar, []);
+
+  function editar(m: api.CertificateTemplateRecord) {
+    setErro(null);
+    setAviso(null);
+    setEditandoId(m.id);
+    setNome(m.name);
+    setDescricao(m.description ?? "");
+
+    // A arte vem do servidor; `base64` fica vazio porque ela só é
+    // reenviada se a pessoa escolher outro arquivo.
+    setArquivo({
+      base64: "",
+      url: api.certificateTemplateImageUrl(m.id),
+      largura: m.imageWidth,
+      altura: m.imageHeight,
+    });
+
+    const l = (m.layout ?? {}) as {
+      nome?: { xEsquerda: number; xDireita: number; yBase: number; fonte?: string };
+      qr?: { xEsquerda: number; yTopo: number; tamanho: number } | null;
+    };
+    setNomeEsq(l.nome?.xEsquerda ?? null);
+    setNomeDir(l.nome?.xDireita ?? null);
+    setNomeBase(l.nome?.yBase ?? null);
+    setFonte(l.nome?.fonte === "serifada" ? "serifada" : "sem-serifa");
+    setQr(l.qr ? { x: l.qr.xEsquerda, y: l.qr.yTopo } : null);
+    setTamanhoQr(l.qr?.tamanho ?? 120);
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function limparFormulario() {
+    setEditandoId(null);
+    setNome("");
+    setDescricao("");
+    setArquivo(null);
+    setNomeEsq(null);
+    setNomeDir(null);
+    setNomeBase(null);
+    setQr(null);
+    setMarcando(null);
+  }
 
   function aoEscolherArquivo(ev: ChangeEvent<HTMLInputElement>) {
     const f = ev.target.files?.[0];
@@ -108,12 +156,7 @@ export function CertificateTemplatesPage() {
     setAviso(null);
     setSalvando(true);
     try {
-      await api.createCertificateTemplate({
-        name: nome.trim(),
-        description: descricao.trim() || undefined,
-        mimeType: "image/png",
-        dataBase64: arquivo.base64,
-        layout: {
+      const layout = {
           nome: {
             xEsquerda: Math.min(nomeEsq, nomeDir),
             xDireita: Math.max(nomeEsq, nomeDir),
@@ -127,12 +170,32 @@ export function CertificateTemplatesPage() {
           chipData: null,
           assinaturas: null,
           qr: qr ? { xEsquerda: qr.x, yTopo: qr.y, tamanho: tamanhoQr } : null,
-        },
-      });
-      setAviso("Modelo salvo. Já pode ser escolhido em qualquer evento.");
-      setNome("");
-      setDescricao("");
-      setArquivo(null);
+      };
+
+      if (editandoId) {
+        await api.updateCertificateTemplate(editandoId, {
+          name: nome.trim(),
+          description: descricao.trim() || null,
+          layout,
+          // A arte só é reenviada se outro arquivo foi escolhido — trocar
+          // só as coordenadas não deve exigir subir a imagem de novo.
+          ...(arquivo.base64 ? { mimeType: "image/png", dataBase64: arquivo.base64 } : {}),
+        });
+        setAviso(
+          "Modelo atualizado. Os certificados dos eventos que usam este modelo serão refeitos no próximo download.",
+        );
+      } else {
+        await api.createCertificateTemplate({
+          name: nome.trim(),
+          description: descricao.trim() || undefined,
+          mimeType: "image/png",
+          dataBase64: arquivo.base64,
+          layout,
+        });
+        setAviso("Modelo salvo. Já pode ser escolhido em qualquer evento.");
+      }
+
+      limparFormulario();
       carregar();
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Falha ao salvar o modelo");
@@ -179,7 +242,13 @@ export function CertificateTemplatesPage() {
       {aviso && <p className="aviso aviso--ok">{aviso}</p>}
 
       <section className="secaoAvisos">
-        <h2 className="tituloSecao">Novo modelo</h2>
+        <h2 className="tituloSecao">{editandoId ? "Editar modelo" : "Novo modelo"}</h2>
+        {editandoId && (
+          <p className="muted">
+            Alterar as posições aqui refaz os certificados dos eventos que usam este modelo
+            no próximo download. Quem já baixou continua com o arquivo antigo.
+          </p>
+        )}
 
         <label className="campo">
           Nome
@@ -201,6 +270,7 @@ export function CertificateTemplatesPage() {
           <small className="muted">
             Envie a arte <strong>sem o nome de exemplo</strong> — o nome real é desenhado por
             cima, e os dois apareceriam sobrepostos.
+            {editandoId && " Deixe em branco para manter a arte atual e mexer só nas posições."}
           </small>
         </label>
 
@@ -279,9 +349,16 @@ export function CertificateTemplatesPage() {
           </>
         )}
 
-        <button className="botao botao--forte" disabled={!prontoParaSalvar} onClick={() => void salvar()}>
-          {salvando ? "Salvando…" : "Salvar modelo"}
-        </button>
+        <div className="row" style={{ gap: "0.6rem" }}>
+          <button className="botao botao--forte" disabled={!prontoParaSalvar} onClick={() => void salvar()}>
+            {salvando ? "Salvando…" : editandoId ? "Salvar alterações" : "Salvar modelo"}
+          </button>
+          {editandoId && (
+            <button className="botao botao--fraco" onClick={limparFormulario} disabled={salvando}>
+              Cancelar
+            </button>
+          )}
+        </div>
       </section>
 
       <section className="secaoAvisos">
@@ -310,14 +387,23 @@ export function CertificateTemplatesPage() {
                       ? "não usado"
                       : `${m.eventosUsando} evento(s)`}
                   </span>
-                  <button
-                    className="botao botao--fraco"
-                    disabled={m.eventosUsando > 0}
-                    title={m.eventosUsando > 0 ? "Em uso — troque o modelo desses eventos antes" : undefined}
-                    onClick={() => void apagar(m)}
-                  >
-                    Remover
-                  </button>
+                  <span className="row" style={{ gap: "0.4rem" }}>
+                    <button className="botao botao--fraco" onClick={() => editar(m)}>
+                      Editar
+                    </button>
+                    <button
+                      className="botao botao--fraco"
+                      disabled={m.eventosUsando > 0}
+                      title={
+                        m.eventosUsando > 0
+                          ? "Em uso — troque o modelo desses eventos antes. Para corrigir a arte ou as posições, use Editar."
+                          : undefined
+                      }
+                      onClick={() => void apagar(m)}
+                    >
+                      Remover
+                    </button>
+                  </span>
                 </div>
               </li>
             ))}

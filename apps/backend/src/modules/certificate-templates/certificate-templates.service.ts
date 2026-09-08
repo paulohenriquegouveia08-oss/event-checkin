@@ -202,6 +202,13 @@ export async function apagarModelo(templateId: string) {
     );
   }
 
-  await buscarModeloOuFalhar(templateId);
+  const modelo = await buscarModeloOuFalhar(templateId);
   await prisma.certificateTemplate.delete({ where: { id: templateId } });
+
+  // O arquivo sai junto. A linha vai primeiro: se a remoção do arquivo
+  // falhar, sobra disco ocupado — o contrário deixaria um modelo listado
+  // apontando para uma arte que não existe mais.
+  await certificateStorage.remove(modelo.fileKey).catch((erro) => {
+    console.warn(`[Modelos] Modelo ${templateId} apagado, mas a arte ficou no disco:`, erro);
+  });
 }

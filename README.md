@@ -44,6 +44,7 @@ npm install
 cp apps/backend/.env.example apps/backend/.env   # edite DATABASE_URL e JWT_SECRET
 npm run backend:migrate
 npm run seed --workspace=apps/backend             # cria o admin inicial
+npm run seed:modelos --workspace=apps/backend      # cadastra os modelos de certificado
 npm run backend:dev
 ```
 

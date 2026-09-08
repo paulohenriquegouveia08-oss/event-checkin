@@ -96,14 +96,21 @@ describe("biblioteca de modelos de certificado", () => {
     expect(JSON.stringify(res.json())).toMatch(/1 evento/);
   });
 
-  it("apaga um modelo que ninguém usa", async () => {
+  it("apaga um modelo que ninguém usa, e a arte sai junto do disco", async () => {
+    // Sem isto, cada modelo apagado deixava até 8 MB órfãos para sempre.
+    const { certificateStorage } = await import("../src/modules/certificates/certificate-storage.js");
     const modelo = (await criarModelo()).json().data;
+
+    const linha = await prisma.certificateTemplate.findUnique({ where: { id: modelo.id } });
+    expect(await certificateStorage.exists(linha!.fileKey)).toBe(true);
+
     const res = await app.inject({
       method: "DELETE",
       url: `/certificate-templates/${modelo.id}`,
       headers: auth(),
     });
     expect(res.statusCode).toBe(200);
+    expect(await certificateStorage.exists(linha!.fileKey)).toBe(false);
   });
 
   it("exige autenticação para listar e para criar", async () => {
@@ -118,5 +125,53 @@ describe("biblioteca de modelos de certificado", () => {
 
     const lista = (await app.inject({ method: "GET", url: "/certificate-templates", headers: auth() })).json().data;
     expect(lista[0].eventosUsando).toBe(1);
+  });
+
+  it("corrige as posições de um modelo EM USO, sem reenviar a arte", async () => {
+    // É a saída da armadilha: apagar um modelo em uso é (corretamente)
+    // recusado, então sem edição uma coordenada errada num modelo já
+    // escolhido por um evento ficaria impossível de consertar.
+    const modelo = (await criarModelo()).json().data;
+    const evento = await createTestEvent();
+    await prisma.event.update({ where: { id: evento.id }, data: { certificateTemplateId: modelo.id } });
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/certificate-templates/${modelo.id}`,
+      headers: auth(),
+      payload: {
+        layout: { ...layoutSemantix, nome: { ...layoutSemantix.nome, yBase: 460 } },
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect((res.json().data.layout as { nome: { yBase: number } }).nome.yBase).toBe(460);
+    // Sem arte nova, as dimensões continuam as do arquivo já enviado.
+    expect(res.json().data.imageWidth).toBe(1536);
+  });
+
+  it("ao editar, recusa coordenada que passou a cair fora da arte", async () => {
+    const modelo = (await criarModelo()).json().data;
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/certificate-templates/${modelo.id}`,
+      headers: auth(),
+      payload: { layout: { ...layoutSemantix, nome: { ...layoutSemantix.nome, xDireita: 2000 } } },
+    });
+    expect(res.statusCode).toBe(422);
+    expect(JSON.stringify(res.json())).toMatch(/fora da arte/i);
+  });
+
+  it("exige arquivo e tipo juntos para trocar a arte", async () => {
+    // Mandar só um dos dois deixaria o modelo apontando para uma arte e
+    // registrando as dimensões de outra.
+    const modelo = (await criarModelo()).json().data;
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/certificate-templates/${modelo.id}`,
+      headers: auth(),
+      payload: { dataBase64: artePng },
+    });
+    expect(res.statusCode).toBe(422);
   });
 });

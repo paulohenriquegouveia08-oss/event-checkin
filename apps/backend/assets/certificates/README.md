@@ -73,3 +73,17 @@ Detalhes que valem saber:
   COPOL sem ninguém perceber.
 - Trocar o modelo de um evento **invalida os PDFs já gerados** (o modelo
   entra no hash de conteúdo); o próximo download regenera com a arte nova.
+
+### Cadastrar os modelos deste diretório na biblioteca
+
+```bash
+npm run seed:modelos --workspace=apps/backend
+```
+
+Cadastra os modelos cuja arte já está versionada aqui — hoje, a Semantix.
+Serve para a produção não depender de alguém abrir o painel e reenviar um
+arquivo que já está no repositório. Rodar de novo não duplica: modelo com
+o mesmo nome é reaproveitado.
+
+Depois disso, o modelo aparece no seletor da aba *Certificados* de
+qualquer evento.

@@ -85,19 +85,14 @@ export interface Veredito {
  * mexer no evento por um motivo que não é dele.
  */
 export async function conferirRemetente(fromEmail: string): Promise<Veredito> {
-  const consulta = await dominiosVerificados();
-
-  if (consulta.dominios === null) {
-    return {
-      ok: true,
-      naoConferido: true,
-      mensagem: `Não consegui confirmar o domínio no Resend (${consulta.motivo ?? "motivo desconhecido"}). A configuração foi salva, mas confira antes do evento.`,
-    };
-  }
-
+  // PROVEDOR GRATUITO É DECIDIDO ANTES DE PERGUNTAR AO RESEND.
+  //
+  // Não é otimização: a resposta não depende da conta. Ninguém jamais vai
+  // verificar gmail.com, porque isso exigiria criar DNS no domínio do
+  // Google. Perguntar primeiro tornava esta checagem dependente de rede —
+  // e, com o Resend fora do ar, o sistema aceitaria um remetente que
+  // nunca vai funcionar, avisando apenas que "não deu para conferir".
   const dominio = dominioDe(fromEmail);
-  if (consulta.dominios.includes(dominio)) return { ok: true };
-
   if (CORREIO_GRATUITO.has(dominio)) {
     return {
       ok: false,
@@ -109,6 +104,18 @@ export async function conferirRemetente(fromEmail: string): Promise<Veredito> {
         `verifique esse domínio no Resend.`,
     };
   }
+
+  const consulta = await dominiosVerificados();
+
+  if (consulta.dominios === null) {
+    return {
+      ok: true,
+      naoConferido: true,
+      mensagem: `Não consegui confirmar o domínio no Resend (${consulta.motivo ?? "motivo desconhecido"}). A configuração foi salva, mas confira antes do evento.`,
+    };
+  }
+
+  if (consulta.dominios.includes(dominio)) return { ok: true };
 
   const lista = consulta.dominios.length > 0
     ? `Verificados hoje: ${consulta.dominios.join(", ")}.`

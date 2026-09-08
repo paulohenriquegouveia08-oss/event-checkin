@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { loginAttendee, selectEvent, type ParticipantData } from "@/lib/api";
 import { CreditosParceiros } from "@/components/CreditosParceiros";
@@ -11,6 +11,32 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [events, setEvents] = useState<ParticipantData[] | null>(null);
+
+  /**
+   * Eventos com inscrição aberta.
+   *
+   * Esta tela é para quem JÁ se inscreveu: digita o e-mail e vê o QR.
+   * Quem chega pelo link de divulgação ainda não está cadastrado, digita
+   * o e-mail e recebe "não encontrado" — sem nenhuma saída na tela. O
+   * aviso abaixo é essa saída.
+   *
+   * Buscado do servidor, e não cravado: um evento novo aparece sozinho.
+   */
+  const [abertos, setAbertos] = useState<{ slug: string; name: string }[]>([]);
+
+  useEffect(() => {
+    fetch("/api/publico/eventos-abertos")
+      .then((r) => r.json())
+      .then((c) => {
+        const lista = Array.isArray(c?.data) ? c.data : [];
+        setAbertos(
+          lista
+            .filter((e: { slug?: string; registrationsOpen?: boolean }) => e.slug && e.registrationsOpen)
+            .map((e: { slug: string; name: string }) => ({ slug: e.slug, name: e.name })),
+        );
+      })
+      .catch(() => setAbertos([]));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,6 +131,21 @@ export default function LoginPage() {
             >
               {loading ? "Buscando..." : "Entrar"}
             </button>
+
+            {abertos.length > 0 && (
+              <div className="rounded-lg border border-[--border] bg-[--muted] px-4 py-3 text-sm">
+                <p className="text-[--muted-foreground]">Ainda não se inscreveu?</p>
+                <ul className="mt-2 space-y-1">
+                  {abertos.map((e) => (
+                    <li key={e.slug}>
+                      <a href={`/inscricao/${e.slug}`} className="font-semibold text-teal-400 hover:underline">
+                        Inscrever-se em {e.name}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </form>
         ) : (
           <div className="space-y-4">

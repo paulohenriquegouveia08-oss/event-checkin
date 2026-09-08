@@ -179,3 +179,29 @@ cada deploy de preview do Vercel gera um subdomínio novo.
 
 - Sem backup automatizado agendado (só o procedimento manual documentado
   em `database.md`).
+
+## Modelos de certificado
+
+A arte dos modelos fica no volume `certificates_storage`, junto dos PDFs
+gerados — não na imagem. Para cadastrar os modelos versionados no
+repositório (hoje, a Semantix):
+
+```bash
+docker compose run --rm migrate npm run seed:modelos
+```
+
+O serviço `migrate` monta o mesmo volume do backend de propósito: o seed
+GRAVA ARQUIVO, e sem o volume a arte iria para o disco efêmero do
+container — o modelo apareceria cadastrado no painel e o certificado não
+geraria, porque o backend não enxergaria o arquivo.
+
+**Ao atualizar, reconstrua `migrate` também.** Ele roda `prisma migrate
+deploy`, e uma imagem antiga não conhece as migrations novas: o comando
+responde "No pending migrations to apply" e a migração simplesmente não
+acontece, sem erro nenhum.
+
+```bash
+docker compose build backend admin migrate
+docker compose run --rm migrate
+docker compose up -d backend admin
+```

@@ -88,18 +88,21 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/lspk-symbol.svg" alt="LSPK Technology" className="h-14 w-14" />
+            <img src="/lspk-symbol.svg" alt="LSPK Technology" className="h-16 w-16" />
           </div>
-          <h1 className="text-2xl font-bold">Credenciamento</h1>
-          <p className="mt-2 text-sm text-[var(--muted-foreground)]">
-            Acesse seu QR Code, comprovante de presença e certificado
+          <p className="mono text-[0.7rem] font-medium uppercase tracking-[0.18em] text-[var(--primary)]">
+            LSPK Technology
+          </p>
+          <h1 className="mt-1 text-3xl font-bold">Credenciamento</h1>
+          <p className="mx-auto mt-3 max-w-xs text-sm leading-relaxed text-[var(--muted-foreground)]">
+            Acesse seu QR Code, comprovante de presença e certificado.
           </p>
         </div>
 
         {!events ? (
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="cartao space-y-4 p-6">
             {error && (
               <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
                 {error}
@@ -120,26 +123,32 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="seu@email.com"
-                className="w-full rounded-lg border border-[var(--border)] bg-[var(--muted)] px-4 py-3 text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:outline-none"
+                className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)]/60 px-4 py-3 text-base text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:outline-none"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-[var(--primary)] px-4 py-3 font-semibold text-[var(--primary-foreground)] transition-colors hover:brightness-110 disabled:opacity-50"
+              className="w-full rounded-xl bg-[var(--primary)] px-4 py-3.5 font-bold text-[var(--primary-foreground)] shadow-[0_10px_24px_-12px_rgba(59,91,255,0.9)] transition hover:brightness-110 active:scale-[0.99] disabled:opacity-50"
             >
               {loading ? "Buscando..." : "Entrar"}
             </button>
 
             {abertos.length > 0 && (
-              <div className="rounded-lg border border-[var(--border)] bg-[var(--muted)] px-4 py-3 text-sm">
-                <p className="text-[var(--muted-foreground)]">Ainda não se inscreveu?</p>
-                <ul className="mt-2 space-y-1">
+              <div className="border-t border-[var(--border)] pt-4">
+                <p className="mono text-[0.68rem] uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                  Ainda não se inscreveu?
+                </p>
+                <ul className="mt-3 space-y-2">
                   {abertos.map((e) => (
                     <li key={e.slug}>
-                      <a href={`/inscricao/${e.slug}`} className="font-semibold text-[var(--primary)] hover:underline">
-                        Inscrever-se em {e.name}
+                      <a
+                        href={`/inscricao/${e.slug}`}
+                        className="flex items-center justify-between rounded-xl border border-[var(--primary)]/35 bg-[var(--primary)]/10 px-4 py-3 text-sm font-semibold transition hover:bg-[var(--primary)]/20"
+                      >
+                        <span>Inscrever-se em {e.name}</span>
+                        <span aria-hidden="true" className="text-[var(--primary)]">→</span>
                       </a>
                     </li>
                   ))}

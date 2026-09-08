@@ -29,7 +29,55 @@
 }
 
 body {
-  background: var(--background);
+  /*
+   * Profundidade em vez de chapado.
+   *
+   * Duas manchas suaves do azul-sinal, uma no topo e outra na base,
+   * sobre o grafite. É o que separa "fundo escuro" de "fundo preto" —
+   * e a cor da marca aparece sem precisar pintar nada de azul.
+   *
+   * `fixed` para não deslizar junto com a rolagem: a mancha é o
+   * ambiente, não parte do conteúdo.
+   */
+  min-height: 100dvh;
+  background:
+    radial-gradient(70rem 40rem at 50% -10%, rgba(59, 91, 255, 0.16), transparent 60%),
+    radial-gradient(50rem 30rem at 100% 110%, rgba(59, 91, 255, 0.1), transparent 60%),
+    var(--background);
+  background-attachment: fixed;
   color: var(--foreground);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: var(--fonte-titulo), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* O código do participante e os números são dados: fonte de dados. */
+.mono {
+  font-family: var(--fonte-mono), ui-monospace, monospace;
+  letter-spacing: 0.02em;
+}
+
+/*
+ * O cartão que segura o conteúdo.
+ *
+ * Fundo levemente translúcido em vez de sólido: deixa a mancha do fundo
+ * atravessar, o que dá a sensação de camada. A borda clara no topo imita
+ * a luz vindo de cima — é o que faz a superfície parecer física.
+ */
+.cartao {
+  background: rgba(26, 29, 33, 0.72);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  box-shadow: 0 1px 0 rgba(245, 242, 236, 0.06) inset, 0 20px 40px -24px rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(10px);
+}
+
+/* Foco visível: quem navega por teclado precisa saber onde está. */
+:where(a, button, input, select):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }

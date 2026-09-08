@@ -395,7 +395,7 @@ export default function CheckInPage() {
         </div>
 
         {/* QR Code Card */}
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--muted)] p-6 text-center">
+        <div className="cartao p-6 text-center">
           <p className="mb-4 text-sm text-[var(--muted-foreground)]">
             Apresente este QR code na entrada do evento
           </p>
@@ -420,7 +420,7 @@ export default function CheckInPage() {
 
           <p className="text-xs text-[var(--muted-foreground)]">
             Seu código:{" "}
-            <span className="font-mono">{participant.qrToken.slice(0, 12)}...</span>
+            <span className="mono">{participant.qrToken.slice(0, 12)}…</span>
           </p>
 
           <button
@@ -436,7 +436,7 @@ export default function CheckInPage() {
         </div>
 
         {/* Meus documentos */}
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--muted)] p-6">
+        <div className="cartao p-6">
           <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
             Meus documentos
           </h2>
@@ -504,7 +504,7 @@ export default function CheckInPage() {
         </div>
 
         {/* Participant Info */}
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--muted)] p-4">
+        <div className="cartao p-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--primary)]/10 text-sm font-bold text-[var(--primary)]">
               {participant.name

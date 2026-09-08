@@ -200,6 +200,13 @@ model Event {
   // o shape esperado e os fallbacks quando null. Nunca hardcoded no template.
   certificateSettings Json?
 
+  // Configuração de e-mail deste evento — remetente, cores, endereço do
+  // site e quais envios saem sozinhos. Mesmo princípio de
+  // certificateSettings: ver src/lib/email/email-settings.ts para o shape
+  // e os fallbacks quando null. Nulo = padrões do sistema, que são os
+  // valores do COPOL, para o evento existente não mudar de comportamento.
+  emailSettings Json?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

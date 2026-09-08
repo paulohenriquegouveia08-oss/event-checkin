@@ -38,3 +38,14 @@ export const signatureImageParamsSchema = z.object({
 export const signatureImageQuerySchema = z.object({
   token: z.string().trim().min(1),
 });
+
+/**
+ * Alvos de um disparo em massa.
+ *
+ * `participantIds` ausente significa "todos que têm direito" — a lista é
+ * montada no servidor, e não recebida do navegador: mandar a lista pronta
+ * deixaria quem chama escolher quem recebe certificado.
+ */
+export const sendDocumentsSchema = z.object({
+  participantIds: z.array(z.string().uuid()).max(5000).optional(),
+});

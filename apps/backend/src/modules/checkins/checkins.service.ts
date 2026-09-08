@@ -5,6 +5,8 @@ import * as participantsRepository from "../participants/participants.repository
 import * as checkinsRepository from "./checkins.repository.js";
 import { attendeeEventBus } from "../attendee/attendee.events.js";
 import { adminCheckInBus } from "../admin/adminMonitor.events.js";
+import { resolveEmailSettings } from "../../lib/email/email-settings.js";
+import { enviarComprovantePorEmail } from "../certificates/certificate-mailer.js";
 
 export interface CheckInParticipantInfo {
   id: string;
@@ -80,6 +82,17 @@ export async function performCheckIn(params: PerformCheckInParams): Promise<Chec
       checkedInAt,
       localCheckInId: localCheckInId ?? null,
     });
+
+    // Comprovante de presença por e-mail, se o evento pedir.
+    //
+    // Em segundo plano e sem `await`: o terminal precisa liberar a
+    // catraca em milissegundos, e gerar PDF + falar com o Resend leva
+    // segundos. Amarrar as duas coisas faria a fila de credenciamento
+    // parar por causa de um e-mail.
+    //
+    // Erro aqui não invalida o check-in — a presença já está gravada, e
+    // o comprovante continua disponível para download e reenvio.
+    void enviarComprovanteSeConfigurado(eventId, participant.id);
 
     // Publish check-in event for SSE subscribers
     attendeeEventBus.publish(participant.id, {
@@ -269,4 +282,29 @@ export async function getEventReport(eventId: string) {
       checkedInAt: c.checkedInAt.toISOString(),
     })),
   };
+}
+
+/**
+ * Dispara o comprovante de presença quando o evento tem o envio
+ * automático ligado.
+ *
+ * A configuração é lida do evento a cada check-in, e não guardada em
+ * memória: o organizador pode ligar isso no meio do credenciamento, e
+ * um valor em cache faria a mudança só valer depois de reiniciar.
+ */
+async function enviarComprovanteSeConfigurado(eventId: string, participantId: string): Promise<void> {
+  try {
+    const evento = await prisma.event.findUnique({
+      where: { id: eventId },
+      select: { emailSettings: true },
+    });
+    if (!resolveEmailSettings(evento?.emailSettings).autoSendAttendanceProof) return;
+
+    const r = await enviarComprovantePorEmail(eventId, participantId);
+    if (!r.enviado) {
+      console.warn(`[CheckIns] Comprovante não enviado (${participantId}): ${r.motivo ?? "sem motivo"}`);
+    }
+  } catch (erro) {
+    console.error("[CheckIns] Falha ao enviar comprovante de presença:", erro);
+  }
 }

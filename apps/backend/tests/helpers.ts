@@ -38,8 +38,16 @@ export async function createTestEvent(
   return prisma.event.create({
     data: {
       name: overrides.name ?? "Congresso de Teste 2026",
-      startDate: overrides.startDate ?? new Date("2026-09-01T09:00:00Z"),
-      endDate: overrides.endDate ?? new Date("2026-09-03T18:00:00Z"),
+      // RELATIVO A HOJE, e não uma data fixa.
+      //
+      // Era 01–03/09/2026, escolhido quando essa data ainda era futura.
+      // Em 07/09/2026 ela virou passado e dois testes que exigem "o
+      // evento ainda não terminou" passaram a falhar sozinhos, sem
+      // ninguém mexer em nada. Data fixa em fixture é uma falha
+      // agendada. Quem precisa de evento encerrado usa
+      // `createPastTestEvent`.
+      startDate: overrides.startDate ?? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      endDate: overrides.endDate ?? new Date(Date.now() + 9 * 24 * 60 * 60 * 1000),
       status: overrides.status ?? "ACTIVE",
       certificateSettings: overrides.certificateSettings as never,
     },

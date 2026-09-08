@@ -455,3 +455,9 @@ async function findCertificateOrThrow(certificateId: string) {
   if (!certificate) throw new NotFoundError("Certificado não encontrado");
   return certificate;
 }
+
+/** A configuração de e-mail do evento, para quem precisa decidir envio. */
+export async function carregarConfigDeEmail(eventId: string): Promise<unknown> {
+  const event = await loadEventOrThrow(eventId);
+  return event.emailSettings;
+}

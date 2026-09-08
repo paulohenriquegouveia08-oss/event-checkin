@@ -295,9 +295,66 @@ export interface EventRecord {
   registrationsOpen: boolean;
   siteContent: SiteContent | null;
   certificateSettings: CertificateSettings | null;
+  emailSettings: EmailSettings | null;
   createdAt: string;
   updatedAt: string;
 }
+/**
+ * Configuração de e-mail do evento. Nulo = padrões do sistema.
+ *
+ * Cada campo é opcional pelo mesmo motivo do backend: ausente cai no
+ * padrão, e o evento que já existe continua enviando como sempre.
+ */
+export interface EmailSettings {
+  fromName?: string;
+  fromEmail?: string;
+  replyTo?: string;
+  primaryColor?: string;
+  accentColor?: string;
+  siteUrl?: string;
+  footerNote?: string;
+  autoSendReceipt?: boolean;
+  autoSendCertificate?: boolean;
+  autoSendAttendanceProof?: boolean;
+}
+
+export interface ResultadoDeEnvio {
+  participantId: string;
+  email: string | null;
+  enviado: boolean;
+  motivo?: string;
+}
+
+export interface ResultadoEmMassa {
+  total: number;
+  enviados: number;
+  falharam: number;
+  detalhes: ResultadoDeEnvio[];
+}
+
+export function sendCertificateEmail(eventId: string, participantId: string) {
+  return request<ResultadoDeEnvio>(`/events/${eventId}/participants/${participantId}/certificate/send`, {
+    method: "POST",
+  });
+}
+export function sendAttendanceProofEmail(eventId: string, participantId: string) {
+  return request<ResultadoDeEnvio>(`/events/${eventId}/participants/${participantId}/attendance-proof/send`, {
+    method: "POST",
+  });
+}
+export function sendCertificatesBulk(eventId: string, participantIds?: string[]) {
+  return request<ResultadoEmMassa>(`/events/${eventId}/certificates/send`, {
+    method: "POST",
+    body: participantIds ? { participantIds } : {},
+  });
+}
+export function sendAttendanceProofsBulk(eventId: string, participantIds?: string[]) {
+  return request<ResultadoEmMassa>(`/events/${eventId}/attendance-proofs/send`, {
+    method: "POST",
+    body: participantIds ? { participantIds } : {},
+  });
+}
+
 export function listEvents() {
   return request<EventRecord[]>("/events");
 }

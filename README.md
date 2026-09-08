@@ -80,6 +80,7 @@ e o fluxo completo de ativação de terminal.
 | [`docs/installation.md`](docs/installation.md) | Rodar localmente (dev) |
 | [`docs/deployment.md`](docs/deployment.md) | Deploy na VPS (Docker) |
 | [`docs/offline-sync.md`](docs/offline-sync.md) | Contrato de sincronização offline |
+| [`docs/emails.md`](docs/emails.md) | E-mails via Resend: configuração por evento, envio e limites |
 | [`docs/troubleshooting.md`](docs/troubleshooting.md) | Problemas comuns |
 | [`docs/scanner.md`](docs/scanner.md) | Investigação do scanner (Fase 0) |
 | [`docs/m10-pro.md`](docs/m10-pro.md) | Resumo operacional do equipamento |

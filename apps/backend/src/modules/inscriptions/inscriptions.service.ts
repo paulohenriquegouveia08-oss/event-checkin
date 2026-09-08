@@ -6,6 +6,7 @@ import { getEventOrThrow } from "../events/events.service.js";
 import { findTierAmount } from "../events/site-content.js";
 import { picPayClient } from "../../lib/picpay/picpay.client.js";
 import { emailService } from "../../lib/email/email.service.js";
+import { resolveEmailSettings } from "../../lib/email/email-settings.js";
 import * as batchesService from "../batches/batches.service.js";
 import * as inscriptionsRepository from "./inscriptions.repository.js";
 import type { CreateInscriptionInput } from "./inscriptions.schema.js";
@@ -229,19 +230,24 @@ export async function confirmInscriptionPayment(inscriptionId: string, authoriza
   }
 
   // Dispara o e-mail de comprovante com o QR Code de check-in (em background)
-  emailService
-    .sendRegistrationReceipt({
-      to: result.inscription.email,
-      participantName: result.inscription.name,
-      eventName: result.inscription.event.name,
-      inscriptionId: result.inscription.id,
-      batchName: result.inscription.batch?.name ?? result.inscription.category,
-      amount: Number(result.inscription.amount),
-      qrToken: result.participant.qrToken,
-      eventStartDate: result.inscription.event.startDate.toISOString(),
-      eventLocation: result.inscription.event.location,
-    })
-    .catch((err) => console.error("[InscriptionsService] Falha ao enviar e-mail de comprovante:", err));
+  // O evento inteiro vai junto: é dele que saem o remetente, as cores e o
+  // endereço do site do e-mail. Antes essas três coisas eram as do COPOL
+  // para qualquer evento.
+  const configEmail = resolveEmailSettings(result.inscription.event.emailSettings);
+
+  if (configEmail.autoSendReceipt) {
+    emailService
+      .sendRegistrationReceipt(result.inscription.event, {
+        to: result.inscription.email,
+        participantName: result.inscription.name,
+        inscriptionId: result.inscription.id,
+        batchName: result.inscription.batch?.name ?? result.inscription.category,
+        amount: Number(result.inscription.amount),
+        qrToken: result.participant.qrToken,
+        eventLocation: result.inscription.event.location,
+      })
+      .catch((err) => console.error("[InscriptionsService] Falha ao enviar e-mail de comprovante:", err));
+  }
 
   return result.inscription;
 }

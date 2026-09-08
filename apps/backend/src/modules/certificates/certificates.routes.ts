@@ -4,6 +4,7 @@ import { ForbiddenError, UnauthorizedError } from "../../shared/errors.js";
 import { ok } from "../../shared/response.js";
 import { recordAudit, recordParticipantAudit } from "../audit/audit.service.js";
 import * as certificatesService from "./certificates.service.js";
+import * as mailer from "./certificate-mailer.js";
 import {
   certificateIdParamsSchema,
   certificatePreviewQuerySchema,
@@ -12,6 +13,7 @@ import {
   signatureImageParamsSchema,
   signatureImageQuerySchema,
   uploadSignatureImageSchema,
+  sendDocumentsSchema,
   verificationCodeParamsSchema,
 } from "./certificates.schema.js";
 
@@ -158,6 +160,23 @@ export async function certificatesRoutes(app: FastifyInstance) {
       const { eventId } = eventIdParamsSchema.parse(request.params);
       const result = await certificatesService.releaseEligibleCertificates(eventId);
       await recordAudit(request, "certificate.released", "Event", eventId, result);
+
+      // Envio automático, se o evento pedir.
+      //
+      // Liberar é o momento em que o certificado passa a existir para a
+      // pessoa — é aqui que "avisar quando ficar disponível" acontece.
+      //
+      // Em segundo plano e sem `await`: gerar centenas de PDFs e falar
+      // com o Resend leva minutos, e a requisição do painel expiraria
+      // antes. O resultado do disparo fica no log e na aba de e-mails,
+      // que é onde se confere quem recebeu.
+      if (mailer.enviosAutomaticos((await certificatesService.carregarConfigDeEmail(eventId))).certificado) {
+        void mailer
+          .enviarCertificadosDoEvento(eventId)
+          .then((r) => console.log(`[Certificados] Envio automático: ${r.enviados}/${r.total} enviados.`))
+          .catch((e) => console.error("[Certificados] Falha no envio automático:", e));
+      }
+
       return ok(result);
     }
   );
@@ -269,6 +288,78 @@ export async function certificatesRoutes(app: FastifyInstance) {
       const certificate = await certificatesService.reinstateCertificate(certificateId);
       await recordAudit(request, "certificate.reinstated", "Certificate", certificateId);
       return ok(certificate);
+    }
+  );
+
+  // --- Envio por e-mail ---
+  //
+  // Exige `certificates.issue`, e não `.view`: mandar documento para a
+  // caixa de entrada de alguém é uma ação, não uma consulta. E fica no
+  // registro de auditoria — disparo em massa é irreversível, ninguém
+  // "desmanda" um e-mail.
+
+  app.post(
+    "/events/:eventId/participants/:participantId/certificate/send",
+    { preHandler: requirePermission("certificates.issue") },
+    async (request) => {
+      const { eventId, participantId } = eventParticipantParamsSchema.parse(request.params);
+      // `reenvio: true` sempre: quem clica no botão está pedindo de
+      // propósito, e a proteção contra duplicata do Resend engoliria o
+      // segundo pedido em silêncio.
+      const resultado = await mailer.enviarCertificadoPorEmail(eventId, participantId, { reenvio: true });
+      await recordAudit(request, "certificate.emailed", "Participant", participantId, {
+        eventId,
+        enviado: resultado.enviado,
+        motivo: resultado.motivo,
+      });
+      return ok(resultado);
+    }
+  );
+
+  app.post(
+    "/events/:eventId/participants/:participantId/attendance-proof/send",
+    { preHandler: requirePermission("certificates.issue") },
+    async (request) => {
+      const { eventId, participantId } = eventParticipantParamsSchema.parse(request.params);
+      const resultado = await mailer.enviarComprovantePorEmail(eventId, participantId, { reenvio: true });
+      await recordAudit(request, "attendance_proof.emailed", "Participant", participantId, {
+        eventId,
+        enviado: resultado.enviado,
+        motivo: resultado.motivo,
+      });
+      return ok(resultado);
+    }
+  );
+
+  app.post(
+    "/events/:eventId/certificates/send",
+    { preHandler: requirePermission("certificates.issue") },
+    async (request) => {
+      const { eventId } = eventIdParamsSchema.parse(request.params);
+      const { participantIds } = sendDocumentsSchema.parse(request.body ?? {});
+      const resultado = await mailer.enviarCertificadosDoEvento(eventId, participantIds);
+      await recordAudit(request, "certificate.emailed_bulk", "Event", eventId, {
+        total: resultado.total,
+        enviados: resultado.enviados,
+        falharam: resultado.falharam,
+      });
+      return ok(resultado);
+    }
+  );
+
+  app.post(
+    "/events/:eventId/attendance-proofs/send",
+    { preHandler: requirePermission("certificates.issue") },
+    async (request) => {
+      const { eventId } = eventIdParamsSchema.parse(request.params);
+      const { participantIds } = sendDocumentsSchema.parse(request.body ?? {});
+      const resultado = await mailer.enviarComprovantesDoEvento(eventId, participantIds);
+      await recordAudit(request, "attendance_proof.emailed_bulk", "Event", eventId, {
+        total: resultado.total,
+        enviados: resultado.enviados,
+        falharam: resultado.falharam,
+      });
+      return ok(resultado);
     }
   );
 }

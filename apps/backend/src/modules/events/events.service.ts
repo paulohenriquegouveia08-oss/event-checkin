@@ -62,6 +62,19 @@ export async function listActiveEvents() {
  * Devolve a forma PÚBLICA: nada de configuração interna, e apenas eventos
  * ativos. Um evento fechado responde 404 aqui de propósito.
  */
+/**
+ * Eventos com inscrição aberta, para o portal de credenciamento.
+ *
+ * Devolve só o mínimo — nome e endereço — porque é uma lista de links,
+ * não uma vitrine.
+ */
+export async function listOpenRegistrationEvents() {
+  const events = await eventsRepository.listEventsWithOpenRegistration();
+  return events
+    .filter((e) => isRegistrationOpen(e))
+    .map((e) => ({ slug: e.slug, name: e.name, startDate: e.startDate }));
+}
+
 export async function getPublicEventBySlug(slug: string) {
   const event = await prisma.event.findUnique({ where: { slug } });
   if (!event || event.status !== "ACTIVE") {

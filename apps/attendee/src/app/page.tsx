@@ -29,9 +29,12 @@ export default function LoginPage() {
       .then((r) => r.json())
       .then((c) => {
         const lista = Array.isArray(c?.data) ? c.data : [];
+        // Sem filtrar de novo: a rota já devolve só quem tem endereço
+        // público e inscrição aberta. Repetir o filtro com um campo que
+        // ela não manda (`registrationsOpen`) esconderia tudo.
         setAbertos(
           lista
-            .filter((e: { slug?: string; registrationsOpen?: boolean }) => e.slug && e.registrationsOpen)
+            .filter((e: { slug?: string }) => Boolean(e.slug))
             .map((e: { slug: string; name: string }) => ({ slug: e.slug, name: e.name })),
         );
       })

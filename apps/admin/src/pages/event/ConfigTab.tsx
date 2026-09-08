@@ -129,8 +129,16 @@ export function ConfigTab({ eventId }: { eventId: string }) {
               onChange={(e) => setVisibility(e.target.value as "PUBLIC" | "PRIVATE")}
             >
               <option value="PRIVATE">Privado — só quem tem o link direto</option>
-              <option value="PUBLIC">Público — aparece na listagem</option>
+              <option value="PUBLIC">Público — aparece nos sites</option>
             </select>
+            <small className="muted">
+              É isto que liga e desliga o evento dos sites públicos. <strong>Público</strong>{" "}
+              faz o evento aparecer nas listagens — e o site institucional mostra o primeiro
+              evento público da lista, então dois públicos ao mesmo tempo disputam esse
+              lugar. <strong>Privado</strong> tira das listagens sem bloquear nada: quem tem
+              o link de inscrição continua entrando normalmente, e o evento segue aparecendo
+              no portal de credenciamento enquanto as inscrições estiverem abertas.
+            </small>
           </label>
 
           <button type="submit" className="btn" disabled={salvando}>

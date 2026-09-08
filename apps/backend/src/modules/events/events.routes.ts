@@ -28,6 +28,11 @@ export async function eventsRoutes(app: FastifyInstance) {
   });
 
   // Public — get event by ID (for pre-copol inscription form)
+  // Público — onde dá para se inscrever agora (portal de credenciamento).
+  app.get("/public/events/open-registration", async () => {
+    return ok(await eventsService.listOpenRegistrationEvents());
+  });
+
   // Público — o evento pelo endereço divulgado (/inscricao/<slug>).
   app.get("/public/events/:slug", async (request) => {
     const { slug } = z.object({ slug: z.string().trim().min(1).max(80) }).parse(request.params);

@@ -249,7 +249,7 @@ export default function CheckInPage() {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-teal-400 border-t-transparent" />
+          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-[--primary] border-t-transparent" />
           <p className="text-sm text-[--muted-foreground]">Carregando...</p>
         </div>
       </div>
@@ -263,7 +263,7 @@ export default function CheckInPage() {
           <p className="text-red-400">Dados não encontrados</p>
           <button
             onClick={() => router.push("/")}
-            className="mt-4 text-sm text-teal-400 hover:underline"
+            className="mt-4 text-sm text-[--primary] hover:underline"
           >
             Voltar ao login
           </button>
@@ -281,7 +281,7 @@ export default function CheckInPage() {
             statusVisible ? "opacity-100" : "opacity-0"
           } ${
             status === "CONFIRMED"
-              ? "bg-teal-400/20"
+              ? "bg-[--primary]/20"
               : status === "ALREADY_CHECKED_IN"
                 ? "bg-yellow-500/20"
                 : "bg-red-500/20"
@@ -290,7 +290,7 @@ export default function CheckInPage() {
           <div
             className={`rounded-2xl p-8 text-center ${
               status === "CONFIRMED"
-                ? "bg-teal-400"
+                ? "bg-[--primary]"
                 : status === "ALREADY_CHECKED_IN"
                   ? "bg-yellow-500"
                   : "bg-red-500"
@@ -299,7 +299,7 @@ export default function CheckInPage() {
             {status === "CONFIRMED" && (
               <>
                 <svg
-                  className="mx-auto mb-4 h-16 w-16 text-black"
+                  className="mx-auto mb-4 h-16 w-16 text-[--primary-foreground]"
                   fill="none"
                   viewBox="0 0 24 24"
                   strokeWidth={3}
@@ -311,16 +311,16 @@ export default function CheckInPage() {
                     d="M4.5 12.75l6 6 9-13.5"
                   />
                 </svg>
-                <h2 className="text-2xl font-bold text-black">
+                <h2 className="text-2xl font-bold text-[--primary-foreground]">
                   Presença Confirmada!
                 </h2>
-                <p className="mt-2 text-black/70">{participant.name}</p>
+                <p className="mt-2 text-[--primary-foreground]/70">{participant.name}</p>
               </>
             )}
             {status === "ALREADY_CHECKED_IN" && (
               <>
                 <svg
-                  className="mx-auto mb-4 h-16 w-16 text-black"
+                  className="mx-auto mb-4 h-16 w-16 text-[--primary-foreground]"
                   fill="none"
                   viewBox="0 0 24 24"
                   strokeWidth={3}
@@ -332,10 +332,10 @@ export default function CheckInPage() {
                     d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
                   />
                 </svg>
-                <h2 className="text-2xl font-bold text-black">
+                <h2 className="text-2xl font-bold text-[--primary-foreground]">
                   Já Registrado!
                 </h2>
-                <p className="mt-2 text-black/70">
+                <p className="mt-2 text-[--primary-foreground]/70">
                   Sua presença já foi registrada anteriormente
                 </p>
               </>
@@ -343,7 +343,7 @@ export default function CheckInPage() {
             {status === "REJECTED" && (
               <>
                 <svg
-                  className="mx-auto mb-4 h-16 w-16 text-black"
+                  className="mx-auto mb-4 h-16 w-16 text-[--primary-foreground]"
                   fill="none"
                   viewBox="0 0 24 24"
                   strokeWidth={3}
@@ -355,10 +355,10 @@ export default function CheckInPage() {
                     d="M6 18L18 6M6 6l12 12"
                   />
                 </svg>
-                <h2 className="text-2xl font-bold text-black">
+                <h2 className="text-2xl font-bold text-[--primary-foreground]">
                   Presença Negada!
                 </h2>
-                <p className="mt-2 text-black/70">
+                <p className="mt-2 text-[--primary-foreground]/70">
                   entre em contato com a organização
                 </p>
               </>
@@ -371,9 +371,9 @@ export default function CheckInPage() {
       <div className="w-full max-w-md space-y-6">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-teal-400/10">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[--primary]/10">
             <svg
-              className="h-6 w-6 text-teal-400"
+              className="h-6 w-6 text-[--primary]"
               fill="none"
               viewBox="0 0 24 24"
               strokeWidth={2}
@@ -455,7 +455,7 @@ export default function CheckInPage() {
               <button
                 onClick={handleDownloadProof}
                 disabled={!myDocuments?.attendanceProof.available || downloadingProof}
-                className="shrink-0 rounded-lg bg-teal-400 px-3 py-2 text-xs font-semibold text-black transition-colors hover:bg-teal-300 disabled:cursor-not-allowed disabled:opacity-40"
+                className="shrink-0 rounded-lg bg-[--primary] px-3 py-2 text-xs font-semibold text-[--primary-foreground] transition-colors hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {downloadingProof ? "Gerando..." : "Baixar"}
               </button>
@@ -467,10 +467,10 @@ export default function CheckInPage() {
                 <div>
                   <p className="text-sm font-medium">Certificado</p>
                   {myDocuments?.certificate.status === "GENERATED" && (
-                    <p className="text-xs text-teal-300">Certificado disponível</p>
+                    <p className="text-xs text-[--primary]">Certificado disponível</p>
                   )}
                   {myDocuments?.certificate.status === "ELIGIBLE" && (
-                    <p className="text-xs text-teal-300">Certificado disponível</p>
+                    <p className="text-xs text-[--primary]">Certificado disponível</p>
                   )}
                   {myDocuments?.certificate.status === "REVOKED" && (
                     <p className="text-xs text-red-400">Este certificado foi revogado</p>
@@ -492,7 +492,7 @@ export default function CheckInPage() {
                 <button
                   onClick={handleDownloadCertificate}
                   disabled={!myDocuments?.certificate.canDownload || downloadingCertificate}
-                  className="shrink-0 rounded-lg bg-teal-400 px-3 py-2 text-xs font-semibold text-black transition-colors hover:bg-teal-300 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="shrink-0 rounded-lg bg-[--primary] px-3 py-2 text-xs font-semibold text-[--primary-foreground] transition-colors hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {downloadingCertificate ? "Gerando..." : "Baixar PDF"}
                 </button>
@@ -506,7 +506,7 @@ export default function CheckInPage() {
         {/* Participant Info */}
         <div className="rounded-xl border border-[--border] bg-[--muted] p-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-400/10 text-sm font-bold text-teal-400">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[--primary]/10 text-sm font-bold text-[--primary]">
               {participant.name
                 .split(" ")
                 .map((n) => n[0])
@@ -527,7 +527,7 @@ export default function CheckInPage() {
         <div className="flex items-center justify-center gap-2 text-sm">
           <div
             className={`h-2 w-2 rounded-full ${
-              sseConnected ? "bg-teal-400" : "bg-red-500"
+              sseConnected ? "bg-[--primary]" : "bg-red-500"
             }`}
           />
           <span className="text-[--muted-foreground]">
@@ -539,8 +539,8 @@ export default function CheckInPage() {
 
         {/* Last Check-in */}
         {participant.lastCheckIn && (
-          <div className="rounded-xl border border-teal-400/20 bg-teal-400/5 p-4 text-center">
-            <p className="text-sm text-teal-300">
+          <div className="rounded-xl border border-[--primary]/20 bg-[--primary]/5 p-4 text-center">
+            <p className="text-sm text-[--primary]">
               ✓ Presença registrada
             </p>
             <p className="mt-1 text-xs text-[--muted-foreground]">
@@ -561,7 +561,7 @@ export default function CheckInPage() {
 
         {/* Footer */}
         <p className="text-center text-xs text-[--muted-foreground] pt-4">
-          Copol | LSPK Technology
+          LSPK Technology
         </p>
 
         <CreditosParceiros className="border-t border-[--border] pt-6 mt-2" />

@@ -1,13 +1,25 @@
 @import "tailwindcss";
 
+/*
+ * Paleta da LSPK Technology — grafite, osso e azul-sinal.
+ *
+ * Era o verde-petróleo do COPOL, que fazia esta tela parecer parte de UM
+ * evento. Ela não é: é a plataforma de credenciamento que serve qualquer
+ * evento, e quem entra aqui pode estar indo para o COPOL, para a
+ * Semantix ou para o próximo. A marca do evento aparece onde é dele — na
+ * página de inscrição e no certificado.
+ *
+ * Os tons intermediários são derivados do grafite, e não cinzas neutros:
+ * cinza puro ao lado do azul-sinal fica sujo.
+ */
 :root {
-  --background: #0e3634;
-  --foreground: #f0faf9;
-  --primary: #2dd4bf;
-  --primary-foreground: #000000;
-  --muted: #154b4c;
-  --muted-foreground: #9fc4c2;
-  --border: #2a6f6e;
+  --background: #101214;
+  --foreground: #f5f2ec;
+  --primary: #3b5bff;
+  --primary-foreground: #ffffff;
+  --muted: #1a1d21;
+  --muted-foreground: #9a968d;
+  --border: #2a2e34;
   --destructive: #ef4444;
   --warning: #f59e0b;
 }

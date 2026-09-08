@@ -88,13 +88,13 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-teal-400/10">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo-mark.png" alt="" className="h-10 w-10" />
+            <img src="/lspk-symbol.svg" alt="LSPK Technology" className="h-14 w-14" />
           </div>
-          <h1 className="text-2xl font-bold">Event Check-in</h1>
+          <h1 className="text-2xl font-bold">Credenciamento</h1>
           <p className="mt-2 text-sm text-[--muted-foreground]">
-            Acesse seu QR code para marcar presença
+            Acesse seu QR Code, comprovante de presença e certificado
           </p>
         </div>
 
@@ -120,14 +120,14 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="seu@email.com"
-                className="w-full rounded-lg border border-[--border] bg-[--muted] px-4 py-3 text-[--foreground] placeholder:text-[--muted-foreground] focus:border-teal-400 focus:outline-none"
+                className="w-full rounded-lg border border-[--border] bg-[--muted] px-4 py-3 text-[--foreground] placeholder:text-[--muted-foreground] focus:border-[--primary] focus:outline-none"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-teal-400 px-4 py-3 font-semibold text-black transition-colors hover:bg-teal-300 disabled:opacity-50"
+              className="w-full rounded-lg bg-[--primary] px-4 py-3 font-semibold text-[--primary-foreground] transition-colors hover:brightness-110 disabled:opacity-50"
             >
               {loading ? "Buscando..." : "Entrar"}
             </button>
@@ -138,7 +138,7 @@ export default function LoginPage() {
                 <ul className="mt-2 space-y-1">
                   {abertos.map((e) => (
                     <li key={e.slug}>
-                      <a href={`/inscricao/${e.slug}`} className="font-semibold text-teal-400 hover:underline">
+                      <a href={`/inscricao/${e.slug}`} className="font-semibold text-[--primary] hover:underline">
                         Inscrever-se em {e.name}
                       </a>
                     </li>
@@ -165,7 +165,7 @@ export default function LoginPage() {
                   key={p.id}
                   onClick={() => handleSelectEvent(p.id)}
                   disabled={loading}
-                  className="w-full rounded-lg border border-[--border] bg-[--muted] px-4 py-3 text-left transition-colors hover:border-teal-400 hover:bg-teal-400/5 disabled:opacity-50"
+                  className="w-full rounded-lg border border-[--border] bg-[--muted] px-4 py-3 text-left transition-colors hover:border-[--primary] hover:bg-[--primary]/5 disabled:opacity-50"
                 >
                   <p className="font-medium">{p.event.name}</p>
                   <p className="text-xs text-[--muted-foreground]">

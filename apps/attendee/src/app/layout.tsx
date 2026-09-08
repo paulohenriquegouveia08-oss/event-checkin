@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Event Check-in",
-  description: "Portal do participante - Acesse seu QR code para check-in",
+  title: "Credenciamento · LSPK",
+  description: "Acesse seu QR Code, comprovante de presença e certificado.",
 };
 
 export default function RootLayout({

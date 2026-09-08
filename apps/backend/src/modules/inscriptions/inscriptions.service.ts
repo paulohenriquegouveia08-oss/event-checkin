@@ -93,7 +93,35 @@ export async function createInscription(
     });
   });
 
-  // 3. Gera a cobrança no PicPay
+  // 3. INSCRIÇÃO GRATUITA CONFIRMA NA HORA.
+  //
+  // Sem isto, um evento sem custo entraria no fluxo de pagamento: uma
+  // cobrança de R$ 0,00 no PicPay, a inscrição parada em PENDING e o
+  // participante nunca criado — ou seja, sem QR Code e sem certificado,
+  // esperando para sempre um webhook que não vem.
+  //
+  // Confirma pelo MESMO caminho do pagamento aprovado (cria o
+  // Participant com qrToken, marca CONFIRMED, dispara o comprovante), e
+  // não por um atalho paralelo: um segundo caminho para o mesmo destino
+  // é o que ninguém testa.
+  if (amount === 0) {
+    const confirmada = await confirmInscriptionPayment(inscription.id);
+    return {
+      id: confirmada.id,
+      eventId: confirmada.eventId,
+      name: confirmada.name,
+      email: confirmada.email,
+      status: confirmada.status,
+      amount: 0,
+      category,
+      gratuita: true,
+      paymentUrl: null,
+      qrCodeBase64: null,
+      qrCodeContent: null,
+    };
+  }
+
+  // 4. Gera a cobrança no PicPay
   const nameParts = input.name.trim().split(/\s+/);
   const firstName = nameParts[0] || "Participante";
   const lastName = nameParts.slice(1).join(" ") || "COPOL";

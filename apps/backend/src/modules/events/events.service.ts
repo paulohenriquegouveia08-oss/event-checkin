@@ -1,4 +1,5 @@
 import type { Event } from "@prisma/client";
+import { prisma } from "../../database/prisma.js";
 import { NotFoundError } from "../../shared/errors.js";
 import * as eventsRepository from "./events.repository.js";
 import type { CreateEventInput, UpdateEventInput } from "./events.schema.js";
@@ -49,6 +50,40 @@ export async function listEvents() {
 export async function listActiveEvents() {
   const events = await eventsRepository.listActiveEvents();
   return events.map(toPublicEvent);
+}
+
+/**
+ * O evento pelo endereço público (slug).
+ *
+ * Existe para a página de inscrição não precisar do UUID cravado no
+ * front-end — um id no código é o tipo de coisa que sobrevive ao evento
+ * e aponta para o lugar errado no ano seguinte.
+ *
+ * Devolve a forma PÚBLICA: nada de configuração interna, e apenas eventos
+ * ativos. Um evento fechado responde 404 aqui de propósito.
+ */
+export async function getPublicEventBySlug(slug: string) {
+  const event = await prisma.event.findUnique({ where: { slug } });
+  if (!event || event.status !== "ACTIVE") {
+    throw new NotFoundError("Evento não encontrado");
+  }
+
+  const publico = toPublicEvent(event);
+  return {
+    id: publico.id,
+    name: publico.name,
+    description: publico.description,
+    location: publico.location,
+    startDate: publico.startDate,
+    endDate: publico.endDate,
+    slug: publico.slug,
+    timezone: publico.timezone,
+    registrationsOpen: publico.registrationsOpen,
+    // Cru, como está salvo: a página de inscrição usa campos próprios
+    // (tema, destaques) que o resolvedor do site do COPOL não conhece e
+    // descartaria.
+    siteContent: event.siteContent,
+  };
 }
 
 async function findEventOrThrow(eventId: string) {

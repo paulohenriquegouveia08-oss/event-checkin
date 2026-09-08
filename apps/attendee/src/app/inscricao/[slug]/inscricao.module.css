@@ -1,0 +1,208 @@
+/*
+ * Cores tiradas da arte do certificado, pixel a pixel — o roxo #55079B é
+ * o do título "CERTIFICADO" e o da logo da Semantix. Quem se inscreve e
+ * depois recebe o certificado precisa reconhecer o mesmo evento.
+ */
+.pagina {
+  --roxo: #55079b;
+  --roxo-escuro: #33055e;
+  --roxo-claro: #f4ecfb;
+  --tinta: #1a1033;
+  --tinta-fraca: #6b6480;
+  --linha: #e6e0f0;
+
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: 0 1.25rem 3rem;
+  max-width: 720px;
+  color: var(--tinta);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: #fff;
+}
+
+/* A onda colorida da arte, reduzida a uma faixa. */
+.faixaTopo,
+.faixaRodape {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #7b2fd6, #2e86e0, #1bb8c4, #6dc04b, #f2c230);
+}
+.faixaTopo { margin: 1.25rem 0 2rem; }
+.faixaRodape { margin-top: 2.5rem; }
+
+.hero { text-align: left; }
+
+.sobreTitulo {
+  margin: 0 0 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--roxo);
+}
+
+.titulo {
+  margin: 0;
+  font-size: clamp(2rem, 8vw, 3rem);
+  line-height: 1.05;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--roxo);
+  text-wrap: balance;
+}
+
+.subtitulo {
+  margin: 0.4rem 0 0;
+  font-size: clamp(1.05rem, 4vw, 1.35rem);
+  font-weight: 600;
+  color: var(--tinta);
+}
+
+.texto {
+  margin: 1rem 0 0;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--tinta-fraca);
+  max-width: 60ch;
+}
+
+.fatos {
+  list-style: none;
+  margin: 1.75rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.fatos li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.85rem 1rem;
+  border-radius: 0.7rem;
+  background: var(--roxo-claro);
+  border: 1px solid var(--linha);
+}
+
+.fatoRotulo {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--roxo);
+}
+
+.fatos strong { font-size: 0.95rem; font-weight: 600; }
+
+.destaques {
+  margin-top: 2rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.destaque {
+  padding: 1rem 1.1rem;
+  border-left: 3px solid var(--roxo);
+  background: #fbf9fe;
+  border-radius: 0 0.6rem 0.6rem 0;
+}
+
+.destaque h2 { margin: 0 0 0.25rem; font-size: 0.95rem; color: var(--roxo-escuro); }
+.destaque p { margin: 0; font-size: 0.9rem; line-height: 1.55; color: var(--tinta-fraca); }
+
+.cartao {
+  margin-top: 2.5rem;
+  padding: 1.5rem 1.25rem;
+  border: 1px solid var(--linha);
+  border-radius: 1rem;
+  box-shadow: 0 10px 30px rgba(85, 7, 155, 0.07);
+}
+
+.tituloForm { margin: 0 0 1.25rem; font-size: 1.25rem; color: var(--roxo-escuro); }
+.tituloErro { margin: 0 0 0.5rem; font-size: 1.25rem; color: var(--roxo-escuro); }
+
+.form { display: grid; gap: 1rem; }
+
+.dupla { display: grid; gap: 1rem; grid-template-columns: 1fr 1fr; }
+@media (max-width: 460px) {
+  .dupla { grid-template-columns: 1fr; }
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--tinta);
+}
+
+.campo input {
+  /* 16px evita o zoom automático do iOS ao focar o campo. */
+  font-size: 16px;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--linha);
+  border-radius: 0.6rem;
+  background: #fff;
+  color: var(--tinta);
+  font-family: inherit;
+}
+
+.campo input:focus-visible {
+  outline: 2px solid var(--roxo);
+  outline-offset: 1px;
+  border-color: var(--roxo);
+}
+
+.campo small { font-weight: 400; font-size: 0.78rem; color: var(--tinta-fraca); }
+
+.aceite {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--tinta-fraca);
+}
+
+.aceite input { margin-top: 0.15rem; width: 1.1rem; height: 1.1rem; accent-color: var(--roxo); flex: none; }
+
+.botao {
+  padding: 0.95rem 1.25rem;
+  border: 0;
+  border-radius: 0.7rem;
+  background: var(--roxo);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.botao:disabled { opacity: 0.6; cursor: progress; }
+.botao:hover:not(:disabled) { background: var(--roxo-escuro); }
+
+.erro {
+  margin: 0;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.5rem;
+  background: #fdecec;
+  border: 1px solid #f5c2c2;
+  color: #9b1c1c;
+  font-size: 0.88rem;
+}
+
+.fechado {
+  margin: 0;
+  padding: 1rem;
+  border-radius: 0.6rem;
+  background: var(--roxo-claro);
+  color: var(--roxo-escuro);
+  font-weight: 600;
+  text-align: center;
+}
+
+.rodapeForm { margin: 0; text-align: center; font-size: 0.85rem; color: var(--tinta-fraca); }
+.rodapeForm a { color: var(--roxo); font-weight: 600; }
+
+.aviso { padding: 3rem 0; text-align: center; color: var(--tinta-fraca); }

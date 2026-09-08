@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { proxyRequest } from "../../proxy";
+import { cabecalhosDeOrigem, proxyRequest } from "../../proxy";
 
 /**
  * Cria a inscrição.
@@ -24,13 +24,10 @@ export async function POST(request: NextRequest) {
   // encaminhar, o backend registraria o IP do próprio contêiner como
   // prova do consentimento — o mesmo endereço para todo mundo, o que não
   // prova nada (LGPD art. 8º, §1º).
-  const origem =
-    request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip") ?? "";
-
   const res = await proxyRequest(`/events/${encodeURIComponent(eventId)}/inscriptions`, {
     method: "POST",
     body: JSON.stringify(corpo),
-    headers: origem ? { "x-forwarded-for": origem } : {},
+    headers: cabecalhosDeOrigem(request),
   });
   const data = await res.json();
   return NextResponse.json(data, { status: res.status });

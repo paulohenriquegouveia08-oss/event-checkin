@@ -105,3 +105,15 @@ describe("chave de idempotência", () => {
     expect(chaveDeIdempotencia("t".repeat(300), "x".repeat(300)).length).toBeLessThanOrEqual(256);
   });
 });
+
+describe("remetente de provedor gratuito", () => {
+  it("gmail.com é recusado com explicação própria, não com 'verifique o domínio'", async () => {
+    // O erro genérico sugere que bastaria verificar. Verificar gmail.com
+    // exigiria criar DNS no domínio do Google — é impossível, não é uma
+    // etapa pendente. Confundir as duas coisas custa dias de tentativa.
+    const { conferirRemetente } = await import("../src/lib/email/dominios-verificados.js");
+    const r = await conferirRemetente("alguem@gmail.com");
+    expect(r.ok).toBe(false);
+    expect(r.mensagem).toMatch(/impossível/i);
+  });
+});

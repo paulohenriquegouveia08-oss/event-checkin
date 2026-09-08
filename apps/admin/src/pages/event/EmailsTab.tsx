@@ -97,9 +97,14 @@ export function EmailsTab({ eventId }: { eventId: string }) {
       <section className="card">
         <h3>Remetente</h3>
         <p className="muted">
-          O domínio do endereço remetente precisa estar <strong>verificado no Resend</strong>.
-          Sem isso o envio é recusado e ninguém recebe — vale conferir antes do evento,
-          e não no dia.
+          <strong>O evento não precisa ter domínio próprio.</strong> Quem envia é a LSPK:
+          um domínio nosso, verificado uma vez, serve todos os eventos. O que muda por
+          evento é o <strong>nome exibido</strong> e o <strong>responder para</strong>.
+        </p>
+        <p className="muted">
+          Só troque o endereço se for de um domínio já verificado no Resend — o sistema
+          confere ao salvar e recusa se não estiver, porque o envio seria rejeitado e
+          ninguém receberia nada.
         </p>
 
         <form onSubmit={salvar} className="stack">
@@ -111,7 +116,10 @@ export function EmailsTab({ eventId }: { eventId: string }) {
               onChange={(e) => campo("fromName", e.target.value)}
               placeholder="Semantix 2026"
             />
-            <small className="muted">É o que aparece na caixa de entrada. Em branco = padrão do sistema.</small>
+            <small className="muted">
+              É o que aparece na caixa de entrada — é isto que identifica o evento para o
+              participante. Em branco = padrão do sistema.
+            </small>
           </label>
 
           <label>
@@ -120,8 +128,12 @@ export function EmailsTab({ eventId }: { eventId: string }) {
               type="email"
               value={form.fromEmail ?? ""}
               onChange={(e) => campo("fromEmail", e.target.value)}
-              placeholder="contato@semantix.com.br"
+              placeholder="eventos@seudominio.com.br"
             />
+            <small className="muted">
+              Precisa ser de um domínio verificado no Resend. Em branco = o remetente
+              padrão do sistema, que já é um domínio nosso.
+            </small>
           </label>
 
           <label>
@@ -130,11 +142,12 @@ export function EmailsTab({ eventId }: { eventId: string }) {
               type="email"
               value={form.replyTo ?? ""}
               onChange={(e) => campo("replyTo", e.target.value)}
-              placeholder="atendimento@semantix.com.br"
+              placeholder="contato@semantix.com.br"
             />
             <small className="muted">
-              Para onde vai a resposta de quem apertar "responder". Útil quando o
-              remetente é um endereço que ninguém lê.
+              Para onde vai a resposta de quem apertar "responder". É aqui que se põe o
+              contato da organização do evento — a dúvida do participante é dela, e não
+              nossa, mesmo saindo do nosso endereço.
             </small>
           </label>
 

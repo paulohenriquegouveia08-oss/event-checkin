@@ -4,6 +4,8 @@ import { ok } from "../../shared/response.js";
 import { recordAudit } from "../audit/audit.service.js";
 import * as eventsService from "./events.service.js";
 import { createEventSchema, eventIdParamsSchema, updateEventSchema } from "./events.schema.js";
+import { conferirRemetente } from "../../lib/email/dominios-verificados.js";
+import { ValidationError } from "../../shared/errors.js";
 
 export async function eventsRoutes(app: FastifyInstance) {
   app.post("/events", { preHandler: requirePermission("events.create") }, async (request, reply) => {
@@ -40,9 +42,28 @@ export async function eventsRoutes(app: FastifyInstance) {
   app.patch("/events/:eventId", { preHandler: requirePermission("events.edit") }, async (request) => {
     const { eventId } = eventIdParamsSchema.parse(request.params);
     const input = updateEventSchema.parse(request.body);
+
+    // Remetente inválido é recusado AQUI, e não descoberto no evento.
+    //
+    // O Resend responde 403 a qualquer envio de domínio não verificado, e
+    // essa recusa só apareceria quando o primeiro participante se
+    // inscrevesse — no log, com ninguém olhando. Conferir na hora de
+    // salvar troca "ninguém recebeu comprovante" por uma mensagem de erro
+    // para quem ainda pode consertar.
+    let avisoDoRemetente: string | undefined;
+    if (input.emailSettings?.fromEmail) {
+      const veredito = await conferirRemetente(input.emailSettings.fromEmail);
+      if (!veredito.ok) {
+        throw new ValidationError(veredito.mensagem ?? "Remetente inválido.");
+      }
+      avisoDoRemetente = veredito.mensagem;
+    }
+
     const event = await eventsService.updateEvent(eventId, input);
     await recordAudit(request, "event.update", "Event", eventId);
-    return ok(event);
+    // O aviso vai junto do evento: instabilidade do Resend não reprova a
+    // gravação, mas quem salvou precisa saber que não foi conferido.
+    return ok(avisoDoRemetente ? { ...event, avisoDoRemetente } : event);
   });
 
   // Encerra/retoma inscrições manualmente, independente do

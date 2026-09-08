@@ -54,6 +54,14 @@ services:
       # rebuild (ver certificate-storage.ts).
       STORAGE_DIR: /app/apps/backend/storage
       CERTIFICATE_VALIDATION_BASE_URL: ${CERTIFICATE_VALIDATION_BASE_URL}
+      # E-mail (Resend). PRECISAM estar aqui: a chave existir no .env da
+      # VPS nao basta, o container so enxerga o que esta nesta lista — e
+      # sem a chave o sistema NAO envia e NAO da erro, so registra no log.
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      # Endereco de fallback do botao "Acessar pagina do evento", para
+      # evento que nao configurou o proprio site na aba E-mails.
+      PRE_COPOL_BASE_URL: ${PRE_COPOL_BASE_URL:-}
     volumes:
       - certificates_storage:/app/apps/backend/storage
     ports:

@@ -30,7 +30,24 @@ const caixaDeTexto = z.object({
   yBase: z.number().int().min(0).max(5000),
 });
 
+const corHex = z.string().trim().regex(/^#[0-9A-Fa-f]{6}$/, "Cor inválida — use #RRGGBB");
+
 export const certificateLayoutSchema = z.object({
+  /**
+   * As cores DESTA arte.
+   *
+   * Existem aqui, e não só em `certificateSettings`, porque a cor é
+   * propriedade da imagem: o nome escrito por cima precisa combinar com
+   * o que está impresso embaixo. Sem isto, todo evento novo herdava o
+   * verde do COPOL — foi o que fez o nome sair verde sobre a arte roxa
+   * da Semantix.
+   *
+   * A escolha do evento (`certificateSettings.primaryColor`) continua
+   * ganhando quando existir: o modelo dá o padrão, não a ordem.
+   */
+  corPrincipal: corHex.optional(),
+  corDoTexto: corHex.optional(),
+
   /**
    * Dimensões da imagem-base, em pixels.
    *
@@ -118,6 +135,8 @@ export const LAYOUT_PADRAO: Required<
   CertificateLayout = {
   imagemLargura: 1491,
   imagemAltura: 1055,
+  corPrincipal: "#044544",
+  corDoTexto: "#1A1A1A",
   nome: { xEsquerda: 478, xDireita: 1351, yBase: 372, alinhamento: "centro", fonte: "serifada" },
   paragrafo: { xEsquerda: 478, xDireita: 1330, yTopo: 470, alturaDaLinha: 40 },
   chipData: { x: 508, xDireita: 722, yLinha1: 973, yLinha2: 1000 },

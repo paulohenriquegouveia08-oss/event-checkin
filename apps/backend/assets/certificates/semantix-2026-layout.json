@@ -13,5 +13,11 @@
   "paragrafo": null,
   "chipData": null,
   "assinaturas": null,
-  "qr": { "xEsquerda": 1310, "yTopo": 880, "tamanho": 120 }
+  "qr": {
+    "xEsquerda": 1310,
+    "yTopo": 880,
+    "tamanho": 120
+  },
+  "corPrincipal": "#0B0B52",
+  "corDoTexto": "#000048"
 }

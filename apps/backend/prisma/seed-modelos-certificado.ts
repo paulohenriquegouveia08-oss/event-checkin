@@ -27,6 +27,11 @@ const MODELOS = [
     // Medido no próprio arquivo: a linha roxa sob o nome está em y=514,
     // de x=142 a x=1047; a região do QR foi conferida como 100% branca.
     layout: {
+      // Amostradas da propria arte: o texto impresso e azul-marinho
+      // escuro, nao o roxo do titulo. Sem isto o nome herdava o verde do
+      // COPOL, que e o padrao do sistema.
+      corPrincipal: "#0B0B52",
+      corDoTexto: "#000048",
       nome: { xEsquerda: 142, xDireita: 1047, yBase: 498, tamanhoMaximo: 62, alinhamento: "esquerda", fonte: "sem-serifa" },
       paragrafo: null,
       chipData: null,
@@ -40,7 +45,20 @@ async function main() {
   for (const m of MODELOS) {
     const jaExiste = await prisma.certificateTemplate.findFirst({ where: { name: m.nome } });
     if (jaExiste) {
-      console.log(`— "${m.nome}" já está cadastrado (${jaExiste.id}); nada a fazer.`);
+      // Já cadastrado: atualiza só o LAYOUT, nunca a arte.
+      //
+      // É o que permite corrigir uma cor ou uma coordenada rodando o
+      // script de novo, sem reenviar a imagem e sem apagar e recriar o
+      // modelo — que os eventos já apontam e por isso nem pode ser
+      // apagado.
+      const atualLayout = JSON.stringify(jaExiste.layout);
+      const novoLayout = JSON.stringify(m.layout);
+      if (atualLayout === novoLayout) {
+        console.log(`— "${m.nome}" já está cadastrado e igual; nada a fazer.`);
+      } else {
+        await prisma.certificateTemplate.update({ where: { id: jaExiste.id }, data: { layout: m.layout } });
+        console.log(`✓ "${m.nome}": layout atualizado (arte preservada).`);
+      }
       continue;
     }
 

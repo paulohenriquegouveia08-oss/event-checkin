@@ -161,6 +161,31 @@ async function resolverArteELayout(
   };
 }
 
+/**
+ * De onde sai a cor do texto desenhado sobre a arte.
+ *
+ * Ordem: escolha do EVENTO > cor do MODELO > padrão do sistema.
+ *
+ * O degrau do meio faltava, e o padrão do sistema é o verde do COPOL —
+ * então um evento que apenas selecionou uma arte nova herdava o verde, e
+ * o nome do participante saía verde sobre a arte roxa da Semantix.
+ *
+ * Uma função só porque são dois chamadores (o certificado real e o teste
+ * de emissão do painel): cada um decidindo por conta própria é como o
+ * teste passa a mentir sobre o documento verdadeiro.
+ */
+function resolverCores(
+  event: { certificateSettings?: unknown },
+  layout: { corPrincipal?: string; corDoTexto?: string },
+  settings: ReturnType<typeof resolveCertificateSettings>,
+): { principal: string; texto: string } {
+  const doEvento = (event.certificateSettings ?? {}) as { primaryColor?: string; textColor?: string };
+  return {
+    principal: doEvento.primaryColor || layout.corPrincipal || settings.primaryColor,
+    texto: doEvento.textColor || layout.corDoTexto || settings.textColor,
+  };
+}
+
 async function loadEventOrThrow(eventId: string) {
   const event = await repo.findEventById(eventId);
   if (!event) throw new NotFoundError("Evento não encontrado");
@@ -257,6 +282,8 @@ export async function getOrGenerateCertificatePdf(eventId: string, participantId
 
   const arte = await resolverArteELayout(event, settings);
 
+  const cores = resolverCores(event, arte.layout, settings);
+
   const buffer = await renderCertificatePdf({
     participantName: participant.name,
     eventName: event.name,
@@ -269,8 +296,8 @@ export async function getOrGenerateCertificatePdf(eventId: string, participantId
     backgroundBytes: arte.backgroundBytes,
     layout: arte.layout,
     signatories: await resolveSignatoryImages(settings.signatories),
-    primaryColor: settings.primaryColor,
-    textColor: settings.textColor,
+    primaryColor: cores.principal,
+    textColor: cores.texto,
   });
 
   await certificateStorage.save(fileKey, buffer);
@@ -359,6 +386,7 @@ export async function generateTestCertificatePdf(eventId: string, participantNam
   const settings = resolveCertificateSettings(event.certificateSettings);
 
   const arte = await resolverArteELayout(event, settings);
+  const cores = resolverCores(event, arte.layout, settings);
 
   return renderCertificatePdf({
     participantName,
@@ -372,8 +400,8 @@ export async function generateTestCertificatePdf(eventId: string, participantNam
     backgroundBytes: arte.backgroundBytes,
     layout: arte.layout,
     signatories: await resolveSignatoryImages(settings.signatories),
-    primaryColor: settings.primaryColor,
-    textColor: settings.textColor,
+    primaryColor: cores.principal,
+    textColor: cores.texto,
   });
 }
 

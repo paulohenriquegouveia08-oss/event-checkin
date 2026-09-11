@@ -67,9 +67,88 @@ const DEFAULT_SECTIONS: SiteSectionConfig[] = [
   { id: "faq", type: "faq", title: "Dúvidas Frequentes", enabled: true, order: 6 },
 ];
 
+const DEFAULT_COPOL_BATCHES: BatchItem[] = [
+  {
+    id: "cc96d201-03a4-455c-bac2-070ffa0fee85",
+    batchNumber: 1,
+    name: "1º Lote — Promocional",
+    price: 100,
+    maxQuantity: 60,
+    confirmedCount: 0,
+    status: "ACTIVE",
+    isActive: true,
+    endDate: null,
+  },
+  {
+    id: "b87d7a32-ec44-44ef-95dd-47a9c1174b99",
+    batchNumber: 2,
+    name: "2º Lote",
+    price: null,
+    maxQuantity: 80,
+    confirmedCount: 0,
+    status: "UPCOMING",
+    isActive: false,
+    endDate: null,
+  },
+  {
+    id: "f33476bf-cefa-4b6b-aa7f-7f13ba5d1c5b",
+    batchNumber: 3,
+    name: "3º Lote",
+    price: null,
+    maxQuantity: 100,
+    confirmedCount: 0,
+    status: "UPCOMING",
+    isActive: false,
+    endDate: null,
+  },
+  {
+    id: "4903225b-cb7c-476e-8706-634f0eff7307",
+    batchNumber: 4,
+    name: "4º Lote",
+    price: null,
+    maxQuantity: null,
+    confirmedCount: 0,
+    status: "UPCOMING",
+    isActive: false,
+    endDate: null,
+  },
+];
+
+const DEFAULT_COPOL_EVENT: EventData = {
+  id: "f1b36d08-e85d-459b-8606-69119ab05a78",
+  name: "Copol",
+  description: "3º Congresso Odontológico Positivo Londrinense",
+  location: "Universidade Positivo",
+  startDate: "2026-11-05T10:30:00.000Z",
+  endDate: "2026-11-08T01:00:00.000Z",
+  status: "ACTIVE",
+  registrationDeadline: null,
+  registrationsOpen: true,
+  siteContent: {
+    eventTitle: "Copol",
+    eventYear: "2026",
+    heroBadge: "3º COPOL · Congresso Odontológico Positivo Londrinense",
+    heroSubtitle: "Um encontro para compartilhar conhecimento, experiências e inovação em Odontologia.",
+    aboutTitle: "Conhecimento que transforma a Odontologia",
+    aboutText: "O 3º COPOL — Congresso Odontológico Positivo Londrinense reúne estudantes, professores e profissionais da Odontologia em um ambiente dedicado à troca de conhecimento, atualização científica e integração.\n\nEm sua terceira edição, o COPOL busca aproximar a comunidade acadêmica e profissional, proporcionando uma experiência de aprendizado, conexão e compartilhamento de experiências.",
+    stepsTitle: "Da inscrição ao credenciamento",
+    steps: [
+      { title: "Inscreva-se", text: "Preencha seus dados e garanta sua participação no COPOL 2026." },
+      { title: "Confirme sua inscrição", text: "Após a inscrição, siga as instruções de pagamento enviadas para o seu e-mail." },
+      { title: "Participe do evento", text: "No dia do evento, apresente seu QR Code e faça seu credenciamento na entrada." },
+    ],
+    pricingTitle: "Garanta sua participação",
+    pricingTiers: [],
+    partnersTitle: "Realização e apoio",
+    partnersText: "Universidade Positivo, Ecohub e LSPK Tecnology apoiam o Pré-Copol 2026.",
+    footerText: "3º COPOL Congresso Odontológico Positivo Londrinense",
+    sections: DEFAULT_SECTIONS,
+  },
+};
+
 export default function HomePage() {
-  const [events, setEvents] = useState<EventData[]>([]);
-  const [batches, setBatches] = useState<BatchItem[]>([]);
+  const [events, setEvents] = useState<EventData[]>([DEFAULT_COPOL_EVENT]);
+  const [batches, setBatches] = useState<BatchItem[]>(DEFAULT_COPOL_BATCHES);
   const [schedule, setSchedule] = useState<ScheduleItem[]>(COPOL_FALLBACK_SCHEDULE);
   const [selectedScheduleDay, setSelectedScheduleDay] = useState<string>("2026-11-05");
   const [loading, setLoading] = useState(true);
@@ -116,24 +195,34 @@ export default function HomePage() {
   useEffect(() => {
     listActiveEvents()
       .then(async (evts) => {
-        setEvents(evts);
-        const main = evts[0];
-        if (main) {
+        let activeEvent = evts.find((e) => e.name.toLowerCase().includes("copol") || e.slug === "copol") ?? evts[0];
+        if (!activeEvent) {
+          activeEvent = DEFAULT_COPOL_EVENT;
+          setEvents([DEFAULT_COPOL_EVENT]);
+        } else {
+          setEvents(evts);
+        }
+
+        if (activeEvent) {
           const [bData, sData] = await Promise.all([
-            getBatches(main.id).catch(() => ({ batches: [], activeBatch: null })),
-            getSchedule(main.id).catch(() => []),
+            getBatches(activeEvent.id).catch(() => ({ batches: [], activeBatch: null })),
+            getSchedule(activeEvent.id).catch(() => []),
           ]);
-          setBatches(bData.batches);
+          if (bData && bData.batches && bData.batches.length > 0) {
+            setBatches(bData.batches);
+          } else {
+            setBatches(DEFAULT_COPOL_BATCHES);
+          }
           if (sData && sData.length > 0) {
             setSchedule(sData);
           } else {
             setSchedule(COPOL_FALLBACK_SCHEDULE);
           }
-        } else {
-          setSchedule(COPOL_FALLBACK_SCHEDULE);
         }
       })
       .catch(() => {
+        setEvents([DEFAULT_COPOL_EVENT]);
+        setBatches(DEFAULT_COPOL_BATCHES);
         setSchedule(COPOL_FALLBACK_SCHEDULE);
       })
       .finally(() => setLoading(false));
@@ -162,14 +251,15 @@ export default function HomePage() {
     return () => clearTimeout(timer);
   }, [events, batches, schedule, selectedScheduleDay]);
 
-  const mainEvent = events[0];
-  const activeBatch = batches.find((b) => b.isActive && (b.maxQuantity === null || b.confirmedCount < b.maxQuantity)) ?? null;
-  const isSoldOutActive = batches.some((b) => (b.isActive && b.maxQuantity !== null && b.confirmedCount >= b.maxQuantity) || (b.status === "CLOSED" && b.batchNumber === 1 && !batches.some(other => other.isActive && other.status === "ACTIVE")));
-  const registrationsOpen = (mainEvent?.registrationsOpen ?? true) && (Boolean(activeBatch) || batches.length === 0);
+  const mainEvent = events.find((e) => e.name.toLowerCase().includes("copol") || e.slug === "copol") ?? events[0] ?? DEFAULT_COPOL_EVENT;
+  const effectiveBatches = batches && batches.length > 0 ? batches : DEFAULT_COPOL_BATCHES;
+  const activeBatch = effectiveBatches.find((b) => b.isActive && (b.maxQuantity === null || b.confirmedCount < b.maxQuantity)) ?? null;
+  const isSoldOutActive = effectiveBatches.some((b) => (b.isActive && b.maxQuantity !== null && b.confirmedCount >= b.maxQuantity) || (b.status === "CLOSED" && b.batchNumber === 1 && !effectiveBatches.some(other => other.isActive && other.status === "ACTIVE")));
+  const registrationsOpen = (mainEvent?.registrationsOpen ?? true) && (Boolean(activeBatch) || effectiveBatches.length === 0);
   const effectiveSchedule = schedule && schedule.length > 0 ? schedule : COPOL_FALLBACK_SCHEDULE;
   
   // Prioriza o conteúdo ao vivo enviado pelo editor do Admin
-  const content = liveContent ?? mainEvent?.siteContent;
+  const content = liveContent ?? mainEvent?.siteContent ?? DEFAULT_COPOL_EVENT.siteContent;
 
   let rawPrimary = content?.theme?.primaryColor || "#2DD4BF";
   if (rawPrimary.toUpperCase() === "#0E3634" || rawPrimary.toUpperCase() === "#0B2928") {
@@ -365,10 +455,6 @@ export default function HomePage() {
                           Ver Programação Completa
                         </Link>
                       </div>
-
-                      {!loading && events.length === 0 ? (
-                        <p style={{ color: "var(--muted-foreground)" }}>Nenhum evento disponível no momento.</p>
-                      ) : null}
                     </div>
                   </section>
                 );
@@ -633,7 +719,7 @@ export default function HomePage() {
 
               /* ---------- 4. LOTES & INSCRIÇÃO ---------- */
               case "batches": {
-                const activeBatchItem = batches.find((b) => b.isActive) ?? null;
+                const activeBatchItem = effectiveBatches.find((b) => b.isActive) ?? null;
                 const activeNum = activeBatchItem?.batchNumber ?? 1;
 
                 return (
@@ -650,7 +736,7 @@ export default function HomePage() {
                       </div>
 
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 20, alignItems: "stretch" }}>
-                        {batches.map((b, idx) => {
+                        {effectiveBatches.map((b, idx) => {
                           const isSoldOut = b.maxQuantity !== null && b.confirmedCount >= b.maxQuantity;
                           const isCurrentlyActive = b.isActive && !isSoldOut && b.status === "ACTIVE";
                           const isClosed = b.status === "CLOSED" || isSoldOut || (!b.isActive && b.batchNumber < activeNum);

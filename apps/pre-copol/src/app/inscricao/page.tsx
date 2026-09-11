@@ -50,6 +50,47 @@ function InscriptionContent() {
   // versao do termo, nao um "true" solto.
   const [aceitou, setAceitou] = useState(false);
 
+const FALLBACK_EVENT_ID = "f1b36d08-e85d-459b-8606-69119ab05a78";
+
+const FALLBACK_BATCH: BatchItem = {
+  id: "cc96d201-03a4-455c-bac2-070ffa0fee85",
+  batchNumber: 1,
+  name: "1º Lote — Promocional",
+  price: 100,
+  maxQuantity: 60,
+  confirmedCount: 0,
+  status: "ACTIVE",
+  isActive: true,
+  endDate: null,
+};
+
+const FALLBACK_EVENT: EventData = {
+  id: FALLBACK_EVENT_ID,
+  name: "Copol",
+  description: "3º Congresso Odontológico Positivo Londrinense",
+  location: "Universidade Positivo",
+  startDate: "2026-11-05T10:30:00.000Z",
+  endDate: "2026-11-08T01:00:00.000Z",
+  status: "ACTIVE",
+  registrationDeadline: null,
+  registrationsOpen: true,
+  siteContent: {
+    eventTitle: "Copol",
+    eventYear: "2026",
+    heroBadge: "3º COPOL · Congresso Odontológico Positivo Londrinense",
+    heroSubtitle: "Um encontro para compartilhar conhecimento, experiências e inovação em Odontologia.",
+    aboutTitle: "Conhecimento que transforma a Odontologia",
+    aboutText: "O 3º COPOL reúne estudantes, professores e profissionais da Odontologia.",
+    stepsTitle: "Da inscrição ao credenciamento",
+    steps: [],
+    pricingTitle: "Garanta sua participação",
+    pricingTiers: [],
+    partnersTitle: "Realização e apoio",
+    partnersText: "Universidade Positivo",
+    footerText: "3º COPOL",
+  },
+};
+
   useEffect(() => {
     let isMounted = true;
 
@@ -58,27 +99,34 @@ function InscriptionContent() {
         let targetId = eventId;
         if (!targetId) {
           const activeList = await listActiveEvents().catch(() => []);
-          if (activeList.length > 0 && activeList[0]) {
-            targetId = activeList[0].id;
+          const copolEv =
+            activeList.find((e) => e.slug === "copol" || e.name.toLowerCase().includes("copol")) ||
+            activeList[0];
+          if (copolEv) {
+            targetId = copolEv.id;
+          } else {
+            targetId = FALLBACK_EVENT_ID;
           }
         }
 
-        if (!targetId) {
-          if (isMounted) setLoading(false);
-          return;
-        }
-
         const [eventData, batchData] = await Promise.all([
-          getEvent(targetId),
-          getBatches(targetId).catch(() => ({ batches: [], activeBatch: null })),
+          getEvent(targetId).catch(() => FALLBACK_EVENT),
+          getBatches(targetId).catch(() => ({ batches: [FALLBACK_BATCH], activeBatch: FALLBACK_BATCH })),
         ]);
 
         if (isMounted) {
-          setEvent(eventData);
-          setActiveBatch(batchData.activeBatch);
+          setEvent(eventData || FALLBACK_EVENT);
+          const resolvedActive =
+            batchData.activeBatch ||
+            batchData.batches.find((b) => b.isActive) ||
+            FALLBACK_BATCH;
+          setActiveBatch(resolvedActive);
         }
       } catch {
-        if (isMounted) setError("Evento não encontrado");
+        if (isMounted) {
+          setEvent(FALLBACK_EVENT);
+          setActiveBatch(FALLBACK_BATCH);
+        }
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -130,7 +178,7 @@ function InscriptionContent() {
 
     setSubmitting(true);
     try {
-      const targetId = eventId || event?.id;
+      const targetId = eventId || event?.id || FALLBACK_EVENT_ID;
       if (!targetId) {
         setError("Evento não identificado para inscrição.");
         setSubmitting(false);

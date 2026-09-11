@@ -75,6 +75,7 @@ export interface SiteContent {
 export interface EventData {
   id: string;
   name: string;
+  slug?: string | null;
   description: string | null;
   location: string | null;
   startDate: string;

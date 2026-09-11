@@ -203,40 +203,68 @@ export async function resolveActiveBatch(eventId: string, now: Date = new Date()
   // 1. Checa fixação manual ativa pelo administrador
   const manualActive = batches.find((b) => b.isActive && !b.isClosed);
   if (manualActive) {
+    const count = countMap.get(manualActive.id) ?? 0;
+    const isFull = manualActive.maxQuantity !== null && count >= manualActive.maxQuantity;
+    const isExpired = manualActive.endDate !== null && now > manualActive.endDate;
+
+    if (isFull || isExpired) {
+      // O lote ativo atingiu a capacidade máxima ou a data limite.
+      // O sistema fecha o lote no site e NÃO promove o próximo automaticamente.
+      // O próximo lote aguarda liberação manual pelo organizador via painel admin.
+      return {
+        activeBatch: null,
+        currentBatch: manualActive,
+        lote1Count: lote1 ? (countMap.get(lote1.id) ?? 0) : 0,
+        allBatches: batches,
+        countMap,
+      };
+    }
+
     return {
       activeBatch: manualActive,
+      currentBatch: manualActive,
       lote1Count: lote1 ? (countMap.get(lote1.id) ?? 0) : 0,
       allBatches: batches,
+      countMap,
     };
   }
 
-  // 2. Resolução automática por regras (data de início, data final, capacidade)
-  let resolvedActive: EventBatch | null = null;
+  // 2. Se nenhum lote foi fixado manualmente com isActive = true:
+  // O lote inicial padrão é o primeiro lote não fechado manualmente.
+  const defaultInitial = batches.find((b) => !b.isClosed);
+  if (defaultInitial) {
+    const count = countMap.get(defaultInitial.id) ?? 0;
+    const isFull = defaultInitial.maxQuantity !== null && count >= defaultInitial.maxQuantity;
+    const isExpired = defaultInitial.endDate !== null && now > defaultInitial.endDate;
+    const isNotStarted = defaultInitial.startDate !== null && now < defaultInitial.startDate;
 
-  for (const b of batches) {
-    if (b.isClosed) continue;
-
-    const count = countMap.get(b.id) ?? 0;
-    if (b.maxQuantity !== null && count >= b.maxQuantity) {
-      continue;
+    if (isFull || isExpired || isNotStarted) {
+      // O lote padrão fechou ou ainda não iniciou.
+      // NÃO passa para o lote seguinte automaticamente! Fica sem lote ativo até liberação manual.
+      return {
+        activeBatch: null,
+        currentBatch: defaultInitial,
+        lote1Count: lote1 ? (countMap.get(lote1.id) ?? 0) : 0,
+        allBatches: batches,
+        countMap,
+      };
     }
 
-    if (b.endDate !== null && now > b.endDate) {
-      continue;
-    }
-
-    if (b.startDate !== null && now < b.startDate) {
-      continue;
-    }
-
-    resolvedActive = b;
-    break;
+    return {
+      activeBatch: defaultInitial,
+      currentBatch: defaultInitial,
+      lote1Count: lote1 ? (countMap.get(lote1.id) ?? 0) : 0,
+      allBatches: batches,
+      countMap,
+    };
   }
 
   return {
-    activeBatch: resolvedActive,
+    activeBatch: null,
+    currentBatch: null,
     lote1Count: lote1 ? (countMap.get(lote1.id) ?? 0) : 0,
     allBatches: batches,
+    countMap,
   };
 }
 
@@ -248,31 +276,28 @@ export async function getBatchesOverview(
   eventId: string,
   options?: { hideUpcomingPrice?: boolean }
 ): Promise<BatchViewItem[]> {
-  const { activeBatch, allBatches } = await resolveActiveBatch(eventId);
+  const { activeBatch, allBatches, countMap, currentBatch } = await resolveActiveBatch(eventId);
   const activeId = activeBatch?.id ?? null;
-  const activeNum = activeBatch?.batchNumber ?? 999;
 
-  const countsByBatch = await prisma.inscription.groupBy({
-    by: ["batchId"],
-    where: { eventId, status: "CONFIRMED" },
-    _count: { id: true },
-  });
-
-  const countMap = new Map<string, number>();
-  countsByBatch.forEach((c) => {
-    if (c.batchId) countMap.set(c.batchId, c._count.id);
-  });
+  // Lote de referência para saber quais lotes já foram concluídos e quais são futuros.
+  // Se há lote ativo, usa o ativo. Se o ativo esgotou/fechou, usa o lote atual (currentBatch).
+  const referenceBatch = activeBatch ?? currentBatch ?? allBatches[0];
+  const referenceNum = referenceBatch ? referenceBatch.batchNumber : 1;
 
   return allBatches.map((b) => {
     const isThisActive = b.id === activeId;
     const confirmed = countMap.get(b.id) ?? 0;
+    const isFull = b.maxQuantity !== null && confirmed >= b.maxQuantity;
 
     let status: BatchViewItem["status"] = "UPCOMING";
-    if (b.isClosed) {
+    if (b.isClosed || isFull) {
       status = "CLOSED";
     } else if (isThisActive) {
       status = "ACTIVE";
-    } else if (b.batchNumber < activeNum) {
+    } else if (b.batchNumber < referenceNum) {
+      status = "CLOSED";
+    } else if (b.batchNumber === referenceNum && !activeBatch) {
+      // Era o lote da vez, mas esgotou / fechou!
       status = "CLOSED";
     } else {
       status = "UPCOMING";
@@ -291,7 +316,7 @@ export async function getBatchesOverview(
       endDate: b.endDate ? b.endDate.toISOString() : null,
       status,
       isActive: isThisActive,
-      isClosed: b.isClosed,
+      isClosed: b.isClosed || status === "CLOSED",
     };
   });
 }

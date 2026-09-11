@@ -27,6 +27,8 @@ import {
   ChevronDownIcon,
   GripVerticalIcon,
   SparkleIcon,
+  LockIcon,
+  ShieldCheckIcon,
 } from "@/components/Icons";
 
 const SCHEDULE_DAY_TABS = [
@@ -137,8 +139,33 @@ export default function HomePage() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Efeito de Revelação Suave ao Rolar (Scroll Reveal 60fps)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const timer = setTimeout(() => {
+      const elements = document.querySelectorAll(".scroll-reveal, .scroll-reveal-scale");
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add("is-visible");
+            }
+          });
+        },
+        { threshold: 0.08, rootMargin: "0px 0px -20px 0px" }
+      );
+
+      elements.forEach((el) => observer.observe(el));
+      return () => observer.disconnect();
+    }, 50);
+
+    return () => clearTimeout(timer);
+  }, [events, batches, schedule, selectedScheduleDay]);
+
   const mainEvent = events[0];
-  const registrationsOpen = mainEvent?.registrationsOpen ?? true;
+  const activeBatch = batches.find((b) => b.isActive && (b.maxQuantity === null || b.confirmedCount < b.maxQuantity)) ?? null;
+  const isSoldOutActive = batches.some((b) => (b.isActive && b.maxQuantity !== null && b.confirmedCount >= b.maxQuantity) || (b.status === "CLOSED" && b.batchNumber === 1 && !batches.some(other => other.isActive && other.status === "ACTIVE")));
+  const registrationsOpen = (mainEvent?.registrationsOpen ?? true) && (Boolean(activeBatch) || batches.length === 0);
   const effectiveSchedule = schedule && schedule.length > 0 ? schedule : COPOL_FALLBACK_SCHEDULE;
   
   // Prioriza o conteúdo ao vivo enviado pelo editor do Admin
@@ -212,14 +239,15 @@ export default function HomePage() {
               /* ---------- 1. HERO ---------- */
               case "hero":
                 return (
-                  <section style={{ ...sectionStyle, overflow: "hidden" }}>
+                  <section style={{ ...sectionStyle, overflow: "hidden", position: "relative" }}>
                     <div className="wave-bg" />
+                    <div className="hero-glow-backdrop" />
                     <div
-                      className="container-page animate-fade-up"
+                      className="container-page scroll-reveal is-visible"
                       style={{
                         position: "relative",
                         zIndex: 1,
-                        padding: "72px 24px 56px",
+                        padding: "80px 24px 64px",
                         display: "flex",
                         flexDirection: "column",
                         alignItems: "center",
@@ -227,12 +255,12 @@ export default function HomePage() {
                         gap: 24,
                       }}
                     >
-                      <div className="animate-float">
+                      <div className="animate-float img-entrance" style={{ filter: "drop-shadow(0 12px 32px rgba(45, 212, 191, 0.35))" }}>
                         <Image
                           src="/icon-mark.png"
                           alt="COPOL — Congresso de Odontologia de Londrina"
-                          width={84}
-                          height={80}
+                          width={90}
+                          height={86}
                           priority
                           title="Dois cliques para baixar o app leitor de QR Code (APK)"
                           style={{ cursor: "pointer", userSelect: "none" }}
@@ -245,18 +273,22 @@ export default function HomePage() {
                         />
                       </div>
 
-                      <span className="badge">{content?.heroBadge || "3º COPOL · Congresso Odontológico Positivo Londrinense"}</span>
+                      <span className="badge" style={{ padding: "8px 18px", fontSize: 13, gap: 8, boxShadow: "0 4px 20px rgba(45, 212, 191, 0.15)" }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--primary)", display: "inline-block", boxShadow: "0 0 10px var(--primary)" }} />
+                        {content?.heroBadge || "3º COPOL · Congresso Odontológico Positivo Londrinense"}
+                      </span>
 
-                      <h1 style={{ margin: 0, fontSize: "clamp(34px, 5.5vw, 60px)", fontWeight: 800, lineHeight: 1.1 }}>
-                        <span style={{ color: "var(--gold)" }}>{eventTitle}</span> {eventYear}
+                      <h1 style={{ margin: 0, fontSize: "clamp(36px, 5.8vw, 64px)", fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.03em" }}>
+                        <span className="text-gold-gradient">{eventTitle}</span> {eventYear}
                         <span
                           style={{
                             display: "block",
-                            fontSize: "clamp(18px, 2.8vw, 24px)",
+                            fontSize: "clamp(18px, 2.8vw, 25px)",
                             fontWeight: 600,
                             color: "var(--foreground)",
-                            marginTop: 8,
+                            marginTop: 10,
                             opacity: 0.95,
+                            letterSpacing: "-0.01em",
                           }}
                         >
                           Congresso de Odontologia de Londrina
@@ -266,10 +298,10 @@ export default function HomePage() {
                       <p
                         style={{
                           margin: 0,
-                          maxWidth: 620,
+                          maxWidth: 640,
                           fontSize: "clamp(16px, 2.4vw, 20px)",
                           color: "var(--muted-foreground)",
-                          lineHeight: 1.5,
+                          lineHeight: 1.6,
                         }}
                       >
                         {content?.heroSubtitle || "Toxina Botulínica: a ciência por trás do resultado natural."}
@@ -290,30 +322,47 @@ export default function HomePage() {
                         </div>
                       ) : null}
 
-                      {mainEvent ? <RegistrationStatus event={mainEvent} /> : null}
+                      {mainEvent ? <RegistrationStatus event={mainEvent} activeBatch={activeBatch} isSoldOutActive={isSoldOutActive} /> : null}
 
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center", marginTop: 8 }}>
-                        {mainEvent && registrationsOpen ? (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 14, justifyContent: "center", marginTop: 8 }}>
+                        {mainEvent && registrationsOpen && activeBatch ? (
                           <Link
                             href={editorMode ? "#" : `/inscricao/?eventId=${mainEvent.id}`}
                             onClick={(e) => {
                               if (editorMode) e.preventDefault();
                             }}
-                            className="btn-primary"
-                            style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
+                            className="btn-primary btn-shine"
+                            style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "16px 36px", fontSize: 16 }}
                           >
-                            <span>Garanta sua vaga</span>
+                            <span>Garantir Vaga no Lote Atual</span>
                             <ArrowRightIcon size={16} />
                           </Link>
-                        ) : null}
+                        ) : (
+                          <a
+                            href="#lotes"
+                            className="btn-primary btn-shine"
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 8,
+                              padding: "16px 32px",
+                              fontSize: 16,
+                              background: isSoldOutActive ? "linear-gradient(135deg, #d4a853, #b88b38)" : undefined,
+                            }}
+                          >
+                            <span>{isSoldOutActive ? "Consultar Lotes & Espera" : "Ver Lotes & Inscrição"}</span>
+                            <ArrowRightIcon size={16} />
+                          </a>
+                        )}
                         <Link
                           href={editorMode ? "#" : "/programacao/"}
                           onClick={(e) => {
                             if (editorMode) e.preventDefault();
                           }}
                           className="btn-secondary"
+                          style={{ padding: "15px 28px", fontSize: 15 }}
                         >
-                          Ver Programação
+                          Ver Programação Completa
                         </Link>
                       </div>
 
@@ -544,150 +593,279 @@ export default function HomePage() {
               }
 
               /* ---------- 4. LOTES & INSCRIÇÃO ---------- */
-              case "batches":
+              case "batches": {
+                const activeBatchItem = batches.find((b) => b.isActive) ?? null;
+                const activeNum = activeBatchItem?.batchNumber ?? 1;
+
                 return (
-                  <section style={{ ...sectionStyle, padding: "64px 24px", borderTop: "1px solid var(--border)" }}>
-                    <div className="container-page" style={{ maxWidth: 900 }}>
-                      <div style={{ textAlign: "center", marginBottom: 36 }}>
-                        <SectionEyebrow>Inscrições</SectionEyebrow>
-                        <h2 style={{ fontSize: "clamp(24px, 3.5vw, 32px)", margin: "8px 0 12px" }}>
+                  <section id="lotes" style={{ ...sectionStyle, padding: "80px 24px", borderTop: "1px solid var(--border)" }}>
+                    <div className="container-page scroll-reveal" style={{ maxWidth: 980 }}>
+                      <div style={{ textAlign: "center", marginBottom: 44 }}>
+                        <SectionEyebrow>Inscrições Oficiais</SectionEyebrow>
+                        <h2 style={{ fontSize: "clamp(26px, 3.8vw, 36px)", margin: "8px 0 12px", fontWeight: 800, letterSpacing: "-0.02em" }}>
                           {sec.title || "Lotes e Inscrições"}
                         </h2>
-                        <p style={{ color: "var(--muted-foreground)", margin: 0 }}>
-                          {sec.subtitle || "Aproveite os valores promocionais dos lotes antecipados"}
+                        <p style={{ color: "var(--muted-foreground)", margin: 0, fontSize: "clamp(15px, 2vw, 17px)", maxWidth: 620, marginInline: "auto" }}>
+                          {sec.subtitle || "Aproveite os valores promocionais dos lotes antecipados e garanta sua presença no congresso."}
                         </p>
                       </div>
 
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
-                        {batches.map((b) => (
-                          <div
-                            key={b.id}
-                            className="card"
-                            style={{
-                              padding: 24,
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: 12,
-                              border: b.isActive ? "2px solid var(--gold)" : "1px solid var(--border)",
-                              position: "relative",
-                              background: b.isActive ? "rgba(200, 162, 97, 0.05)" : "var(--card)",
-                            }}
-                          >
-                            {b.isActive && (
-                              <span
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 20, alignItems: "stretch" }}>
+                        {batches.map((b, idx) => {
+                          const isSoldOut = b.maxQuantity !== null && b.confirmedCount >= b.maxQuantity;
+                          const isCurrentlyActive = b.isActive && !isSoldOut && b.status === "ACTIVE";
+                          const isClosed = b.status === "CLOSED" || isSoldOut || (!b.isActive && b.batchNumber < activeNum);
+                          const isLockedUpcoming = !isCurrentlyActive && !isClosed;
+                          const delayClass = `delay-${(idx % 4) + 1}`;
+
+                          // 1. LOTE ATIVO DISPONÍVEL
+                          if (isCurrentlyActive) {
+                            const maxQ = b.maxQuantity || 60;
+                            const percent = Math.min(100, Math.round((b.confirmedCount / maxQ) * 100));
+
+                            return (
+                              <div
+                                key={b.id}
+                                className={`card batch-card-active scroll-reveal-scale ${delayClass}`}
                                 style={{
-                                  position: "absolute",
-                                  top: -11,
-                                  left: "50%",
-                                  transform: "translateX(-50%)",
-                                  background: "var(--gold)",
-                                  color: "#0B2928",
-                                  fontSize: 11,
-                                  fontWeight: 800,
-                                  padding: "2px 10px",
-                                  borderRadius: 999,
-                                  textTransform: "uppercase",
-                                  letterSpacing: "0.5px",
-                                  whiteSpace: "nowrap",
+                                  padding: "30px 22px",
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  gap: 16,
+                                  borderRadius: 18,
                                 }}
                               >
-                                Lote Atual
-                              </span>
-                            )}
-
-                            <span style={{ fontSize: 12, color: "var(--muted-foreground)", textTransform: "uppercase", fontWeight: 700 }}>
-                              {b.name}
-                            </span>
-
-                            {b.status === "UPCOMING" || b.price === null ? (
-                              <div style={{ height: 38, display: "flex", alignItems: "center", gap: 8 }}>
                                 <span
                                   style={{
-                                    fontSize: 28,
+                                    position: "absolute",
+                                    top: -12,
+                                    left: "50%",
+                                    transform: "translateX(-50%)",
+                                    background: "linear-gradient(135deg, #F3E2B8 0%, var(--gold) 100%)",
+                                    color: "#0B2928",
+                                    fontSize: 11,
                                     fontWeight: 800,
-                                    color: "var(--gold)",
-                                    filter: "blur(6px)",
-                                    userSelect: "none",
-                                    letterSpacing: "1.5px",
+                                    padding: "4px 14px",
+                                    borderRadius: 999,
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.8px",
                                     whiteSpace: "nowrap",
-                                    lineHeight: 1,
-                                    textShadow: "0 0 14px rgba(200, 162, 97, 0.65)",
+                                    boxShadow: "0 4px 14px rgba(212, 168, 83, 0.4)",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 6,
                                   }}
                                 >
-                                  R$ 150,00
+                                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#0B2928", display: "inline-block" }} />
+                                  Lote Atual Aberto
                                 </span>
-                                <SparkleIcon
-                                  size={15}
-                                  color="var(--gold)"
-                                  className="sparkle-icon"
-                                  style={{ filter: "drop-shadow(0 0 4px var(--gold))" }}
-                                />
-                              </div>
-                            ) : (
-                              <div style={{ height: 38, display: "flex", alignItems: "center", fontSize: 28, fontWeight: 800, color: b.isActive ? "var(--gold)" : "var(--foreground)" }}>
-                                R$ {b.price.toFixed(2).replace(".", ",")}
-                              </div>
-                            )}
 
-                            <p style={{ margin: 0, fontSize: 12, color: "var(--muted-foreground)", minHeight: 32 }}>
-                              {b.isActive && b.batchNumber === 1
-                                ? `${b.confirmedCount} de 60 vagas preenchidas`
-                                : b.status === "UPCOMING"
-                                ? b.startDate
-                                  ? `Abertura prevista: ${new Date(b.startDate).toLocaleDateString("pt-BR")}`
-                                  : "Aguarde a abertura deste lote"
-                                : b.endDate
-                                ? `Válido até ${new Date(b.endDate).toLocaleDateString("pt-BR")}`
-                                : b.status === "CLOSED"
-                                ? "Lote encerrado"
-                                : "Vagas limitadas"}
-                            </p>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                  <span style={{ fontSize: 13, color: "var(--gold)", textTransform: "uppercase", fontWeight: 800, letterSpacing: "0.5px" }}>
+                                    {b.name}
+                                  </span>
+                                  <span style={{ fontSize: 11, color: "var(--primary)", fontWeight: 700, background: "rgba(45, 212, 191, 0.12)", padding: "2px 8px", borderRadius: 6 }}>
+                                    Disponível
+                                  </span>
+                                </div>
 
-                            {b.isActive && mainEvent && registrationsOpen ? (
-                              <Link
-                                href={editorMode ? "#" : `/inscricao?eventId=${mainEvent.id}`}
-                                onClick={(e) => {
-                                  if (editorMode) e.preventDefault();
+                                <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                                  <span style={{ fontSize: 18, fontWeight: 700, color: "var(--muted-foreground)" }}>R$</span>
+                                  <span style={{ fontSize: 36, fontWeight: 800, color: "var(--foreground)", letterSpacing: "-0.02em" }}>
+                                    {b.price ? b.price.toFixed(2).replace(".", ",") : "100,00"}
+                                  </span>
+                                </div>
+
+                                {/* Barra de progresso de vagas */}
+                                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--muted-foreground)" }}>
+                                    <span>Vagas preenchidas</span>
+                                    <strong style={{ color: "var(--foreground)" }}>{b.confirmedCount} de {maxQ}</strong>
+                                  </div>
+                                  <div className="capacity-track">
+                                    <div
+                                      className={`capacity-fill ${percent >= 90 ? "capacity-fill-full" : ""}`}
+                                      style={{ width: `${Math.max(8, percent)}%` }}
+                                    />
+                                  </div>
+                                </div>
+
+                                <p style={{ margin: 0, fontSize: 12, color: "var(--muted-foreground)", minHeight: 28 }}>
+                                  {b.endDate
+                                    ? `Válido até ${new Date(b.endDate).toLocaleDateString("pt-BR")}`
+                                    : "Vagas estritamente limitadas por este lote"}
+                                </p>
+
+                                {mainEvent && registrationsOpen ? (
+                                  <Link
+                                    href={editorMode ? "#" : `/inscricao?eventId=${mainEvent.id}`}
+                                    onClick={(e) => {
+                                      if (editorMode) e.preventDefault();
+                                    }}
+                                    className="btn-primary btn-shine"
+                                    style={{
+                                      width: "100%",
+                                      textAlign: "center",
+                                      padding: "14px 16px",
+                                      fontSize: 15,
+                                      fontWeight: 700,
+                                      borderRadius: 12,
+                                      marginTop: "auto",
+                                    }}
+                                  >
+                                    <span>Garantir Minha Vaga</span>
+                                    <ArrowRightIcon size={16} />
+                                  </Link>
+                                ) : null}
+                              </div>
+                            );
+                          }
+
+                          // 2. LOTE ESGOTADO / ENCERRADO
+                          if (isClosed) {
+                            return (
+                              <div
+                                key={b.id}
+                                className={`card batch-card-closed scroll-reveal-scale ${delayClass}`}
+                                style={{
+                                  padding: "30px 22px",
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  gap: 16,
+                                  borderRadius: 18,
                                 }}
-                                className="btn-primary"
-                                style={{ width: "100%", textAlign: "center", padding: 10, fontSize: 14 }}
                               >
-                                Inscrever-se
-                              </Link>
-                            ) : (
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                  <span style={{ fontSize: 13, color: "var(--muted-foreground)", textTransform: "uppercase", fontWeight: 700 }}>
+                                    {b.name}
+                                  </span>
+                                  <span className="badge-sold-out">
+                                    {isSoldOut ? "Esgotado" : "Encerrado"}
+                                  </span>
+                                </div>
+
+                                <div style={{ display: "flex", alignItems: "baseline", gap: 4, opacity: 0.6 }}>
+                                  <span style={{ fontSize: 16, fontWeight: 700, color: "var(--muted-foreground)" }}>R$</span>
+                                  <span style={{ fontSize: 32, fontWeight: 800, color: "var(--muted-foreground)", textDecoration: "line-through" }}>
+                                    {b.price ? b.price.toFixed(2).replace(".", ",") : "100,00"}
+                                  </span>
+                                </div>
+
+                                {b.maxQuantity ? (
+                                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--muted-foreground)" }}>
+                                      <span>Capacidade total</span>
+                                      <strong style={{ color: "#f87171" }}>100% preenchido</strong>
+                                    </div>
+                                    <div className="capacity-track">
+                                      <div className="capacity-fill capacity-fill-full" style={{ width: "100%" }} />
+                                    </div>
+                                  </div>
+                                ) : null}
+
+                                <p style={{ margin: 0, fontSize: 12, color: "var(--muted-foreground)", minHeight: 28 }}>
+                                  {isSoldOut
+                                    ? "Quantidade máxima de inscritos atingida. Lote encerrado."
+                                    : "Período de vigência deste lote finalizado."}
+                                </p>
+
+                                <div
+                                  style={{
+                                    width: "100%",
+                                    textAlign: "center",
+                                    padding: "13px 14px",
+                                    fontSize: 13,
+                                    fontWeight: 700,
+                                    borderRadius: 12,
+                                    background: "rgba(255, 255, 255, 0.04)",
+                                    color: "var(--muted-foreground)",
+                                    border: "1px solid rgba(255, 255, 255, 0.08)",
+                                    marginTop: "auto",
+                                  }}
+                                >
+                                  Lote Encerrado
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          // 3. PRÓXIMOS LOTES (BLOQUEADOS — SEM MOSTRAR O VALOR, LIBERADOS MANUALMENTE)
+                          return (
+                            <div
+                              key={b.id}
+                              className={`card batch-card-locked scroll-reveal-scale ${delayClass}`}
+                              style={{
+                                padding: "30px 22px",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: 16,
+                                borderRadius: 18,
+                              }}
+                            >
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <span style={{ fontSize: 13, color: "var(--muted-foreground)", textTransform: "uppercase", fontWeight: 700 }}>
+                                  {b.name}
+                                </span>
+                                <span className="badge-locked">
+                                  <LockIcon size={12} color="var(--gold)" />
+                                  <span>Bloqueado</span>
+                                </span>
+                              </div>
+
+                              {/* Exibição misteriosa e elegante do valor BLOQUEADO: SEM NÚMEROS */}
+                              <div style={{ height: 44, display: "flex", alignItems: "center", gap: 10 }}>
+                                <div
+                                  style={{
+                                    background: "rgba(212, 168, 83, 0.08)",
+                                    border: "1px solid rgba(212, 168, 83, 0.25)",
+                                    borderRadius: 10,
+                                    padding: "7px 16px",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 8,
+                                  }}
+                                >
+                                  <LockIcon size={14} color="var(--gold)" />
+                                  <span style={{ fontSize: 16, fontWeight: 800, letterSpacing: "3px", color: "var(--gold)" }}>
+                                    R$ ••••••
+                                  </span>
+                                </div>
+                                <SparkleIcon size={15} color="var(--gold)" className="sparkle-icon" />
+                              </div>
+
+                              <p style={{ margin: 0, fontSize: 12, color: "var(--muted-foreground)", lineHeight: 1.5, minHeight: 38 }}>
+                                Valor e vagas serão revelados no momento da liberação deste lote pela organização.
+                              </p>
+
                               <div
                                 style={{
                                   width: "100%",
                                   textAlign: "center",
-                                  padding: 10,
+                                  padding: "13px 14px",
                                   fontSize: 13,
                                   fontWeight: 700,
-                                  borderRadius: 8,
-                                  background: "rgba(255, 255, 255, 0.04)",
-                                  color: b.status === "CLOSED" ? "var(--muted-foreground)" : "var(--gold)",
-                                  border: b.status === "CLOSED" ? "1px solid rgba(255, 255, 255, 0.06)" : "1px solid rgba(200, 162, 97, 0.25)",
+                                  borderRadius: 12,
+                                  background: "rgba(212, 168, 83, 0.06)",
+                                  color: "var(--gold)",
+                                  border: "1px solid rgba(212, 168, 83, 0.25)",
                                   display: "flex",
                                   alignItems: "center",
                                   justifyContent: "center",
-                                  gap: 6,
+                                  gap: 8,
+                                  marginTop: "auto",
                                 }}
                               >
-                                {b.status === "CLOSED" ? (
-                                  <span>Encerrado</span>
-                                ) : (
-                                  <>
-                                    <SparkleIcon size={13} color="var(--gold)" className="sparkle-icon" />
-                                    <span>Em breve</span>
-                                  </>
-                                )}
+                                <LockIcon size={14} color="var(--gold)" />
+                                <span>Aguardando Liberação</span>
                               </div>
-                            )}
-                          </div>
-                        ))}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   </section>
                 );
+              }
 
               /* ---------- 5. COMO FUNCIONA (STEPS) ---------- */
               case "steps":
@@ -904,21 +1082,62 @@ function MetaChip({ icon, text }: { icon: React.ReactNode; text: string }) {
   );
 }
 
-function RegistrationStatus({ event }: { event: EventData }) {
-  const isOpen = event.registrationsOpen;
+function RegistrationStatus({
+  event,
+  activeBatch,
+  isSoldOutActive,
+}: {
+  event: EventData;
+  activeBatch?: BatchItem | null;
+  isSoldOutActive?: boolean;
+}) {
+  const isOpen = event.registrationsOpen && Boolean(activeBatch);
+
+  if (isSoldOutActive) {
+    return (
+      <div
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "7px 16px",
+          borderRadius: 999,
+          fontSize: 12,
+          fontWeight: 700,
+          background: "rgba(239, 68, 68, 0.12)",
+          border: "1px solid rgba(239, 68, 68, 0.35)",
+          color: "#f87171",
+          boxShadow: "0 2px 10px rgba(239, 68, 68, 0.15)",
+        }}
+      >
+        <span
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: "50%",
+            background: "#ef4444",
+            boxShadow: "0 0 8px #ef4444",
+          }}
+        />
+        <span>1º Lote Esgotado · Próximo Lote em Breve</span>
+      </div>
+    );
+  }
+
   return (
     <div
       style={{
         display: "inline-flex",
         alignItems: "center",
         gap: 8,
-        padding: "6px 14px",
+        padding: "7px 16px",
         borderRadius: 999,
         fontSize: 12,
-        fontWeight: 600,
+        fontWeight: 700,
         background: isOpen ? "rgba(34, 197, 94, 0.12)" : "rgba(239, 68, 68, 0.12)",
-        border: `1px solid ${isOpen ? "rgba(34, 197, 94, 0.3)" : "rgba(239, 68, 68, 0.3)"}`,
+        border: `1px solid ${isOpen ? "rgba(34, 197, 94, 0.35)" : "rgba(239, 68, 68, 0.35)"}`,
         color: isOpen ? "var(--success)" : "var(--destructive)",
+        boxShadow: isOpen ? "0 2px 10px rgba(34, 197, 94, 0.15)" : "none",
       }}
     >
       <span
@@ -927,9 +1146,10 @@ function RegistrationStatus({ event }: { event: EventData }) {
           height: 8,
           borderRadius: "50%",
           background: isOpen ? "var(--success)" : "var(--destructive)",
+          boxShadow: isOpen ? "0 0 8px var(--success)" : "none",
         }}
       />
-      <span>{isOpen ? "Inscrições Abertas" : "Inscrições Encerradas"}</span>
+      <span>{isOpen ? "Inscrições Abertas · Lote Disponível" : "Inscrições Encerradas"}</span>
     </div>
   );
 }

@@ -55,10 +55,11 @@ describe("Copol — Inscrição Única, Lotes Automáticos e PicPay", () => {
     expect(participantCount).toBe(0);
   });
 
-  it("vira automaticamente para o Lote 2 (R$ 150) ao atingir 60 inscrições confirmadas no Lote 1", async () => {
+  it("fecha automaticamente o Lote 1 ao atingir 60 inscrições e só libera o Lote 2 mediante ativação manual", async () => {
     const event = await createTestEvent();
     const batches = await batchesService.ensureDefaultBatches(event.id);
     const lote1 = batches.find((b) => b.batchNumber === 1)!;
+    const lote2 = batches.find((b) => b.batchNumber === 2)!;
 
     // Simula 60 inscrições confirmadas no Lote 1
     const dummyInscriptions = Array.from({ length: 60 }).map((_, i) => ({
@@ -73,8 +74,36 @@ describe("Copol — Inscrição Única, Lotes Automáticos e PicPay", () => {
     }));
     await prisma.inscription.createMany({ data: dummyInscriptions });
 
-    // Próxima inscrição deve virar automaticamente para o Lote 2
-    const response = await app.inject({
+    // Com o lote 1 esgotado (60 vagas), o sistema fecha automaticamente o lote
+    // e os próximos lotes permanecem bloqueados sem rolagem automática
+    const activeCheck = await batchesService.resolveActiveBatch(event.id);
+    expect(activeCheck.activeBatch).toBeNull();
+
+    const overview = await batchesService.getBatchesOverview(event.id, { hideUpcomingPrice: true });
+    const lote1View = overview.find((b) => b.batchNumber === 1)!;
+    const lote2View = overview.find((b) => b.batchNumber === 2)!;
+    expect(lote1View.status).toBe("CLOSED");
+    expect(lote2View.status).toBe("UPCOMING");
+    expect(lote2View.price).toBeNull(); // Preço ocultado para visitantes
+
+    // Tentativa de inscrição é recusada pois o lote encerrou e o próximo aguarda liberação manual
+    const responseBlocked = await app.inject({
+      method: "POST",
+      url: `/events/${event.id}/inscriptions`,
+      payload: {
+        name: "Inscrito 61",
+        email: "inscrito61@teste.com",
+        document: "999.888.777-66",
+        consentVersion: "1.0",
+      },
+    });
+    expect(responseBlocked.statusCode).toBe(403);
+
+    // Administrador faz a liberação manual do Lote 2
+    await batchesService.setActiveBatchManual(event.id, lote2.id);
+
+    // Agora o Lote 2 está ativo e a inscrição é realizada com o valor de R$ 150
+    const responseAfterManual = await app.inject({
       method: "POST",
       url: `/events/${event.id}/inscriptions`,
       payload: {
@@ -85,47 +114,10 @@ describe("Copol — Inscrição Única, Lotes Automáticos e PicPay", () => {
       },
     });
 
-    expect(response.statusCode).toBe(201);
-    const data = response.json().data;
+    expect(responseAfterManual.statusCode).toBe(201);
+    const data = responseAfterManual.json().data;
     expect(data.amount).toBe(150);
     expect(data.category).toBe("2º Lote");
-  });
-
-  it("vira os lotes por data (Lote 3 após 22/09 e Lote 4 após 22/10)", async () => {
-    const event = await createTestEvent();
-    const batches = await batchesService.ensureDefaultBatches(event.id);
-    const lote1 = batches.find((b) => b.batchNumber === 1)!;
-
-    // Simula Lote 1 esgotado
-    await prisma.inscription.createMany({
-      data: Array.from({ length: 60 }).map((_, i) => ({
-        eventId: event.id,
-        name: `Inscrito #${i}`,
-        email: `part_lote1_${i}@email.com`,
-        document: `111.222.333-${i}`,
-        batchId: lote1.id,
-        category: lote1.name,
-        amount: 100,
-        status: "CONFIRMED",
-      })),
-    });
-
-    // Simula data em 25/09/2026 -> Lote 3
-    const dateLote3 = new Date("2026-09-25T12:00:00-03:00");
-    const activeLote3 = await batchesService.resolveActiveBatch(event.id, dateLote3);
-    expect(activeLote3.activeBatch?.batchNumber).toBe(3);
-    expect(Number(activeLote3.activeBatch?.price)).toBe(180);
-
-    // Simula data em 25/10/2026 -> Lote 4
-    const dateLote4 = new Date("2026-10-25T12:00:00-03:00");
-    const activeLote4 = await batchesService.resolveActiveBatch(event.id, dateLote4);
-    expect(activeLote4.activeBatch?.batchNumber).toBe(4);
-    expect(Number(activeLote4.activeBatch?.price)).toBe(220);
-
-    // Simula data em 10/11/2026 -> Encerrado
-    const dateEncerrado = new Date("2026-11-10T12:00:00-03:00");
-    const activeEncerrado = await batchesService.resolveActiveBatch(event.id, dateEncerrado);
-    expect(activeEncerrado.activeBatch).toBeNull();
   });
 
   it("processa webhook do PicPay, confirma inscrição e cadastra participante de forma atômica", async () => {

@@ -242,3 +242,233 @@ h4 {
     font-size: 13px;
   }
 }
+
+/* ==========================================================================
+   EFEITOS VISUAIS E DE ROLAGEM — CONGRESSO COPOL 2026
+   ========================================================================== */
+
+/* Iluminação e Profundidade no Hero */
+.hero-glow-backdrop {
+  position: absolute;
+  top: 15%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(850px, 90vw);
+  height: 480px;
+  background: radial-gradient(ellipse at center, rgba(45, 212, 191, 0.16) 0%, rgba(212, 168, 83, 0.12) 40%, transparent 70%);
+  filter: blur(55px);
+  pointer-events: none;
+  z-index: 0;
+  animation: hero-glow-pulse 8s ease-in-out infinite alternate;
+}
+
+@keyframes hero-glow-pulse {
+  0% {
+    transform: translateX(-50%) scale(0.95);
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateX(-50%) scale(1.08);
+    opacity: 0.95;
+  }
+}
+
+/* Título em Degradê Dourado Metalizado */
+.text-gold-gradient {
+  background: linear-gradient(135deg, #F3E2B8 0%, #D4A853 45%, #E8C98A 75%, #B88B38 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block;
+  filter: drop-shadow(0 2px 8px rgba(212, 168, 83, 0.25));
+}
+
+/* Efeito de Revelação ao Rolar (Scroll Reveal) */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.scroll-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.scroll-reveal-scale {
+  opacity: 0;
+  transform: scale(0.92) translateY(20px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.scroll-reveal-scale.is-visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+/* Delays escalonados para itens em grade */
+.delay-1 { transition-delay: 0.08s; }
+.delay-2 { transition-delay: 0.16s; }
+.delay-3 { transition-delay: 0.24s; }
+.delay-4 { transition-delay: 0.32s; }
+
+/* Entrada de Imagens e Logo com Reflexo */
+.img-entrance {
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), filter 0.4s ease;
+}
+
+.img-entrance:hover {
+  transform: translateY(-4px) scale(1.02);
+  filter: drop-shadow(0 12px 24px rgba(45, 212, 191, 0.25));
+}
+
+/* ==========================================================================
+   CARDS DE LOTES: ATIVO, ESGOTADO E BLOQUEADO
+   ========================================================================== */
+
+/* Lote Ativo: Destaque Nobre */
+.batch-card-active {
+  position: relative;
+  background: linear-gradient(165deg, rgba(21, 75, 76, 0.92) 0%, rgba(14, 54, 52, 0.96) 100%);
+  border: 2px solid rgba(212, 168, 83, 0.9) !important;
+  box-shadow: 0 12px 36px -8px rgba(0, 0, 0, 0.5), 0 0 28px -6px rgba(212, 168, 83, 0.35);
+  transform: scale(1.02);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  z-index: 2;
+}
+
+.batch-card-active:hover {
+  transform: scale(1.035) translateY(-2px);
+  box-shadow: 0 16px 44px -8px rgba(0, 0, 0, 0.6), 0 0 36px -4px rgba(212, 168, 83, 0.45);
+}
+
+/* Shimmer contínuo no botão principal */
+.btn-shine {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-shine::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -60%;
+  width: 40%;
+  height: 200%;
+  background: linear-gradient(
+    60deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.35) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: rotate(25deg);
+  animation: btn-sheen 3.8s infinite;
+}
+
+@keyframes btn-sheen {
+  0% { left: -60%; }
+  35% { left: 130%; }
+  100% { left: 130%; }
+}
+
+/* Lote Bloqueado: Efeito Frosted Glass Mystique com Feixe de Luz */
+.batch-card-locked {
+  position: relative;
+  background: rgba(14, 54, 52, 0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px dashed rgba(212, 168, 83, 0.3) !important;
+  overflow: hidden;
+  transition: border-color 0.3s ease, background 0.3s ease, transform 0.3s ease;
+  user-select: none;
+}
+
+.batch-card-locked:hover {
+  border-color: rgba(212, 168, 83, 0.6) !important;
+  background: rgba(14, 54, 52, 0.7);
+  transform: translateY(-2px);
+}
+
+/* Varredura luminosa elegante nos cards bloqueados */
+.batch-card-locked::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    transparent 35%,
+    rgba(212, 168, 83, 0.08) 50%,
+    transparent 65%,
+    transparent 100%
+  );
+  background-size: 200% 200%;
+  animation: locked-sweep 5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes locked-sweep {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Pílula de Cadeado / Bloqueio */
+.badge-locked {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(212, 168, 83, 0.12);
+  border: 1px solid rgba(212, 168, 83, 0.35);
+  color: var(--gold);
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* Lote Esgotado / Encerrado */
+.batch-card-closed {
+  position: relative;
+  background: rgba(10, 38, 36, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  opacity: 0.85;
+}
+
+.badge-sold-out {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(239, 68, 68, 0.14);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #f87171;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* Barra de Vagas Animada */
+.capacity-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.capacity-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--primary), var(--gold));
+  transition: width 1s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.capacity-fill-full {
+  background: linear-gradient(90deg, #ef4444, #f59e0b);
+}
+

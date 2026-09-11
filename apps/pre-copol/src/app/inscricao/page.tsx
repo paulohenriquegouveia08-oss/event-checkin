@@ -169,7 +169,7 @@ function InscriptionContent() {
     );
   }
 
-  if (!event.registrationsOpen || (activeBatch && activeBatch.status === "CLOSED")) {
+  if (!event.registrationsOpen || !activeBatch || activeBatch.status === "CLOSED") {
     return (
       <PageShell>
         <div
@@ -177,33 +177,35 @@ function InscriptionContent() {
           style={{
             textAlign: "center",
             padding: 40,
-            maxWidth: 440,
+            maxWidth: 460,
             display: "flex",
             flexDirection: "column",
-            gap: 12,
+            gap: 14,
             alignItems: "center",
           }}
         >
           <span
             style={{
               display: "inline-flex",
-              padding: "8px 16px",
+              alignItems: "center",
+              gap: 6,
+              padding: "8px 18px",
               background: "rgba(239, 68, 68, 0.12)",
-              border: "1px solid rgba(239, 68, 68, 0.3)",
+              border: "1px solid rgba(239, 68, 68, 0.35)",
               borderRadius: 999,
               fontSize: 13,
-              fontWeight: 700,
-              color: "var(--destructive)",
+              fontWeight: 800,
+              color: "#f87171",
             }}
           >
-            Inscrições encerradas
+            Lote Esgotado / Aguardando Próximo
           </span>
-          <h1 style={{ margin: "8px 0 0", fontSize: 22 }}>{event.name}</h1>
-          <p style={{ margin: 0, color: "var(--muted-foreground)", fontSize: 14 }}>
-            As inscrições para este evento não estão mais disponíveis no momento.
+          <h1 style={{ margin: "8px 0 0", fontSize: 22, fontWeight: 800 }}>{event.name}</h1>
+          <p style={{ margin: 0, color: "var(--muted-foreground)", fontSize: 14, lineHeight: 1.6 }}>
+            As vagas deste lote foram totalmente preenchidas. O próximo lote aguarda liberação manual pela organização do COPOL 2026.
           </p>
-          <Link href="/" className="btn-secondary" style={{ marginTop: 8 }}>
-            ← Voltar
+          <Link href="/#lotes" className="btn-primary" style={{ marginTop: 8 }}>
+            ← Consultar Lotes
           </Link>
         </div>
       </PageShell>

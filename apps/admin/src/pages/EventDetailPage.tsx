@@ -7,7 +7,6 @@ import { TerminalsTab } from "./event/TerminalsTab";
 import { StatisticsTab } from "./event/StatisticsTab";
 import { LiveMonitorTab } from "./event/LiveMonitorTab";
 import { ReportTab } from "./event/ReportTab";
-import { SiteTab } from "./event/SiteTab";
 import { CertificatesTab } from "./event/CertificatesTab";
 import { ConfigTab } from "./event/ConfigTab";
 import { EmailsTab } from "./event/EmailsTab";
@@ -25,7 +24,6 @@ type Tab =
   | "statistics"
   | "monitor"
   | "report"
-  | "site"
   | "certificates"
   | "submissions"
   | "emails"
@@ -42,7 +40,6 @@ const TABS: { key: Tab; label: string; permission: string }[] = [
   { key: "report", label: "Relatório Presença", permission: "reports.view" },
   { key: "certificates", label: "Certificados", permission: "certificates.view" },
   { key: "submissions", label: "Trabalhos", permission: "submissions.view" },
-  { key: "site", label: "Site", permission: "events.edit" },
   { key: "emails", label: "E-mails", permission: "events.edit" },
   // Última da fila: é onde se liga e desliga módulo, coisa que se faz uma
   // vez no começo e raramente depois.
@@ -241,7 +238,6 @@ export function EventDetailPage() {
       {activeTab === "submissions" ? <SubmissionsTab eventId={eventId} /> : null}
       {activeTab === "config" ? <ConfigTab eventId={eventId} /> : null}
       {activeTab === "certificates" ? <CertificatesTab eventId={eventId} /> : null}
-      {activeTab === "site" ? <SiteTab eventId={eventId} /> : null}
       {activeTab === "emails" ? <EmailsTab eventId={eventId} /> : null}
       {!activeTab ? <p className="muted">Você não tem permissão para ver nenhuma aba deste evento.</p> : null}
     </div>

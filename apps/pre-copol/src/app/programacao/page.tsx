@@ -226,23 +226,60 @@ export default function SchedulePage() {
                           >
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                                <span
-                                  style={{
-                                    fontFamily: "monospace",
-                                    fontSize: 13,
-                                    fontWeight: 700,
-                                    color: "var(--gold)",
-                                    background: "rgba(200, 162, 97, 0.1)",
-                                    padding: "4px 10px",
-                                    borderRadius: 6,
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: 6,
-                                  }}
-                                >
-                                  <ClockIcon size={13} />
-                                  {item.startTime} {item.endTime ? `— ${item.endTime}` : ""}
-                                </span>
+                                {item.startTime && item.startTime !== "—" ? (
+                                  <span
+                                    style={{
+                                      fontFamily: "monospace",
+                                      fontSize: 13,
+                                      fontWeight: 700,
+                                      color: "var(--gold)",
+                                      background: "rgba(200, 162, 97, 0.1)",
+                                      padding: "4px 10px",
+                                      borderRadius: 6,
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 6,
+                                    }}
+                                  >
+                                    <ClockIcon size={13} />
+                                    {item.startTime}{item.endTime ? `–${item.endTime}` : ""}
+                                  </span>
+                                ) : (
+                                  <span
+                                    style={{
+                                      fontSize: 12,
+                                      fontWeight: 600,
+                                      color: "var(--muted-foreground)",
+                                      background: "rgba(255, 255, 255, 0.05)",
+                                      padding: "4px 10px",
+                                      borderRadius: 6,
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 6,
+                                    }}
+                                  >
+                                    <ClockIcon size={13} />
+                                    Encerramento
+                                  </span>
+                                )}
+
+                                {items.some((other) => other.id !== item.id && other.startTime === item.startTime && Boolean(item.startTime && item.startTime !== "—")) && (
+                                  <span
+                                    style={{
+                                      fontSize: 11,
+                                      fontWeight: 700,
+                                      color: "#60a5fa",
+                                      background: "rgba(59, 130, 246, 0.12)",
+                                      border: "1px solid rgba(59, 130, 246, 0.3)",
+                                      padding: "3px 8px",
+                                      borderRadius: 6,
+                                      textTransform: "uppercase",
+                                      letterSpacing: "0.5px",
+                                    }}
+                                  >
+                                    Simultâneo
+                                  </span>
+                                )}
 
                                 {item.type && (
                                   <span

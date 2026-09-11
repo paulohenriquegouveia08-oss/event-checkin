@@ -944,8 +944,21 @@ export interface BatchItem {
   isActive: boolean;
 }
 
+export interface BatchesResponse {
+  batches: BatchItem[];
+  activeBatch: BatchItem | null;
+  autoRelease?: boolean;
+}
+
 export function getBatches(eventId: string) {
-  return request<{ batches: BatchItem[]; activeBatch: BatchItem | null }>(`/events/${eventId}/batches`);
+  return request<BatchesResponse>(`/events/${eventId}/batches`);
+}
+
+export function updateBatchSettings(eventId: string, body: { autoRelease: boolean }) {
+  return request<{ autoRelease: boolean }>(`/events/${eventId}/batches/settings`, {
+    method: "PUT",
+    body,
+  });
 }
 
 export function createBatch(

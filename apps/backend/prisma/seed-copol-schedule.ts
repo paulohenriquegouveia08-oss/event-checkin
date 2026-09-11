@@ -11,22 +11,20 @@ export interface CopolActivitySeed {
   speaker: string | null;
   location: string | null;
   description: string | null;
-  type: "Hands On" | "Palestra" | "Credenciamento" | "Intervalo" | "Solenidade";
+  type: "Hands On" | "Palestra" | "Credenciamento" | "Intervalo" | "Solenidade" | "Recepção";
   order: number;
 }
 
 export const COPOL_OFFICIAL_SCHEDULE_ITEMS: CopolActivitySeed[] = [
-  // ==========================================
-  // QUINTA-FEIRA — 05/11/2026 (14 atividades)
-  // ==========================================
+  // QUINTA-FEIRA — 05/11/2026 (11 atividades)
   {
     date: "2026-11-05",
     startTime: "08:30",
     endTime: "09:00",
     title: "Credenciamento – Retirada de Crachás",
     speaker: null,
-    location: "Foyer Principal",
-    description: "Credenciamento – Retirada de Crachás",
+    location: null,
+    description: null,
     type: "Credenciamento",
     order: 0,
   },
@@ -36,8 +34,8 @@ export const COPOL_OFFICIAL_SCHEDULE_ITEMS: CopolActivitySeed[] = [
     endTime: "10:00",
     title: "Cerimônia de Abertura – Coquetel de Boas-Vindas",
     speaker: null,
-    location: "Auditório Principal",
-    description: "Cerimônia de Abertura – Coquetel de Boas-Vindas",
+    location: null,
+    description: null,
     type: "Solenidade",
     order: 1,
   },
@@ -47,8 +45,8 @@ export const COPOL_OFFICIAL_SCHEDULE_ITEMS: CopolActivitySeed[] = [
     endTime: "11:00",
     title: "Cristina Miura – Lucratividade para Recém-Formados",
     speaker: "Cristina Miura",
-    location: "Auditório Principal",
-    description: "Cristina Miura – Lucratividade para Recém-Formados",
+    location: null,
+    description: null,
     type: "Palestra",
     order: 2,
   },
@@ -58,8 +56,8 @@ export const COPOL_OFFICIAL_SCHEDULE_ITEMS: CopolActivitySeed[] = [
     endTime: "12:00",
     title: "Prof. Dr. Letícia Lang – Odontologia Oncológica: o que o clínico precisa saber",
     speaker: "Prof. Dr. Letícia Lang",
-    location: "Auditório Principal",
-    description: "Prof. Dr. Letícia Lang – Odontologia Oncológica: o que o clínico precisa saber",
+    location: null,
+    description: null,
     type: "Palestra",
     order: 3,
   },
@@ -69,54 +67,21 @@ export const COPOL_OFFICIAL_SCHEDULE_ITEMS: CopolActivitySeed[] = [
     endTime: "14:00",
     title: "Almoço",
     speaker: null,
-    location: "Praça de Alimentação",
-    description: "Almoço",
+    location: null,
+    description: null,
     type: "Intervalo",
     order: 4,
   },
   {
     date: "2026-11-05",
     startTime: "14:00",
-    endTime: "15:00",
-    title: "Hands On Carlos e Romanini",
-    speaker: "Carlos e Romanini",
-    location: "Sala Hands On 1",
-    description: "Hands On Carlos e Romanini",
+    endTime: "18:00",
+    title: "Hands On – inscrições em breve.",
+    speaker: null,
+    location: null,
+    description: "inscrições em breve.",
     type: "Hands On",
     order: 5,
-  },
-  {
-    date: "2026-11-05",
-    startTime: "15:00",
-    endTime: "16:00",
-    title: "Hands On Integrale",
-    speaker: "Integrale",
-    location: "Sala Hands On 2",
-    description: "Hands On Integrale",
-    type: "Hands On",
-    order: 6,
-  },
-  {
-    date: "2026-11-05",
-    startTime: "16:00",
-    endTime: "17:00",
-    title: "Hands On Marcos Guskuma",
-    speaker: "Marcos Guskuma",
-    location: "Sala Hands On 1",
-    description: "Hands On Marcos Guskuma",
-    type: "Hands On",
-    order: 7,
-  },
-  {
-    date: "2026-11-05",
-    startTime: "17:00",
-    endTime: "18:00",
-    title: "Hands On Marcela Clareamento",
-    speaker: "Marcela",
-    location: "Sala Hands On 2",
-    description: "Hands On Marcela Clareamento",
-    type: "Hands On",
-    order: 8,
   },
   {
     date: "2026-11-05",
@@ -124,10 +89,10 @@ export const COPOL_OFFICIAL_SCHEDULE_ITEMS: CopolActivitySeed[] = [
     endTime: "19:00",
     title: "Coffee Break",
     speaker: null,
-    location: "Área de Convivência",
-    description: "Coffee Break",
+    location: null,
+    description: null,
     type: "Intervalo",
-    order: 9,
+    order: 6,
   },
   {
     date: "2026-11-05",
@@ -135,10 +100,10 @@ export const COPOL_OFFICIAL_SCHEDULE_ITEMS: CopolActivitySeed[] = [
     endTime: "19:15",
     title: "Credenciamento – Retirada de Crachás",
     speaker: null,
-    location: "Foyer Principal",
-    description: "Credenciamento – Retirada de Crachás",
+    location: null,
+    description: null,
     type: "Credenciamento",
-    order: 10,
+    order: 7,
   },
   {
     date: "2026-11-05",
@@ -146,10 +111,10 @@ export const COPOL_OFFICIAL_SCHEDULE_ITEMS: CopolActivitySeed[] = [
     endTime: "20:15",
     title: "Dra. Lázara – Palestra",
     speaker: "Dra. Lázara",
-    location: "Auditório Principal",
-    description: "Dra. Lázara – Palestra",
+    location: null,
+    description: null,
     type: "Palestra",
-    order: 11,
+    order: 8,
   },
   {
     date: "2026-11-05",
@@ -157,10 +122,10 @@ export const COPOL_OFFICIAL_SCHEDULE_ITEMS: CopolActivitySeed[] = [
     endTime: "21:00",
     title: "Carlos Augusto – DTM",
     speaker: "Carlos Augusto",
-    location: "Auditório Principal",
-    description: "Carlos Augusto – DTM",
+    location: null,
+    description: null,
     type: "Palestra",
-    order: 12,
+    order: 9,
   },
   {
     date: "2026-11-05",
@@ -168,25 +133,23 @@ export const COPOL_OFFICIAL_SCHEDULE_ITEMS: CopolActivitySeed[] = [
     endTime: "21:00",
     title: "Coquetel de Encerramento Dia 1",
     speaker: null,
-    location: "Área de Convivência",
-    description: "Coquetel de Encerramento Dia 1",
+    location: null,
+    description: null,
     type: "Solenidade",
-    order: 13,
+    order: 10,
   },
 
-  // ==========================================
-  // SEXTA-FEIRA — 06/11/2026 (15 atividades)
-  // ==========================================
+  // SEXTA-FEIRA — 06/11/2026 (11 atividades)
   {
     date: "2026-11-06",
     startTime: "08:00",
     endTime: "08:30",
     title: "Recepção com DJ",
     speaker: null,
-    location: "Foyer / Entrada",
-    description: "Recepção com DJ",
-    type: "Intervalo",
-    order: 14,
+    location: null,
+    description: null,
+    type: "Recepção",
+    order: 0,
   },
   {
     date: "2026-11-06",
@@ -194,10 +157,10 @@ export const COPOL_OFFICIAL_SCHEDULE_ITEMS: CopolActivitySeed[] = [
     endTime: "09:30",
     title: "Franciele Covalti – Tema a decidir",
     speaker: "Franciele Covalti",
-    location: "Auditório Principal",
-    description: "Franciele Covalti – Tema a decidir",
+    location: null,
+    description: "Tema a decidir",
     type: "Palestra",
-    order: 15,
+    order: 1,
   },
   {
     date: "2026-11-06",
@@ -205,10 +168,10 @@ export const COPOL_OFFICIAL_SCHEDULE_ITEMS: CopolActivitySeed[] = [
     endTime: "10:00",
     title: "Coffee Break",
     speaker: null,
-    location: "Área de Convivência",
-    description: "Coffee Break",
+    location: null,
+    description: null,
     type: "Intervalo",
-    order: 16,
+    order: 2,
   },
   {
     date: "2026-11-06",
@@ -216,10 +179,10 @@ export const COPOL_OFFICIAL_SCHEDULE_ITEMS: CopolActivitySeed[] = [
     endTime: "11:00",
     title: "Dr. Giuliano Cesar – Periodontia",
     speaker: "Dr. Giuliano Cesar",
-    location: "Auditório Principal",
-    description: "Dr. Giuliano Cesar – Periodontia",
+    location: null,
+    description: null,
     type: "Palestra",
-    order: 17,
+    order: 3,
   },
   {
     date: "2026-11-06",
@@ -227,10 +190,10 @@ export const COPOL_OFFICIAL_SCHEDULE_ITEMS: CopolActivitySeed[] = [
     endTime: "12:00",
     title: "Renata Longo – Odontopediatria",
     speaker: "Renata Longo",
-    location: "Auditório Principal",
-    description: "Renata Longo – Odontopediatria",
+    location: null,
+    description: null,
     type: "Palestra",
-    order: 18,
+    order: 4,
   },
   {
     date: "2026-11-06",
@@ -238,65 +201,21 @@ export const COPOL_OFFICIAL_SCHEDULE_ITEMS: CopolActivitySeed[] = [
     endTime: "14:00",
     title: "Almoço",
     speaker: null,
-    location: "Praça de Alimentação",
-    description: "Almoço",
+    location: null,
+    description: null,
     type: "Intervalo",
-    order: 19,
+    order: 5,
   },
   {
     date: "2026-11-06",
     startTime: "14:00",
-    endTime: "15:00",
-    title: "Hands On Radiotech",
-    speaker: "Radiotech",
-    location: "Sala Hands On 1",
-    description: "Hands On Radiotech",
-    type: "Hands On",
-    order: 20,
-  },
-  {
-    date: "2026-11-06",
-    startTime: "15:00",
-    endTime: "16:00",
-    title: "Hands On Marcela – Diastema",
-    speaker: "Marcela",
-    location: "Sala Hands On 2",
-    description: "Hands On Marcela – Diastema",
-    type: "Hands On",
-    order: 21,
-  },
-  {
-    date: "2026-11-06",
-    startTime: "15:30",
-    endTime: "16:30",
-    title: "Hands On Fotografia – Dra. Debora",
-    speaker: "Dra. Debora",
-    location: "Sala Hands On 3",
-    description: "Hands On Fotografia – Dra. Debora",
-    type: "Hands On",
-    order: 22,
-  },
-  {
-    date: "2026-11-06",
-    startTime: "16:00",
-    endTime: "17:00",
-    title: "Hands On Angelus",
-    speaker: "Angelus",
-    location: "Sala Hands On 1",
-    description: "Hands On Angelus",
-    type: "Hands On",
-    order: 23,
-  },
-  {
-    date: "2026-11-06",
-    startTime: "17:00",
     endTime: "18:00",
-    title: "Hands On Integrale",
-    speaker: "Integrale",
-    location: "Sala Hands On 2",
-    description: "Hands On Integrale",
+    title: "Hands On – inscrições em breve.",
+    speaker: null,
+    location: null,
+    description: "inscrições em breve.",
     type: "Hands On",
-    order: 24,
+    order: 6,
   },
   {
     date: "2026-11-06",
@@ -304,10 +223,10 @@ export const COPOL_OFFICIAL_SCHEDULE_ITEMS: CopolActivitySeed[] = [
     endTime: "19:00",
     title: "Coffee Break",
     speaker: null,
-    location: "Área de Convivência",
-    description: "Coffee Break",
+    location: null,
+    description: null,
     type: "Intervalo",
-    order: 25,
+    order: 7,
   },
   {
     date: "2026-11-06",
@@ -315,10 +234,10 @@ export const COPOL_OFFICIAL_SCHEDULE_ITEMS: CopolActivitySeed[] = [
     endTime: "20:00",
     title: "Dr. Ricardo Navarro",
     speaker: "Dr. Ricardo Navarro",
-    location: "Auditório Principal",
-    description: "Dr. Ricardo Navarro",
+    location: null,
+    description: null,
     type: "Palestra",
-    order: 26,
+    order: 8,
   },
   {
     date: "2026-11-06",
@@ -326,121 +245,106 @@ export const COPOL_OFFICIAL_SCHEDULE_ITEMS: CopolActivitySeed[] = [
     endTime: "21:00",
     title: "Dra. Gabriella Kayamori",
     speaker: "Dra. Gabriella Kayamori",
-    location: "Auditório Principal",
-    description: "Dra. Gabriella Kayamori",
+    location: null,
+    description: null,
     type: "Palestra",
-    order: 27,
+    order: 9,
   },
   {
     date: "2026-11-06",
-    startTime: "21:00",
-    endTime: "22:00",
-    title: "Encerramento com Coquetel Dia 2",
+    startTime: "—",
+    endTime: null,
+    title: "Coquetel de Encerramento Dia 2",
     speaker: null,
-    location: "Área de Convivência",
-    description: "Encerramento com Coquetel Dia 2",
+    location: null,
+    description: null,
     type: "Solenidade",
-    order: 28,
+    order: 10,
   },
 
-  // ==========================================
   // SÁBADO — 07/11/2026 (5 atividades)
-  // ==========================================
   {
     date: "2026-11-07",
     startTime: "08:00",
-    endTime: "09:30",
-    title: "Abertura dos portões",
-    speaker: null,
-    location: "Entrada Principal",
-    description: "Abertura dos portões",
-    type: "Credenciamento",
-    order: 29,
+    endTime: null,
+    title: "Nikolas Barros",
+    speaker: "Nikolas Barros",
+    location: null,
+    description: null,
+    type: "Palestra",
+    order: 0,
   },
   {
     date: "2026-11-07",
     startTime: "09:30",
-    endTime: "10:00",
+    endTime: null,
     title: "Coffee Break",
     speaker: null,
-    location: "Área de Convivência",
-    description: "Coffee Break",
+    location: null,
+    description: null,
     type: "Intervalo",
-    order: 30,
+    order: 1,
   },
   {
     date: "2026-11-07",
     startTime: "10:00",
-    endTime: "11:00",
+    endTime: null,
     title: "Dra. Stephanie – Dentística",
     speaker: "Dra. Stephanie",
-    location: "Auditório Principal",
-    description: "Dra. Stephanie – Dentística",
+    location: null,
+    description: null,
     type: "Palestra",
-    order: 31,
+    order: 2,
   },
   {
     date: "2026-11-07",
     startTime: "11:00",
-    endTime: "12:00",
+    endTime: null,
     title: "Joab Cabral – Estomatologia",
     speaker: "Joab Cabral",
-    location: "Auditório Principal",
-    description: "Joab Cabral – Estomatologia",
+    location: null,
+    description: null,
     type: "Palestra",
-    order: 32,
+    order: 3,
   },
   {
     date: "2026-11-07",
-    startTime: "12:00",
-    endTime: "13:00",
+    startTime: "—",
+    endTime: null,
     title: "Cerimônia de Encerramento",
     speaker: null,
-    location: "Auditório Principal",
-    description: "Cerimônia de Encerramento",
+    location: null,
+    description: null,
     type: "Solenidade",
-    order: 33,
+    order: 4,
   },
 ];
 
 export async function seedCopolSchedule() {
-  console.log("Iniciando seed da Programação Oficial do COPOL (34 atividades)...");
+  console.log("Iniciando seed da programacao oficial do COPOL (27 itens)...");
 
-  // Localiza o evento COPOL
   let event = await prisma.event.findFirst({
     where: {
       OR: [
-        { slug: "copol" },
-        { slug: "copol-2026" },
         { name: { contains: "COPOL", mode: "insensitive" } },
+        { id: "copol-2026" },
       ],
     },
   });
 
   if (!event) {
     event = await prisma.event.findFirst({
-      where: { status: "PUBLISHED" },
+      orderBy: { createdAt: "desc" },
     });
   }
 
   if (!event) {
-    console.log("Nenhum evento COPOL encontrado. Criando evento base COPOL 2026...");
-    event = await prisma.event.create({
-      data: {
-        name: "3º COPOL — Congresso Odontológico Positivo Londrinense",
-        slug: "copol",
-        description: "Congresso de Odontologia de Londrina",
-        location: "Universidade Positivo — Campus Londrina",
-        startDate: new Date("2026-11-05T08:00:00.000Z"),
-        endDate: new Date("2026-11-07T18:00:00.000Z"),
-        status: "PUBLISHED",
-      },
-    });
+    console.warn("Nenhum evento encontrado no banco para vincular a grade.");
+    return;
   }
 
-  console.log(`Evento vinculado: "${event.name}" (ID: ${event.id})`);
+  console.log(`Vinculando ${COPOL_OFFICIAL_SCHEDULE_ITEMS.length} itens ao evento: ${event.name} (${event.id})`);
 
-  // Operação idempotente: remove itens antigos do evento e reinsere a grade oficial
   await prisma.eventScheduleItem.deleteMany({
     where: { eventId: event.id },
   });
@@ -449,7 +353,7 @@ export async function seedCopolSchedule() {
     await prisma.eventScheduleItem.create({
       data: {
         eventId: event.id,
-        date: new Date(`${item.date}T00:00:00.000Z`),
+        date: new Date(`${item.date}T12:00:00.000Z`),
         startTime: item.startTime,
         endTime: item.endTime,
         title: item.title,
@@ -466,20 +370,16 @@ export async function seedCopolSchedule() {
     where: { eventId: event.id },
   });
 
-  console.log(`✓ Grade oficial do COPOL seedada com sucesso: ${count} atividades cadastradas.`);
-}
-
-async function main() {
-  try {
-    await seedCopolSchedule();
-  } catch (err) {
-    console.error("Erro ao executar seed da programação:", err);
-    process.exit(1);
-  } finally {
-    await prisma.$disconnect();
-  }
+  console.log(`Sucesso: ${count} itens da programacao oficial cadastrados para o evento ${event.name}.`);
 }
 
 if (process.argv[1]?.includes("seed-copol-schedule")) {
-  main();
+  seedCopolSchedule()
+    .catch((e) => {
+      console.error("Erro no seed:", e);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
 }

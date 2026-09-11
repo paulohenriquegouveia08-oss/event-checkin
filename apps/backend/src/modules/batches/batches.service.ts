@@ -155,8 +155,46 @@ export async function contarOcupadas(
   return tx.inscription.count({ where: ocupaVagaWhere(batchId, agora) });
 }
 
-export async function resolveActiveBatch(eventId: string, now: Date = new Date()) {
+export async function getBatchSettings(eventId: string): Promise<{ autoRelease: boolean }> {
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { siteContent: true },
+  });
+  const siteContent = (event?.siteContent as any) ?? {};
+  const autoRelease = Boolean(siteContent.autoReleaseBatches ?? siteContent.batchSettings?.autoRelease ?? false);
+  return { autoRelease };
+}
+
+export async function updateBatchSettings(eventId: string, settings: { autoRelease: boolean }): Promise<{ autoRelease: boolean }> {
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { siteContent: true },
+  });
+  if (!event) throw new NotFoundError("Evento não encontrado");
+
+  const siteContent = typeof event.siteContent === "object" && event.siteContent !== null ? { ...(event.siteContent as object) } : {};
+  (siteContent as any).autoReleaseBatches = settings.autoRelease;
+  (siteContent as any).batchSettings = {
+    ...((siteContent as any).batchSettings ?? {}),
+    autoRelease: settings.autoRelease,
+  };
+
+  await prisma.event.update({
+    where: { id: eventId },
+    data: { siteContent },
+  });
+
+  return { autoRelease: settings.autoRelease };
+}
+
+export async function resolveActiveBatch(
+  eventId: string,
+  now: Date = new Date(),
+  overrideAutoRelease?: boolean
+) {
   const batches = await ensureDefaultBatches(eventId);
+  const settings = overrideAutoRelease !== undefined ? { autoRelease: overrideAutoRelease } : await getBatchSettings(eventId);
+  const autoRelease = settings.autoRelease;
 
   // Conta o que OCUPA VAGA, não só o que já foi pago.
   //
@@ -208,15 +246,37 @@ export async function resolveActiveBatch(eventId: string, now: Date = new Date()
     const isExpired = manualActive.endDate !== null && now > manualActive.endDate;
 
     if (isFull || isExpired) {
-      // O lote ativo atingiu a capacidade máxima ou a data limite.
-      // O sistema fecha o lote no site e NÃO promove o próximo automaticamente.
-      // O próximo lote aguarda liberação manual pelo organizador via painel admin.
+      if (!autoRelease) {
+        // Liberação automática DESATIVADA:
+        // O lote ativo encerra e NÃO promove o próximo automaticamente.
+        return {
+          activeBatch: null,
+          currentBatch: manualActive,
+          lote1Count: lote1 ? (countMap.get(lote1.id) ?? 0) : 0,
+          allBatches: batches,
+          countMap,
+          autoRelease,
+        };
+      }
+
+      // Liberação automática ATIVADA:
+      // Busca o próximo lote com batchNumber > manualActive.batchNumber elegível
+      const nextBatch = batches.find((b) => {
+        if (b.batchNumber <= manualActive.batchNumber || b.isClosed) return false;
+        const bCount = countMap.get(b.id) ?? 0;
+        if (b.maxQuantity !== null && bCount >= b.maxQuantity) return false;
+        if (b.endDate !== null && now > b.endDate) return false;
+        if (b.startDate !== null && now < b.startDate) return false;
+        return true;
+      });
+
       return {
-        activeBatch: null,
-        currentBatch: manualActive,
+        activeBatch: nextBatch ?? null,
+        currentBatch: nextBatch ?? manualActive,
         lote1Count: lote1 ? (countMap.get(lote1.id) ?? 0) : 0,
         allBatches: batches,
         countMap,
+        autoRelease,
       };
     }
 
@@ -226,36 +286,67 @@ export async function resolveActiveBatch(eventId: string, now: Date = new Date()
       lote1Count: lote1 ? (countMap.get(lote1.id) ?? 0) : 0,
       allBatches: batches,
       countMap,
+      autoRelease,
     };
   }
 
   // 2. Se nenhum lote foi fixado manualmente com isActive = true:
-  // O lote inicial padrão é o primeiro lote não fechado manualmente.
-  const defaultInitial = batches.find((b) => !b.isClosed);
-  if (defaultInitial) {
-    const count = countMap.get(defaultInitial.id) ?? 0;
-    const isFull = defaultInitial.maxQuantity !== null && count >= defaultInitial.maxQuantity;
-    const isExpired = defaultInitial.endDate !== null && now > defaultInitial.endDate;
-    const isNotStarted = defaultInitial.startDate !== null && now < defaultInitial.startDate;
+  if (!autoRelease) {
+    // Liberação automática DESATIVADA:
+    // O lote inicial padrão é o primeiro lote não fechado.
+    const defaultInitial = batches.find((b) => !b.isClosed);
+    if (defaultInitial) {
+      const count = countMap.get(defaultInitial.id) ?? 0;
+      const isFull = defaultInitial.maxQuantity !== null && count >= defaultInitial.maxQuantity;
+      const isExpired = defaultInitial.endDate !== null && now > defaultInitial.endDate;
+      const isNotStarted = defaultInitial.startDate !== null && now < defaultInitial.startDate;
 
-    if (isFull || isExpired || isNotStarted) {
-      // O lote padrão fechou ou ainda não iniciou.
-      // NÃO passa para o lote seguinte automaticamente! Fica sem lote ativo até liberação manual.
+      if (isFull || isExpired || isNotStarted) {
+        return {
+          activeBatch: null,
+          currentBatch: defaultInitial,
+          lote1Count: lote1 ? (countMap.get(lote1.id) ?? 0) : 0,
+          allBatches: batches,
+          countMap,
+          autoRelease,
+        };
+      }
+
       return {
-        activeBatch: null,
+        activeBatch: defaultInitial,
         currentBatch: defaultInitial,
         lote1Count: lote1 ? (countMap.get(lote1.id) ?? 0) : 0,
         allBatches: batches,
         countMap,
+        autoRelease,
       };
+    }
+  } else {
+    // Liberação automática ATIVADA:
+    // Percorre os lotes e seleciona o primeiro elegível
+    let resolvedActive: EventBatch | null = null;
+    let lastExamined: EventBatch | null = null;
+
+    for (const b of batches) {
+      if (b.isClosed) continue;
+      lastExamined = b;
+
+      const count = countMap.get(b.id) ?? 0;
+      if (b.maxQuantity !== null && count >= b.maxQuantity) continue;
+      if (b.endDate !== null && now > b.endDate) continue;
+      if (b.startDate !== null && now < b.startDate) continue;
+
+      resolvedActive = b;
+      break;
     }
 
     return {
-      activeBatch: defaultInitial,
-      currentBatch: defaultInitial,
+      activeBatch: resolvedActive,
+      currentBatch: resolvedActive ?? lastExamined,
       lote1Count: lote1 ? (countMap.get(lote1.id) ?? 0) : 0,
       allBatches: batches,
       countMap,
+      autoRelease,
     };
   }
 
@@ -265,6 +356,7 @@ export async function resolveActiveBatch(eventId: string, now: Date = new Date()
     lote1Count: lote1 ? (countMap.get(lote1.id) ?? 0) : 0,
     allBatches: batches,
     countMap,
+    autoRelease,
   };
 }
 
@@ -274,9 +366,13 @@ export async function resolveActiveBatch(eventId: string, now: Date = new Date()
  */
 export async function getBatchesOverview(
   eventId: string,
-  options?: { hideUpcomingPrice?: boolean }
-): Promise<BatchViewItem[]> {
-  const { activeBatch, allBatches, countMap, currentBatch } = await resolveActiveBatch(eventId);
+  options?: { hideUpcomingPrice?: boolean; overrideAutoRelease?: boolean }
+): Promise<{ batches: BatchViewItem[]; autoRelease: boolean; activeBatch: BatchViewItem | null }> {
+  const { activeBatch, allBatches, countMap, currentBatch, autoRelease } = await resolveActiveBatch(
+    eventId,
+    new Date(),
+    options?.overrideAutoRelease
+  );
   const activeId = activeBatch?.id ?? null;
 
   // Lote de referência para saber quais lotes já foram concluídos e quais são futuros.
@@ -284,7 +380,7 @@ export async function getBatchesOverview(
   const referenceBatch = activeBatch ?? currentBatch ?? allBatches[0];
   const referenceNum = referenceBatch ? referenceBatch.batchNumber : 1;
 
-  return allBatches.map((b) => {
+  const batches = allBatches.map((b) => {
     const isThisActive = b.id === activeId;
     const confirmed = countMap.get(b.id) ?? 0;
     const isFull = b.maxQuantity !== null && confirmed >= b.maxQuantity;
@@ -319,6 +415,14 @@ export async function getBatchesOverview(
       isClosed: b.isClosed || status === "CLOSED",
     };
   });
+
+  const active = batches.find((b) => b.isActive) ?? null;
+
+  return {
+    batches,
+    autoRelease,
+    activeBatch: active,
+  };
 }
 
 /**

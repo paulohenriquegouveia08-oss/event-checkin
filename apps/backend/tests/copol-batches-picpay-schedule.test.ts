@@ -80,13 +80,13 @@ describe("Copol — Inscrição Única, Lotes Automáticos e PicPay", () => {
     expect(activeCheck.activeBatch).toBeNull();
 
     const overview = await batchesService.getBatchesOverview(event.id, { hideUpcomingPrice: true });
-    const lote1View = overview.find((b) => b.batchNumber === 1)!;
-    const lote2View = overview.find((b) => b.batchNumber === 2)!;
+    const lote1View = overview.batches.find((b) => b.batchNumber === 1)!;
+    const lote2View = overview.batches.find((b) => b.batchNumber === 2)!;
     expect(lote1View.status).toBe("CLOSED");
     expect(lote2View.status).toBe("UPCOMING");
     expect(lote2View.price).toBeNull(); // Preço ocultado para visitantes
 
-    // Tentativa de inscrição é recusada pois o lote encerrou e o próximo aguarda liberação manual
+    // Tentativa de inscrição é recusada pois o lote encerrou (409 LOTE_ESGOTADO) e o próximo aguarda liberação manual
     const responseBlocked = await app.inject({
       method: "POST",
       url: `/events/${event.id}/inscriptions`,
@@ -97,7 +97,8 @@ describe("Copol — Inscrição Única, Lotes Automáticos e PicPay", () => {
         consentVersion: "1.0",
       },
     });
-    expect(responseBlocked.statusCode).toBe(403);
+    expect(responseBlocked.statusCode).toBe(409);
+    expect(responseBlocked.json().error.code).toBe("LOTE_ESGOTADO");
 
     // Administrador faz a liberação manual do Lote 2
     await batchesService.setActiveBatchManual(event.id, lote2.id);
@@ -285,9 +286,83 @@ describe("Copol — Inscrição Única, Lotes Automáticos e PicPay", () => {
     });
     expect(activateRes.statusCode).toBe(200);
     const activatedBatches = activateRes.json().data;
-    const lote2Active = activatedBatches.find((b: any) => b.id === lote2.id);
+    const batchList = activatedBatches.batches || activatedBatches;
+    const lote2Active = batchList.find((b: any) => b.id === lote2.id);
     expect(lote2Active.isActive).toBe(true);
     expect(lote2Active.status).toBe("ACTIVE");
+  });
+
+  it("permite ao admin configurar liberação automática de lotes (ativada vs desativada)", async () => {
+    const event = await createTestEvent();
+    const token = await loginAsAdmin();
+
+    // 1. GET /events/:eventId/batches/settings - padrão é false
+    const getRes = await app.inject({
+      method: "GET",
+      url: `/events/${event.id}/batches/settings`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(getRes.statusCode).toBe(200);
+    expect(getRes.json().data.autoRelease).toBe(false);
+
+    // 2. PUT /events/:eventId/batches/settings - ativa autoRelease
+    const putRes = await app.inject({
+      method: "PUT",
+      url: `/events/${event.id}/batches/settings`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: { autoRelease: true },
+    });
+    expect(putRes.statusCode).toBe(200);
+    expect(putRes.json().data.autoRelease).toBe(true);
+
+    // 3. Com autoRelease = true, ao esgotar Lote 1 o Lote 2 é ativado automaticamente
+    const batches = await batchesService.ensureDefaultBatches(event.id);
+    const lote1 = batches.find((b) => b.batchNumber === 1)!;
+    const lote2 = batches.find((b) => b.batchNumber === 2)!;
+
+    // Simula 60 inscrições no Lote 1
+    const dummyInscriptions = Array.from({ length: 60 }).map((_, i) => ({
+      eventId: event.id,
+      name: `Participante L1 #${i + 1}`,
+      email: `part-l1-${i + 1}@teste.com`,
+      document: `111.000.000-${String(i + 1).padStart(2, "0")}`,
+      category: lote1.name,
+      batchId: lote1.id,
+      amount: 100,
+      status: "CONFIRMED" as const,
+    }));
+    await prisma.inscription.createMany({ data: dummyInscriptions });
+
+    // Resolução com autoRelease = true promove para o Lote 2
+    const activeRes = await batchesService.resolveActiveBatch(event.id);
+    expect(activeRes.activeBatch).not.toBeNull();
+    expect(activeRes.activeBatch?.id).toBe(lote2.id);
+    expect(activeRes.activeBatch?.batchNumber).toBe(2);
+
+    // 4. Se o admin desativa autoRelease novamente
+    await app.inject({
+      method: "PUT",
+      url: `/events/${event.id}/batches/settings`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: { autoRelease: false },
+    });
+
+    // E se o lote 2 também esgotar (60 vagas)
+    const dummyLote2 = Array.from({ length: 60 }).map((_, i) => ({
+      eventId: event.id,
+      name: `Participante L2 #${i + 1}`,
+      email: `part-l2-${i + 1}@teste.com`,
+      document: `222.000.000-${String(i + 1).padStart(2, "0")}`,
+      category: lote2.name,
+      batchId: lote2.id,
+      amount: 150,
+      status: "CONFIRMED" as const,
+    }));
+    await prisma.inscription.createMany({ data: dummyLote2 });
+
+    // Com autoRelease = false, lote 2 fecha e lote 3 NÃO é ativado automaticamente
+    const manualCheck = await batchesService.resolveActiveBatch(event.id);
+    expect(manualCheck.activeBatch).toBeNull();
   });
 });
 

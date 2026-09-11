@@ -32,8 +32,11 @@ export async function createInscription(
   let category: string;
 
   if (!input.category) {
-    const { activeBatch } = await batchesService.resolveActiveBatch(eventId);
+    const { activeBatch, currentBatch } = await batchesService.resolveActiveBatch(eventId);
     if (!activeBatch) {
+      if (currentBatch && currentBatch.maxQuantity !== null) {
+        throw new batchesService.LoteEsgotadoError(currentBatch.name);
+      }
       throw new ForbiddenError("Todos os lotes de inscrição para este evento foram encerrados");
     }
     amount = Number(activeBatch.price);
@@ -109,6 +112,7 @@ export async function createInscription(
     return {
       id: confirmada.id,
       eventId: confirmada.eventId,
+      batchId: confirmada.batchId,
       name: confirmada.name,
       email: confirmada.email,
       status: confirmada.status,
@@ -163,6 +167,7 @@ export async function createInscription(
   return {
     id: inscription.id,
     eventId: inscription.eventId,
+    batchId: inscription.batchId,
     name: inscription.name,
     email: inscription.email,
     status: inscription.status,

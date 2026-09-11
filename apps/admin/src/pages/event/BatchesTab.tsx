@@ -24,6 +24,8 @@ const EMPTY_FORM: BatchFormData = {
 export function BatchesTab({ eventId }: { eventId: string }) {
   const [batches, setBatches] = useState<api.BatchItem[]>([]);
   const [activeBatch, setActiveBatch] = useState<api.BatchItem | null>(null);
+  const [autoRelease, setAutoRelease] = useState<boolean>(false);
+  const [savingAutoRelease, setSavingAutoRelease] = useState(false);
   const [event, setEvent] = useState<api.EventRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,11 +50,26 @@ export function BatchesTab({ eventId }: { eventId: string }) {
       ]);
       setBatches(batchRes.batches);
       setActiveBatch(batchRes.activeBatch);
+      setAutoRelease(Boolean(batchRes.autoRelease));
       setEvent(eventRes);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao carregar lotes do evento");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleToggleAutoRelease() {
+    const nextVal = !autoRelease;
+    setSavingAutoRelease(true);
+    try {
+      const res = await api.updateBatchSettings(eventId, { autoRelease: nextVal });
+      setAutoRelease(res.autoRelease);
+      await loadData();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Erro ao atualizar configuração de liberação automática de lotes");
+    } finally {
+      setSavingAutoRelease(false);
     }
   }
 
@@ -221,6 +238,67 @@ export function BatchesTab({ eventId }: { eventId: string }) {
           </button>
         </div>
       )}
+
+      {/* Regra de Liberação Automática vs Manual de Lotes */}
+      <div
+        className="card spread"
+        style={{
+          padding: "16px 20px",
+          alignItems: "center",
+          background: autoRelease ? "rgba(14, 165, 233, 0.05)" : "rgba(245, 158, 11, 0.05)",
+          border: `1px solid ${autoRelease ? "rgba(14, 165, 233, 0.3)" : "rgba(245, 158, 11, 0.3)"}`,
+          gap: 16,
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ flex: 1, minWidth: 280 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: "1px",
+                color: autoRelease ? "#0284C7" : "#D97706",
+              }}
+            >
+              Transição de Lotes
+            </span>
+            <span
+              className="badge"
+              style={{
+                background: autoRelease ? "rgba(14, 165, 233, 0.2)" : "rgba(245, 158, 11, 0.2)",
+                color: autoRelease ? "#0284C7" : "#D97706",
+                fontWeight: 800,
+                letterSpacing: "0.5px",
+              }}
+            >
+              {autoRelease ? "[ ATIVADA ]" : "[ DESATIVADA ]"}
+            </span>
+          </div>
+          <h3 style={{ margin: "2px 0 0", fontSize: 16 }}>
+            Liberação automática de lotes: <strong>{autoRelease ? "ATIVADA" : "DESATIVADA"}</strong>
+          </h3>
+          <p className="muted" style={{ margin: "4px 0 0", fontSize: 13, lineHeight: 1.4 }}>
+            {autoRelease
+              ? "Ao esgotar as vagas ou o prazo do lote atual, o sistema ativa automaticamente o próximo lote elegível."
+              : "Ao esgotar as vagas do lote atual, as vendas são bloqueadas até que o administrador clique em 'Ativar Agora' manualmente."}
+          </p>
+        </div>
+
+        <button
+          className={`btn btn-sm ${autoRelease ? "btn-secondary" : ""}`}
+          onClick={handleToggleAutoRelease}
+          disabled={savingAutoRelease}
+          style={{ minWidth: 220 }}
+        >
+          {savingAutoRelease
+            ? "Salvando..."
+            : autoRelease
+            ? "Desativar Liberação Automática"
+            : "Ativar Liberação Automática"}
+        </button>
+      </div>
 
       {/* Cabeçalho */}
       <div className="spread" style={{ alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>

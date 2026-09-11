@@ -487,25 +487,64 @@ export default function HomePage() {
                                   }}
                                 >
                                   <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                                    <span
-                                      style={{
-                                        fontFamily: "monospace",
-                                        fontWeight: 700,
-                                        color: "var(--gold)",
-                                        background: "rgba(200, 162, 97, 0.12)",
-                                        padding: "4px 10px",
-                                        borderRadius: 6,
-                                        fontSize: 13,
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        gap: 6,
-                                        whiteSpace: "nowrap",
-                                      }}
-                                    >
-                                      <ClockIcon size={13} />
-                                      {item.startTime}
-                                      {item.endTime ? ` – ${item.endTime}` : ""}
-                                    </span>
+                                    {item.startTime && item.startTime !== "—" ? (
+                                      <span
+                                        style={{
+                                          fontFamily: "monospace",
+                                          fontWeight: 700,
+                                          color: "var(--gold)",
+                                          background: "rgba(200, 162, 97, 0.12)",
+                                          padding: "4px 10px",
+                                          borderRadius: 6,
+                                          fontSize: 13,
+                                          display: "inline-flex",
+                                          alignItems: "center",
+                                          gap: 6,
+                                          whiteSpace: "nowrap",
+                                        }}
+                                      >
+                                        <ClockIcon size={13} />
+                                        {item.startTime}
+                                        {item.endTime ? ` – ${item.endTime}` : ""}
+                                      </span>
+                                    ) : (
+                                      <span
+                                        style={{
+                                          fontSize: 12,
+                                          fontWeight: 600,
+                                          color: "var(--muted-foreground)",
+                                          background: "rgba(255, 255, 255, 0.05)",
+                                          padding: "4px 10px",
+                                          borderRadius: 6,
+                                          display: "inline-flex",
+                                          alignItems: "center",
+                                          gap: 6,
+                                          whiteSpace: "nowrap",
+                                        }}
+                                      >
+                                        <ClockIcon size={13} />
+                                        Encerramento
+                                      </span>
+                                    )}
+
+                                    {dayItems.some((other) => other.id !== item.id && other.startTime === item.startTime && Boolean(item.startTime && item.startTime !== "—")) && (
+                                      <span
+                                        style={{
+                                          fontSize: 11,
+                                          fontWeight: 700,
+                                          color: "#60a5fa",
+                                          background: "rgba(59, 130, 246, 0.12)",
+                                          border: "1px solid rgba(59, 130, 246, 0.3)",
+                                          padding: "3px 8px",
+                                          borderRadius: 6,
+                                          textTransform: "uppercase",
+                                          letterSpacing: "0.5px",
+                                          whiteSpace: "nowrap",
+                                        }}
+                                      >
+                                        Simultâneo
+                                      </span>
+                                    )}
 
                                     {item.type && (
                                       <span

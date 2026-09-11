@@ -234,6 +234,7 @@ export async function getMyDocuments(eventId: string, participantId: string) {
   const status = resolveDisplayStatus({ eligibility, persistedStatus: certificate?.status ?? null });
 
   return {
+    hasCertificate: status === "ELIGIBLE" || status === "GENERATED",
     qrCode: { available: participant.status === "ACTIVE" && !participant.revokedAt },
     attendanceProof: { available: !!checkIn },
     certificate: {

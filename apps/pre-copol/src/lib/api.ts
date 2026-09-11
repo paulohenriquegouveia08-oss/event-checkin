@@ -148,7 +148,7 @@ export interface ScheduleItem {
   id: string;
   eventId: string;
   date: string;
-  startTime: string;
+  startTime?: string | null;
   endTime?: string | null;
   title: string;
   speaker?: string | null;

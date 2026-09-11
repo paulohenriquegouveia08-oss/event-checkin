@@ -45,16 +45,35 @@ export async function batchesRoutes(app: FastifyInstance) {
       // Visitante público não autenticado
     }
 
-    const batches = await batchesService.getBatchesOverview(eventId, {
+    const overview = await batchesService.getBatchesOverview(eventId, {
       hideUpcomingPrice: !isAuthorizedAdmin,
     });
-    const active = batches.find((b) => b.isActive) ?? null;
 
-    return ok({
-      batches,
-      activeBatch: active,
-    });
+    return ok(overview);
   });
+
+  // Admin: Obter configurações dos lotes (ex: liberação automática ativada/desativada)
+  app.get(
+    "/events/:eventId/batches/settings",
+    { preHandler: requirePermission("events.view") },
+    async (request) => {
+      const { eventId } = eventIdParams.parse(request.params);
+      const settings = await batchesService.getBatchSettings(eventId);
+      return ok(settings);
+    }
+  );
+
+  // Admin: Atualizar configurações dos lotes (ex: liberação automática ativada/desativada)
+  app.put(
+    "/events/:eventId/batches/settings",
+    { preHandler: requirePermission("events.edit") },
+    async (request) => {
+      const { eventId } = eventIdParams.parse(request.params);
+      const input = z.object({ autoRelease: z.boolean() }).parse(request.body);
+      const updated = await batchesService.updateBatchSettings(eventId, input);
+      return ok(updated);
+    }
+  );
 
   // Admin: Criar novo lote para o evento
   app.post(

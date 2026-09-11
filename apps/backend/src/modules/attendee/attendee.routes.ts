@@ -12,14 +12,23 @@ const selectEventSchema = z.object({
 export async function attendeeRoutes(app: FastifyInstance) {
   /**
    * POST /attendee/login
-   * Public — participant logs in with email only.
+   * Public — participant logs in with email (and optional eventId).
+   * If tenantEvent or eventId is present, strictly filter participant lookup to that event.
    * If found in 1 active event → returns JWT + participant data.
-   * If found in multiple events → returns list for selection.
+   * If found in multiple events (when no tenant/eventId specified) → returns list for selection (never leaking qrToken).
    */
   app.post("/attendee/login", async (request, reply) => {
-    const { email } = attendeeLoginSchema.parse(request.body);
+    const loginSchema = attendeeLoginSchema.extend({
+      eventId: z.string().optional(),
+    });
+    const { email, eventId } = loginSchema.parse(request.body);
 
-    const participants = await attendeeRepository.findParticipantByEmail(email);
+    const targetEventId = eventId || request.tenantEvent?.id;
+
+    const participants = await attendeeRepository.findParticipantByEmail(
+      email,
+      targetEventId
+    );
 
     if (participants.length === 0) {
       return reply.status(404).send(
@@ -27,8 +36,8 @@ export async function attendeeRoutes(app: FastifyInstance) {
       );
     }
 
-    // If only one event, auto-select and login
-    if (participants.length === 1) {
+    // If only one event (or targetEventId specified), auto-select and login
+    if (participants.length === 1 || targetEventId) {
       const participant = participants[0];
       const token = await reply.jwtSign(
         {
@@ -56,15 +65,16 @@ export async function attendeeRoutes(app: FastifyInstance) {
       );
     }
 
-    // Multiple events — return list for selection
+    // Multiple events (no tenant/eventId specified) — return list for selection.
+    // SECURITY: NEVER return qrToken or credentials before event selection!
     return reply.send(
       ok({
         requiresEventSelection: true,
         events: participants.map((p) => ({
           participantId: p.id,
+          id: p.id,
           name: p.name,
           email: p.email,
-          qrToken: p.qrToken,
           status: p.status,
           event: p.event,
           lastCheckIn: p.checkIns[0] ?? null,
@@ -86,6 +96,12 @@ export async function attendeeRoutes(app: FastifyInstance) {
     if (!participant || participant.status !== "ACTIVE") {
       return reply.status(404).send(
         fail("NOT_FOUND", "Participante não encontrado")
+      );
+    }
+
+    if (request.tenantEvent && participant.eventId !== request.tenantEvent.id) {
+      return reply.status(404).send(
+        fail("NOT_FOUND", "Participante não encontrado neste evento")
       );
     }
 
@@ -126,7 +142,7 @@ export async function attendeeRoutes(app: FastifyInstance) {
     }
 
     try {
-      const decoded = app.jwt.verify<{ sub: string; type: string }>(
+      const decoded = app.jwt.verify<{ sub: string; type: string; eventId?: string }>(
         authHeader.slice(7)
       );
 
@@ -138,6 +154,11 @@ export async function attendeeRoutes(app: FastifyInstance) {
 
       if (!participant) {
         return reply.status(404).send(fail("NOT_FOUND", "Participante não encontrado"));
+      }
+
+      // Multi-tenant check: if tenantEvent is bound to this request, ensure token and participant match this tenant
+      if (request.tenantEvent && participant.eventId !== request.tenantEvent.id) {
+        return reply.status(403).send(fail("FORBIDDEN", "Acesso não autorizado para este evento"));
       }
 
       return reply.send(
@@ -172,9 +193,12 @@ export async function attendeeRoutes(app: FastifyInstance) {
 
     let participantId: string;
     try {
-      const decoded = app.jwt.verify<{ sub: string; type: string }>(token);
+      const decoded = app.jwt.verify<{ sub: string; type: string; eventId?: string }>(token);
       if (decoded.type !== "attendee") {
         return reply.status(403).send(fail("FORBIDDEN", "Token inválido"));
+      }
+      if (request.tenantEvent && decoded.eventId && decoded.eventId !== request.tenantEvent.id) {
+        return reply.status(403).send(fail("FORBIDDEN", "Token não pertence a este evento"));
       }
       participantId = decoded.sub;
     } catch {
@@ -215,6 +239,9 @@ export async function attendeeRoutes(app: FastifyInstance) {
    */
   app.get("/attendee/events/:eventId/stats", async (request, reply) => {
     const { eventId } = request.params as { eventId: string };
+    if (request.tenantEvent && request.tenantEvent.id !== eventId) {
+      return reply.status(403).send(fail("FORBIDDEN", "Acesso não autorizado para este evento"));
+    }
     const stats = await attendeeRepository.getEventStats(eventId);
     return reply.send(ok(stats));
   });

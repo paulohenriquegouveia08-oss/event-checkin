@@ -5,6 +5,7 @@ import jwt from "@fastify/jwt";
 import rateLimit from "@fastify/rate-limit";
 import { env } from "./config/env.js";
 import { errorHandler } from "./middleware/error-handler.js";
+import { tenantMiddleware } from "./middleware/tenant.js";
 import { ok } from "./shared/response.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { eventsRoutes } from "./modules/events/events.routes.js";
@@ -79,6 +80,9 @@ export function buildApp() {
     },
   });
   app.register(jwt, { secret: env.JWT_SECRET });
+
+  app.decorateRequest("tenantEvent", null);
+  app.addHook("onRequest", tenantMiddleware);
 
   app.get("/health", async () => ok({ status: "ok", apiVersion: API_VERSION }));
 

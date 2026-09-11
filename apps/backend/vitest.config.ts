@@ -9,6 +9,7 @@ export default defineConfig({
     // Rodar em série evita que dois arquivos de teste disputem as mesmas
     // linhas/tabelas ao mesmo tempo.
     fileParallelism: false,
+    maxWorkers: 1,
     testTimeout: 15000,
     hookTimeout: 30000,
   },

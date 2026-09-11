@@ -130,7 +130,13 @@ function InscriptionContent() {
 
     setSubmitting(true);
     try {
-      const result = await createInscription(eventId, form);
+      const targetId = eventId || event?.id;
+      if (!targetId) {
+        setError("Evento não identificado para inscrição.");
+        setSubmitting(false);
+        return;
+      }
+      const result = await createInscription(targetId, form);
       router.push(`/confirmacao?id=${result.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao criar inscrição.");

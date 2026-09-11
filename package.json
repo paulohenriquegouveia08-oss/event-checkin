@@ -7,12 +7,19 @@
     "packages/*"
   ],
   "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspace=apps/backend",
+    "typecheck": "npm run typecheck --workspaces --if-present",
     "backend:dev": "npm run dev --workspace=apps/backend",
     "backend:build": "npm run build --workspace=apps/backend",
     "backend:test": "npm run test --workspace=apps/backend",
     "backend:migrate": "npm run migrate --workspace=apps/backend",
     "attendee:dev": "npm run dev --workspace=apps/attendee",
     "attendee:build": "npm run build --workspace=apps/attendee",
-    "attendee:start": "npm run start --workspace=apps/attendee"
+    "attendee:start": "npm run start --workspace=apps/attendee",
+    "admin:dev": "npm run dev --workspace=apps/admin",
+    "admin:build": "npm run build --workspace=apps/admin",
+    "pre-copol:dev": "npm run dev --workspace=apps/pre-copol",
+    "pre-copol:build": "npm run build --workspace=apps/pre-copol"
   }
 }

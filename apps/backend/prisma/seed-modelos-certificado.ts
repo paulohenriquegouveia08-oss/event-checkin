@@ -39,7 +39,23 @@ const MODELOS = [
       qr: { xEsquerda: 1310, yTopo: 880, tamanho: 120 },
     },
   },
+  {
+    nome: "Semantix 2026 — Palestrante",
+    descricao:
+      "Semantix na UP — Certificado de Palestrante. A arte já traz todo o texto, a data, o local, a carga horária (3h), o slogan e as assinaturas; somente o nome da pessoa é inserido pelo sistema sobre a linha roxa (sem QR Code).",
+    arquivo: "../assets/certificates/semantix-2026-palestrante-base.png",
+    layout: {
+      corPrincipal: "#0B0B52",
+      corDoTexto: "#000048",
+      nome: { xEsquerda: 142, xDireita: 1047, yBase: 498, tamanhoMaximo: 62, alinhamento: "esquerda", fonte: "sem-serifa" },
+      paragrafo: null,
+      chipData: null,
+      assinaturas: null,
+      qr: null,
+    },
+  },
 ];
+
 
 async function main() {
   for (const m of MODELOS) {

@@ -447,21 +447,18 @@ export async function reservarVaga(
   tx: Prisma.TransactionClient,
   batchId: string,
 ): Promise<void> {
-  // Trava a linha do lote. O retorno não interessa — o efeito é o
-  // bloqueio.
-  //
-  // Sem cast de tipo: `event_batches.id` é TEXT (o `@default(uuid())`
-  // do Prisma gera o valor na aplicação, a coluna continua texto).
-  // Um `::uuid` aqui faz o Postgres recusar a comparação com
-  // "operator does not exist: text = uuid".
-  const travado = await tx.$queryRaw<{ id: string; name: string; maxQuantity: number | null }[]>`
-    SELECT id, name, "maxQuantity"
-      FROM event_batches
-     WHERE id = ${batchId}
-       FOR UPDATE
-  `;
+  // Bloqueio de exclusão mútua a nível de transação no PostgreSQL via Advisory Lock.
+  // Substitui o `SELECT ... FOR UPDATE` em `event_batches`, eliminando completamente
+  // deadlocks (40P01) causados pela inversão de ordem entre locks de tupla e checagens
+  // de chave estrangeira durante o `INSERT INTO inscriptions`.
+  // O advisory lock é liberado automaticamente no commit ou rollback da transação.
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('batch:' || ${batchId}::text))`;
 
-  const lote = travado[0];
+  const lote = await tx.eventBatch.findUnique({
+    where: { id: batchId },
+    select: { id: true, name: true, maxQuantity: true },
+  });
+
   if (!lote) throw new NotFoundError("Lote de inscrição não encontrado");
 
   // Lote sem teto não pode esgotar — nada a conferir.

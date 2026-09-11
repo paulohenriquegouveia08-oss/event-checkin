@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import * as api from "../../api/client";
-import { CalendarIcon, PlusIcon } from "../../components/Icons";
+import { CalendarIcon, PlusIcon, MoveUpIcon, MoveDownIcon } from "../../components/Icons";
 
 interface FormData {
   id?: string;
@@ -28,6 +28,7 @@ const INITIAL_FORM: FormData = {
 export function ScheduleTab({ eventId }: { eventId: string }) {
   const [schedule, setSchedule] = useState<api.ScheduleItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reordering, setReordering] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Modal / Formulário
@@ -123,6 +124,44 @@ export function ScheduleTab({ eventId }: { eventId: string }) {
     }
   }
 
+  async function handleMove(itemId: string, direction: "up" | "down", dateStr: string) {
+    const itemsInDate = [...(grouped[dateStr] ?? [])];
+    const idx = itemsInDate.findIndex((i) => i.id === itemId);
+    if (idx < 0) return;
+    const targetIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= itemsInDate.length) return;
+
+    // Inverte a ordem no grupo da data
+    const temp = itemsInDate[idx]!;
+    itemsInDate[idx] = itemsInDate[targetIdx]!;
+    itemsInDate[targetIdx] = temp;
+
+    // Reconstrói a lista completa preservando o agrupamento por datas
+    const newSchedule: api.ScheduleItem[] = [];
+    dates.forEach((d) => {
+      if (d === dateStr) {
+        newSchedule.push(...itemsInDate);
+      } else {
+        newSchedule.push(...(grouped[d] ?? []));
+      }
+    });
+
+    setSchedule(newSchedule);
+    setReordering(true);
+    try {
+      const newOrderIds = newSchedule.map((i) => i.id);
+      const updated = await api.reorderSchedule(eventId, newOrderIds);
+      if (updated && updated.length > 0) {
+        setSchedule(updated);
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Erro ao reordenar atividades");
+      await loadSchedule();
+    } finally {
+      setReordering(false);
+    }
+  }
+
   // Agrupamento por data
   const grouped: Record<string, api.ScheduleItem[]> = {};
   schedule.forEach((item) => {
@@ -178,11 +217,11 @@ export function ScheduleTab({ eventId }: { eventId: string }) {
                         <th>Palestrante</th>
                         <th>Local</th>
                         <th>Tipo</th>
-                        <th style={{ width: 120, textAlign: "right" }}>Ações</th>
+                        <th style={{ width: 230, textAlign: "right" }}>Ações</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {items.map((item) => (
+                      {items.map((item, idx) => (
                         <tr key={item.id}>
                           <td style={{ fontWeight: 600, whiteSpace: "nowrap" }}>
                             {item.startTime} {item.endTime ? `— ${item.endTime}` : ""}
@@ -203,6 +242,26 @@ export function ScheduleTab({ eventId }: { eventId: string }) {
                             </span>
                           </td>
                           <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              style={{ marginRight: 4, padding: "3px 7px", fontSize: 11, display: "inline-flex", alignItems: "center", gap: 3 }}
+                              title="Subir na ordem"
+                              disabled={idx === 0 || reordering}
+                              onClick={() => handleMove(item.id, "up", dateStr)}
+                            >
+                              <MoveUpIcon size={12} /> Subir
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              style={{ marginRight: 6, padding: "3px 7px", fontSize: 11, display: "inline-flex", alignItems: "center", gap: 3 }}
+                              title="Descer na ordem"
+                              disabled={idx === items.length - 1 || reordering}
+                              onClick={() => handleMove(item.id, "down", dateStr)}
+                            >
+                              <MoveDownIcon size={12} /> Descer
+                            </button>
                             <button
                               className="btn btn-secondary btn-sm"
                               style={{ marginRight: 6 }}

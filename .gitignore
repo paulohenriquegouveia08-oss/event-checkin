@@ -38,3 +38,4 @@ apps/admin/playwright/.cache/
 apps/attendee/.next/
 apps/attendee/out/
 .vercel
+.agents/

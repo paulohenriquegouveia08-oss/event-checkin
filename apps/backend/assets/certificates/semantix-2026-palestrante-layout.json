@@ -1,0 +1,19 @@
+{
+  "_leiame": "Layout do Certificado de Palestrante Semantix na UP (1536x1024). A linha roxa sob o nome está em y=514, de x=142 a x=1047. Apenas o nome da pessoa é desenhado por cima da linha roxa; paragrafo, chipData, assinaturas e qr são null para que nada além do nome seja desenhado.",
+  "imagemLargura": 1536,
+  "imagemAltura": 1024,
+  "nome": {
+    "xEsquerda": 142,
+    "xDireita": 1047,
+    "yBase": 498,
+    "tamanhoMaximo": 62,
+    "alinhamento": "esquerda",
+    "fonte": "sem-serifa"
+  },
+  "paragrafo": null,
+  "chipData": null,
+  "assinaturas": null,
+  "qr": null,
+  "corPrincipal": "#0B0B52",
+  "corDoTexto": "#000048"
+}

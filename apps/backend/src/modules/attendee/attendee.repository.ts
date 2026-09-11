@@ -1,14 +1,22 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from "../../database/prisma.js";
 
 export const attendeeRepository = {
-  async findParticipantByEmail(email: string) {
+  async findParticipantByEmail(email: string, eventId?: string) {
+    const where: {
+      email: { equals: string; mode: "insensitive" };
+      event: { status: "ACTIVE" };
+      eventId?: string;
+    } = {
+      email: { equals: email, mode: "insensitive" },
+      event: { status: "ACTIVE" },
+    };
+
+    if (eventId) {
+      where.eventId = eventId;
+    }
+
     const participants = await prisma.participant.findMany({
-      where: {
-        email: { equals: email, mode: "insensitive" },
-        event: { status: "ACTIVE" },
-      },
+      where,
       include: {
         event: {
           select: {
@@ -37,9 +45,14 @@ export const attendeeRepository = {
     return participants;
   },
 
-  async getParticipantById(id: string) {
-    return prisma.participant.findUnique({
-      where: { id },
+  async getParticipantById(id: string, eventId?: string) {
+    const where: { id: string; eventId?: string } = { id };
+    if (eventId) {
+      where.eventId = eventId;
+    }
+
+    return prisma.participant.findFirst({
+      where,
       include: {
         event: {
           select: {

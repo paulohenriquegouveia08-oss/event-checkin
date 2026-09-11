@@ -148,9 +148,25 @@ export function SiteTab({ eventId }: { eventId: string }) {
   const [deadlineEnabled, setDeadlineEnabled] = useState(false);
   const [deadline, setDeadline] = useState("");
 
+  const [scheduleItems, setScheduleItems] = useState<api.ScheduleItem[]>([]);
+  const [loadingSchedule, setLoadingSchedule] = useState(false);
+
   useEffect(() => {
     load();
   }, [eventId]);
+
+  async function loadScheduleItems() {
+    setLoadingSchedule(true);
+    try {
+      const items = await api.getSchedule(eventId);
+      setScheduleItems(items);
+      syncScheduleToIframe(items);
+    } catch {
+      // Falha silenciosa em caso de offline/rede
+    } finally {
+      setLoadingSchedule(false);
+    }
+  }
 
   async function load() {
     setLoading(true);
@@ -195,6 +211,8 @@ export function SiteTab({ eventId }: { eventId: string }) {
             : "Universidade Positivo, Ecohub e LSPK Tecnology apoiam o Pré-Copol 2026.",
         footerText: c.footerText || "3º COPOL — Todos os direitos reservados",
       });
+
+      await loadScheduleItems();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao carregar configurações do site");
     } finally {
@@ -203,6 +221,19 @@ export function SiteTab({ eventId }: { eventId: string }) {
   }
 
   // ==================== PONTE DE COMUNICAÇÃO (POSTMESSAGE) ====================
+  function syncScheduleToIframe(items?: api.ScheduleItem[]) {
+    const payload = items ?? scheduleItems;
+    if (iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(
+        {
+          type: "SYNC_SCHEDULE",
+          payload,
+        },
+        "*"
+      );
+    }
+  }
+
   function syncToIframe() {
     if (iframeRef.current?.contentWindow) {
       const payload: api.SiteContent = {
@@ -229,6 +260,11 @@ export function SiteTab({ eventId }: { eventId: string }) {
     syncToIframe();
   }, [theme, sections, textFields, steps, partners, faqs]);
 
+  // Sincroniza programação com o iframe quando a lista mudar
+  useEffect(() => {
+    syncScheduleToIframe();
+  }, [scheduleItems]);
+
   // Envia destaque da seção selecionada para o iframe
   useEffect(() => {
     if (iframeRef.current?.contentWindow) {
@@ -248,6 +284,7 @@ export function SiteTab({ eventId }: { eventId: string }) {
       if (event.data?.type === "PREVIEW_READY") {
         setIsIframeConnected(true);
         syncToIframe();
+        syncScheduleToIframe();
       }
       if (event.data?.type === "SECTION_SELECTED" && event.data.sectionId) {
         setSelectedSectionId(event.data.sectionId);
@@ -257,7 +294,7 @@ export function SiteTab({ eventId }: { eventId: string }) {
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [theme, sections, textFields, steps, partners, faqs]);
+  }, [theme, sections, textFields, steps, partners, faqs, scheduleItems]);
 
   // Drag and drop logic
   function handleDragStart(index: number) {
@@ -759,10 +796,71 @@ export function SiteTab({ eventId }: { eventId: string }) {
               )}
 
               {activeSection.type === "schedule" && (
-                <div className="stack" style={{ gap: 8 }}>
-                  <p className="muted" style={{ fontSize: 12 }}>
-                    As palestras e horários são sincronizados automaticamente com a aba <strong>Programação</strong> deste evento.
+                <div className="stack" style={{ gap: 12 }}>
+                  <div className="spread" style={{ alignItems: "center" }}>
+                    <span style={{ fontSize: 12, fontWeight: 600 }}>Grade de Programação</span>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={loadScheduleItems}
+                      disabled={loadingSchedule}
+                      style={{ padding: "4px 8px", fontSize: 11, display: "inline-flex", alignItems: "center", gap: 4 }}
+                    >
+                      {loadingSchedule ? "Atualizando..." : "Recarregar Grade"}
+                    </button>
+                  </div>
+                  <p className="muted" style={{ fontSize: 12, margin: 0 }}>
+                    As palestras e horários são sincronizados em tempo real com o site oficial e com a aba <strong>Programação</strong> deste evento ({scheduleItems.length} atividades cadastradas).
                   </p>
+                  <div
+                    style={{
+                      maxHeight: 280,
+                      overflowY: "auto",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                      border: "1px solid var(--border)",
+                      borderRadius: 6,
+                      padding: 8,
+                      background: "rgba(0,0,0,0.03)",
+                    }}
+                  >
+                    {scheduleItems.length === 0 ? (
+                      <span className="muted" style={{ fontSize: 12, textAlign: "center", padding: "12px 0" }}>
+                        Nenhuma atividade cadastrada. Cadastre na aba Programação.
+                      </span>
+                    ) : (
+                      scheduleItems.map((item) => (
+                        <div
+                          key={item.id}
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            fontSize: 12,
+                            padding: "6px 8px",
+                            borderRadius: 4,
+                            background: "var(--card)",
+                            gap: 8,
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, overflow: "hidden" }}>
+                            <span style={{ fontFamily: "monospace", fontSize: 11, color: "var(--primary)", fontWeight: 700 }}>
+                              {item.startTime}
+                            </span>
+                            <span style={{ fontWeight: 600, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
+                              {item.title}
+                            </span>
+                          </div>
+                          {item.type && (
+                            <span className="badge" style={{ fontSize: 10, whiteSpace: "nowrap" }}>
+                              {item.type}
+                            </span>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               )}
 

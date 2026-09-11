@@ -45,6 +45,17 @@ só o nome e o QR são desenhados por código.
 
 `semantix-2026-base.png` (1536×1024). Layout pronto em
 [`semantix-2026-layout.json`](./semantix-2026-layout.json).
+Certificado de participante (2 horas), com validação via QR Code.
+
+### Semantix 2026 — Palestrante
+
+`semantix-2026-palestrante-base.png` (1536×1024). Layout pronto em
+[`semantix-2026-palestrante-layout.json`](./semantix-2026-palestrante-layout.json).
+Certificado exclusivo para palestrantes (3 horas). Apenas o nome é inserido
+sobre a linha roxa pelo sistema (`nome.yBase: 498`), mantendo todo o texto,
+datas, assinaturas e o slogan "JUNTOS CONSTRUÍMOS MAIS POSSIBILIDADES."
+intactos, sem QR Code sobreposto.
+
 
 A proporção é 3:2, diferente do COPOL (~A4). A página do PDF passou a sair
 da proporção da própria arte — antes era A4 fixo, o que esticaria esta

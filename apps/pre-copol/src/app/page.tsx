@@ -13,6 +13,7 @@ import {
   type SiteSectionConfig,
   type SiteContent,
 } from "@/lib/api";
+import { COPOL_FALLBACK_SCHEDULE } from "@/lib/copol-schedule-data";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { EventJsonLd } from "@/components/EventJsonLd";
@@ -28,6 +29,32 @@ import {
   SparkleIcon,
 } from "@/components/Icons";
 
+const SCHEDULE_DAY_TABS = [
+  { date: "2026-11-05", label: "Quinta 05/11", weekday: "Quinta-feira, 05 de Novembro" },
+  { date: "2026-11-06", label: "Sexta 06/11", weekday: "Sexta-feira, 06 de Novembro" },
+  { date: "2026-11-07", label: "Sábado 07/11", weekday: "Sábado, 07 de Novembro" },
+];
+
+function getCategoryBadgeStyle(type?: string | null): { bg: string; color: string; border: string } {
+  const t = (type || "").toLowerCase().trim();
+  if (t.includes("hands on") || t.includes("hands_on")) {
+    return { bg: "rgba(168, 85, 247, 0.15)", color: "#c084fc", border: "rgba(168, 85, 247, 0.35)" };
+  }
+  if (t.includes("palestra")) {
+    return { bg: "rgba(45, 212, 191, 0.15)", color: "#2dd4bf", border: "rgba(45, 212, 191, 0.35)" };
+  }
+  if (t.includes("credenciamento") || t.includes("abertura")) {
+    return { bg: "rgba(59, 130, 246, 0.15)", color: "#60a5fa", border: "rgba(59, 130, 246, 0.35)" };
+  }
+  if (t.includes("intervalo") || t.includes("almoço") || t.includes("almoco") || t.includes("coffee")) {
+    return { bg: "rgba(245, 158, 11, 0.15)", color: "#fbbf24", border: "rgba(245, 158, 11, 0.35)" };
+  }
+  if (t.includes("solenidade") || t.includes("cerimônia") || t.includes("cerimonia") || t.includes("coquetel") || t.includes("encerramento")) {
+    return { bg: "rgba(236, 72, 153, 0.15)", color: "#f472b6", border: "rgba(236, 72, 153, 0.35)" };
+  }
+  return { bg: "rgba(255, 255, 255, 0.08)", color: "var(--muted-foreground)", border: "var(--border)" };
+}
+
 const DEFAULT_SECTIONS: SiteSectionConfig[] = [
   { id: "hero", type: "hero", title: "Início", enabled: true, order: 0 },
   { id: "about", type: "about", title: "Sobre o Evento", enabled: true, order: 1 },
@@ -41,7 +68,8 @@ const DEFAULT_SECTIONS: SiteSectionConfig[] = [
 export default function HomePage() {
   const [events, setEvents] = useState<EventData[]>([]);
   const [batches, setBatches] = useState<BatchItem[]>([]);
-  const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
+  const [schedule, setSchedule] = useState<ScheduleItem[]>(COPOL_FALLBACK_SCHEDULE);
+  const [selectedScheduleDay, setSelectedScheduleDay] = useState<string>("2026-11-05");
   const [loading, setLoading] = useState(true);
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
 
@@ -68,6 +96,9 @@ export default function HomePage() {
       if (event.data?.type === "HIGHLIGHT_SECTION") {
         setSelectedSectionId(event.data.sectionId);
       }
+      if (event.data?.type === "SYNC_SCHEDULE" && Array.isArray(event.data.payload)) {
+        setSchedule(event.data.payload.length > 0 ? event.data.payload : COPOL_FALLBACK_SCHEDULE);
+      }
     }
 
     window.addEventListener("message", handleMessage);
@@ -91,15 +122,24 @@ export default function HomePage() {
             getSchedule(main.id).catch(() => []),
           ]);
           setBatches(bData.batches);
-          setSchedule(sData);
+          if (sData && sData.length > 0) {
+            setSchedule(sData);
+          } else {
+            setSchedule(COPOL_FALLBACK_SCHEDULE);
+          }
+        } else {
+          setSchedule(COPOL_FALLBACK_SCHEDULE);
         }
       })
-      .catch(() => {})
+      .catch(() => {
+        setSchedule(COPOL_FALLBACK_SCHEDULE);
+      })
       .finally(() => setLoading(false));
   }, []);
 
   const mainEvent = events[0];
   const registrationsOpen = mainEvent?.registrationsOpen ?? true;
+  const effectiveSchedule = schedule && schedule.length > 0 ? schedule : COPOL_FALLBACK_SCHEDULE;
   
   // Prioriza o conteúdo ao vivo enviado pelo editor do Admin
   const content = liveContent ?? mainEvent?.siteContent;
@@ -301,51 +341,196 @@ export default function HomePage() {
                   </section>
                 );
 
-              /* ---------- 3. PROGRAMAÇÃO PREVIEW ---------- */
-              case "schedule":
+              /* ---------- 3. PROGRAMAÇÃO INTERATIVA COM ABAS ---------- */
+              case "schedule": {
+                const dayItems = effectiveSchedule.filter((item) => {
+                  const itemDate = item.date ? item.date.split("T")[0] : "";
+                  return itemDate === selectedScheduleDay;
+                });
+
                 return (
                   <section style={{ ...sectionStyle, padding: "64px 24px", borderTop: "1px solid var(--border)" }}>
-                    <div className="container-page" style={{ maxWidth: 840 }}>
-                      <div style={{ textAlign: "center", marginBottom: 36 }}>
-                        <SectionEyebrow>Cronograma</SectionEyebrow>
-                        <h2 style={{ fontSize: "clamp(24px, 3.5vw, 32px)", margin: "8px 0 12px" }}>
+                    <div className="container-page" style={{ maxWidth: 880 }}>
+                      <div style={{ textAlign: "center", marginBottom: 32 }}>
+                        <SectionEyebrow>Cronograma Oficial</SectionEyebrow>
+                        <h2 style={{ fontSize: "clamp(24px, 3.5vw, 32px)", margin: "8px 0 12px", fontWeight: 800 }}>
                           {sec.title || "Programação Oficial"}
                         </h2>
-                        <p style={{ color: "var(--muted-foreground)", margin: 0 }}>
-                          {sec.subtitle || "Destaques das atividades e palestras confirmadas"}
+                        <p style={{ color: "var(--muted-foreground)", margin: 0, fontSize: 16 }}>
+                          {sec.subtitle || "Acompanhe todas as palestras, hands on e momentos do evento"}
                         </p>
                       </div>
 
-                      {schedule.length === 0 ? (
-                        <div className="card" style={{ padding: 32, textAlign: "center" }}>
-                          <p className="muted" style={{ margin: 0 }}>Programação em fase final de confirmação pela organização.</p>
+                      {/* Day Tabs */}
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "center",
+                          gap: 10,
+                          marginBottom: 32,
+                          flexWrap: "wrap",
+                        }}
+                        role="tablist"
+                        aria-label="Dias do evento"
+                      >
+                        {SCHEDULE_DAY_TABS.map((tab) => {
+                          const isActive = selectedScheduleDay === tab.date;
+                          return (
+                            <button
+                              key={tab.date}
+                              type="button"
+                              role="tab"
+                              aria-selected={isActive}
+                              onClick={() => setSelectedScheduleDay(tab.date)}
+                              style={{
+                                padding: "10px 22px",
+                                borderRadius: 10,
+                                fontWeight: 700,
+                                fontSize: 14,
+                                cursor: "pointer",
+                                transition: "all 0.2s ease",
+                                border: isActive
+                                  ? "1px solid var(--gold)"
+                                  : "1px solid var(--border, rgba(255, 255, 255, 0.1))",
+                                background: isActive
+                                  ? "var(--gold)"
+                                  : "var(--card, rgba(255, 255, 255, 0.05))",
+                                color: isActive ? "#0B2928" : "var(--foreground)",
+                                boxShadow: isActive ? "0 4px 14px rgba(212, 168, 83, 0.25)" : "none",
+                              }}
+                            >
+                              {tab.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Schedule Items List */}
+                      {dayItems.length === 0 ? (
+                        <div className="card" style={{ padding: 36, textAlign: "center" }}>
+                          <p className="muted" style={{ margin: 0 }}>
+                            Nenhuma atividade cadastrada para este dia na grade.
+                          </p>
                         </div>
                       ) : (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                          {schedule.slice(0, 4).map((item) => (
-                            <div key={item.id} className="card spread" style={{ padding: "16px 20px", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                                <span style={{ fontFamily: "monospace", fontWeight: 700, color: "var(--gold)", background: "rgba(200, 162, 97, 0.1)", padding: "4px 8px", borderRadius: 6, fontSize: 13 }}>
-                                  <ClockIcon size={12} style={{ display: "inline", marginRight: 4 }} />
-                                  {item.startTime}
-                                </span>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                          {dayItems.map((item) => {
+                            const badgeStyle = getCategoryBadgeStyle(item.type);
+                            return (
+                              <div
+                                key={item.id}
+                                className="card"
+                                style={{
+                                  padding: "18px 22px",
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  gap: 10,
+                                  transition: "transform 0.15s ease, border-color 0.15s ease",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "center",
+                                    flexWrap: "wrap",
+                                    gap: 10,
+                                  }}
+                                >
+                                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                                    <span
+                                      style={{
+                                        fontFamily: "monospace",
+                                        fontWeight: 700,
+                                        color: "var(--gold)",
+                                        background: "rgba(200, 162, 97, 0.12)",
+                                        padding: "4px 10px",
+                                        borderRadius: 6,
+                                        fontSize: 13,
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: 6,
+                                        whiteSpace: "nowrap",
+                                      }}
+                                    >
+                                      <ClockIcon size={13} />
+                                      {item.startTime}
+                                      {item.endTime ? ` – ${item.endTime}` : ""}
+                                    </span>
+
+                                    {item.type && (
+                                      <span
+                                        style={{
+                                          fontSize: 11,
+                                          fontWeight: 700,
+                                          textTransform: "uppercase",
+                                          letterSpacing: "0.5px",
+                                          padding: "3px 10px",
+                                          borderRadius: 999,
+                                          background: badgeStyle.bg,
+                                          color: badgeStyle.color,
+                                          border: `1px solid ${badgeStyle.border}`,
+                                          whiteSpace: "nowrap",
+                                        }}
+                                      >
+                                        {item.type}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {item.location && (
+                                    <span
+                                      style={{
+                                        fontSize: 12,
+                                        color: "var(--muted-foreground)",
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: 4,
+                                      }}
+                                    >
+                                      <MapPinIcon size={13} />
+                                      {item.location}
+                                    </span>
+                                  )}
+                                </div>
+
                                 <div>
-                                  <strong style={{ fontSize: 15, display: "block" }}>{item.title}</strong>
-                                  {item.speaker && <span style={{ fontSize: 13, color: "var(--muted-foreground)" }}>Palestrante: {item.speaker}</span>}
+                                  <strong style={{ fontSize: 16, display: "block", lineHeight: 1.35, color: "var(--foreground)" }}>
+                                    {item.title}
+                                  </strong>
+
+                                  {item.speaker && !item.title.toLowerCase().startsWith(item.speaker.toLowerCase()) && (
+                                    <span
+                                      style={{
+                                        fontSize: 13,
+                                        color: "var(--gold)",
+                                        fontWeight: 600,
+                                        display: "block",
+                                        marginTop: 4,
+                                      }}
+                                    >
+                                      Palestrante: {item.speaker}
+                                    </span>
+                                  )}
+
+                                  {item.description && item.description !== item.title && (
+                                    <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.5 }}>
+                                      {item.description}
+                                    </p>
+                                  )}
                                 </div>
                               </div>
-                              {item.location && <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>{item.location}</span>}
-                            </div>
-                          ))}
+                            );
+                          })}
 
-                          <div style={{ textAlign: "center", marginTop: 16 }}>
+                          <div style={{ textAlign: "center", marginTop: 20 }}>
                             <Link
                               href={editorMode ? "#" : "/programacao/"}
                               onClick={(e) => {
                                 if (editorMode) e.preventDefault();
                               }}
                               className="btn-secondary btn-sm"
-                              style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+                              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 20px" }}
                             >
                               <span>Ver programação completa</span>
                               <ArrowRightIcon size={14} />
@@ -356,6 +541,7 @@ export default function HomePage() {
                     </div>
                   </section>
                 );
+              }
 
               /* ---------- 4. LOTES & INSCRIÇÃO ---------- */
               case "batches":

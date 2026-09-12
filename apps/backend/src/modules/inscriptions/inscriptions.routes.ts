@@ -2,9 +2,12 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { requirePermission } from "../../middleware/auth.js";
 import { ok } from "../../shared/response.js";
+import { NotFoundError } from "../../shared/errors.js";
+import { recordAudit } from "../audit/audit.service.js";
 import * as inscriptionsService from "./inscriptions.service.js";
 import {
   createInscriptionSchema,
+  eventInscriptionParamsSchema,
   inscriptionEventParamsSchema,
   picPayWebhookSchema,
 } from "./inscriptions.schema.js";
@@ -58,4 +61,45 @@ export async function inscriptionsRoutes(app: FastifyInstance) {
       return ok(report);
     }
   );
+
+  // Admin — Confirmar pagamento manualmente
+  app.post(
+    "/events/:eventId/inscriptions/:id/confirm",
+    { preHandler: requirePermission("participants.edit") },
+    async (request) => {
+      const { eventId, id } = eventInscriptionParamsSchema.parse(request.params);
+      const current = await inscriptionsService.getInscription(id);
+      if (current.eventId !== eventId) {
+        throw new NotFoundError("Inscrição não encontrada");
+      }
+      const inscription = await inscriptionsService.confirmInscriptionPayment(id);
+      await recordAudit(request, "inscription.confirm", "Inscription", id, { eventId });
+      return ok({ success: true, inscription });
+    }
+  );
+
+  // Admin — Cancelar inscrição
+  app.post(
+    "/events/:eventId/inscriptions/:id/cancel",
+    { preHandler: requirePermission("participants.edit") },
+    async (request) => {
+      const { eventId, id } = eventInscriptionParamsSchema.parse(request.params);
+      const inscription = await inscriptionsService.cancelInscription(eventId, id);
+      await recordAudit(request, "inscription.cancel", "Inscription", id, { eventId });
+      return ok({ success: true, inscription });
+    }
+  );
+
+  // Admin — Excluir fisicamente inscrição e participante
+  app.delete(
+    "/events/:eventId/inscriptions/:id",
+    { preHandler: requirePermission("participants.edit") },
+    async (request) => {
+      const { eventId, id } = eventInscriptionParamsSchema.parse(request.params);
+      const result = await inscriptionsService.deleteInscription(eventId, id);
+      await recordAudit(request, "inscription.delete", "Inscription", id, { eventId });
+      return ok(result);
+    }
+  );
 }
+

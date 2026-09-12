@@ -359,11 +359,17 @@ export async function getInscriptionPaymentStatus(id: string) {
     qrToken = participant?.qrToken ?? null;
   }
 
+  const event = (inscription as any).event ?? current.event;
+
   return {
     id: inscription.id,
     status: inscription.status,
+    name: inscription.name,
     amount: Number(inscription.amount),
     category: inscription.category,
+    pixKey: event?.pixKey ?? null,
+    pixKeyType: event?.pixKeyType ?? null,
+    pixReceiverName: event?.pixReceiverName ?? null,
     paymentUrl: inscription.paymentUrl,
     qrCodeBase64: inscription.qrCodeBase64,
     qrCodeContent: inscription.qrCodeContent,
@@ -401,3 +407,71 @@ export async function getInscriptionsReport(eventId: string) {
     createdAt: ins.createdAt.toISOString(),
   }));
 }
+
+/**
+ * Cancela manualmente uma inscrição no painel administrativo:
+ * 1. Verifica se a inscrição existe e pertence ao evento indicado
+ * 2. Atualiza o status para CANCELLED
+ * 3. Se houver participante vinculado, atualiza seu status para CANCELLED
+ * 4. Retorna a inscrição atualizada
+ */
+export async function cancelInscription(eventId: string, id: string) {
+  const inscription = await prisma.inscription.findUnique({
+    where: { id },
+  });
+
+  if (!inscription || inscription.eventId !== eventId) {
+    throw new NotFoundError("Inscrição não encontrada");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    if (inscription.participantId) {
+      await tx.participant.updateMany({
+        where: { id: inscription.participantId },
+        data: { status: "CANCELLED" },
+      });
+    }
+
+    const updated = await tx.inscription.update({
+      where: { id },
+      data: { status: "CANCELLED" },
+      include: { batch: true, event: true },
+    });
+
+    return updated;
+  });
+}
+
+/**
+ * Exclui fisicamente um registro de inscrição e participante vinculado:
+ * 1. Verifica se a inscrição existe e pertence ao evento indicado
+ * 2. Em uma transação Prisma:
+ *    - Se inscription.participantId existir, deleta o registro em Participant
+ *      (o banco faz ON DELETE CASCADE para checkIns, certificates, attendanceProofs)
+ *    - Deleta a Inscription
+ * 3. Retorna { success: true, deletedId: id }
+ */
+export async function deleteInscription(eventId: string, id: string) {
+  const inscription = await prisma.inscription.findUnique({
+    where: { id },
+  });
+
+  if (!inscription || inscription.eventId !== eventId) {
+    throw new NotFoundError("Inscrição não encontrada");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    if (inscription.participantId) {
+      await tx.participant.deleteMany({
+        where: { id: inscription.participantId },
+      });
+    }
+
+    await tx.inscription.delete({
+      where: { id },
+    });
+  });
+
+  return { success: true, deletedId: id };
+}
+

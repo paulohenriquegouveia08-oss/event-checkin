@@ -213,6 +213,11 @@ model Event {
   certificateTemplateId String?
   certificateTemplate   CertificateTemplate? @relation(fields: [certificateTemplateId], references: [id], onDelete: Restrict)
 
+  // Configuração de chave PIX manual do evento para exibição no portal
+  pixKey          String? @db.VarChar(150)
+  pixKeyType      String? @db.VarChar(50)
+  pixReceiverName String? @db.VarChar(150)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

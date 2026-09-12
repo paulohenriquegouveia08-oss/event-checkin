@@ -36,3 +36,9 @@ export const picPayWebhookSchema = z.object({
   referenceId: z.string().min(1, "referenceId é obrigatório"),
   authorizationId: z.string().optional(),
 });
+
+export const eventInscriptionParamsSchema = z.object({
+  eventId: z.string().uuid("eventId inválido"),
+  id: z.string().uuid("id inválido"),
+});
+

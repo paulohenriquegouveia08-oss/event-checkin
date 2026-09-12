@@ -92,6 +92,9 @@ export async function getPublicEventBySlug(slug: string) {
     slug: publico.slug,
     timezone: publico.timezone,
     registrationsOpen: publico.registrationsOpen,
+    pixKey: event.pixKey,
+    pixKeyType: event.pixKeyType,
+    pixReceiverName: event.pixReceiverName,
     // Cru, como está salvo: a página de inscrição usa campos próprios
     // (tema, destaques) que o resolvedor do site do COPOL não conhece e
     // descartaria.

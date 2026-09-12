@@ -293,6 +293,9 @@ export interface EventRecord {
   registrationDeadline: string | null;
   registrationsClosedAt: string | null;
   registrationsOpen: boolean;
+  pixKey?: string;
+  pixKeyType?: string;
+  pixReceiverName?: string;
   siteContent: SiteContent | null;
   certificateSettings: CertificateSettings | null;
   emailSettings: EmailSettings | null;
@@ -300,6 +303,9 @@ export interface EventRecord {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface Event extends EventRecord {}
+
 /**
  * Configuração de e-mail do evento. Nulo = padrões do sistema.
  *
@@ -1083,4 +1089,23 @@ export interface InscriptionReportItem {
 export function getInscriptionsReport(eventId: string) {
   return request<InscriptionReportItem[]>(`/events/${eventId}/inscriptions/report`);
 }
+
+export function confirmInscription(eventId: string, id: string): Promise<any> {
+  return request<any>(`/events/${eventId}/inscriptions/${id}/confirm`, {
+    method: "POST",
+  });
+}
+
+export function cancelInscription(eventId: string, id: string): Promise<any> {
+  return request<any>(`/events/${eventId}/inscriptions/${id}/cancel`, {
+    method: "POST",
+  });
+}
+
+export function deleteInscription(eventId: string, id: string): Promise<any> {
+  return request<any>(`/events/${eventId}/inscriptions/${id}`, {
+    method: "DELETE",
+  });
+}
+
 

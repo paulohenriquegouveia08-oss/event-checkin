@@ -6,6 +6,7 @@ import { emailSettingsSchema } from "../../lib/email/email-settings.js";
 export const createEventSchema = z
   .object({
     name: z.string().trim().min(1, "Nome é obrigatório").max(200),
+    slug: z.string().trim().min(1).max(80).nullable().optional(),
     description: z.string().trim().max(2000).optional(),
     location: z.string().trim().max(300).optional(),
     startDate: z.coerce.date(),
@@ -20,7 +21,10 @@ export const createEventSchema = z
    * Trocar isto invalida os PDFs já gerados deste evento (o modelo entra
    * no hash de conteúdo), e o próximo download regenera com a arte nova.
    */
-  certificateTemplateId: z.string().uuid().nullable().optional(),
+    certificateTemplateId: z.string().uuid().nullable().optional(),
+    pixKey: z.string().trim().max(150).nullable().optional(),
+    pixKeyType: z.string().trim().max(50).nullable().optional(),
+    pixReceiverName: z.string().trim().max(150).nullable().optional(),
   })
   .refine((data) => data.endDate >= data.startDate, {
     message: "endDate deve ser igual ou posterior a startDate",
@@ -31,6 +35,7 @@ export type CreateEventInput = z.infer<typeof createEventSchema>;
 
 export const updateEventSchema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
+  slug: z.string().trim().min(1).max(80).nullable().optional(),
   description: z.string().trim().max(2000).optional(),
   location: z.string().trim().max(300).optional(),
   startDate: z.coerce.date().optional(),
@@ -49,6 +54,9 @@ export const updateEventSchema = z.object({
    * no hash de conteúdo), e o próximo download regenera com a arte nova.
    */
   certificateTemplateId: z.string().uuid().nullable().optional(),
+  pixKey: z.string().trim().max(150).nullable().optional(),
+  pixKeyType: z.string().trim().max(50).nullable().optional(),
+  pixReceiverName: z.string().trim().max(150).nullable().optional(),
 });
 
 export type UpdateEventInput = z.infer<typeof updateEventSchema>;

@@ -84,6 +84,9 @@ export interface EventData {
   registrationDeadline: string | null;
   registrationsOpen: boolean;
   siteContent: SiteContent;
+  pixKey?: string;
+  pixKeyType?: string;
+  pixReceiverName?: string;
 }
 
 export interface InscriptionInput {
@@ -111,6 +114,9 @@ export interface InscriptionResult {
   qrCodeBase64?: string | null;
   qrCodeContent?: string | null;
   expiresAt?: string | null;
+  pixKey?: string;
+  pixKeyType?: string;
+  pixReceiverName?: string;
 }
 
 export interface InscriptionPaymentStatus {
@@ -125,6 +131,27 @@ export interface InscriptionPaymentStatus {
   participantId: string | null;
   qrToken: string | null;
   attendeePortalUrl: string | null;
+  name?: string;
+  pixKey?: string;
+  pixKeyType?: string;
+  pixReceiverName?: string;
+}
+
+export interface InscriptionDetail {
+  id: string;
+  eventId: string;
+  name: string;
+  email: string;
+  document: string;
+  phone: string;
+  category?: string;
+  institution?: string;
+  notes?: string;
+  status: "PENDING" | "CONFIRMED" | "CANCELLED";
+  amount: number;
+  pixKey?: string;
+  pixKeyType?: string;
+  pixReceiverName?: string;
 }
 
 export interface BatchItem {
@@ -191,6 +218,10 @@ export function createInscription(eventId: string, input: InscriptionInput) {
 
 export function getPaymentStatus(id: string) {
   return request<InscriptionPaymentStatus>(`/inscriptions/${id}/payment-status`);
+}
+
+export function getInscription(id: string) {
+  return request<InscriptionDetail>(`/inscriptions/${id}`);
 }
 
 export function getBatches(eventId: string) {

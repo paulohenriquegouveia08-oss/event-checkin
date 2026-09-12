@@ -444,7 +444,7 @@ const FALLBACK_EVENT: EventData = {
               className="btn-primary"
               style={{ width: "100%", padding: 14, fontSize: 16, marginTop: 8, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}
             >
-              <span>{submitting ? "Gerando cobrança..." : "Avançar para Pagamento"}</span>
+              <span>{submitting ? "Processando inscrição..." : "Avançar para Pagamento"}</span>
               <ArrowRightIcon size={16} />
             </button>
           </form>

@@ -10,6 +10,7 @@ import * as api from "../../api/client";
  */
 export function ConfigTab({ eventId }: { eventId: string }) {
   const [config, setConfig] = useState<api.EventConfig | null>(null);
+  const [event, setEvent] = useState<api.EventRecord | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
@@ -18,6 +19,14 @@ export function ConfigTab({ eventId }: { eventId: string }) {
   const [slug, setSlug] = useState("");
   const [timezone, setTimezone] = useState("America/Sao_Paulo");
   const [visibility, setVisibility] = useState<"PUBLIC" | "PRIVATE">("PRIVATE");
+
+  // Configurações de Pagamento PIX (Manual)
+  const [pixKey, setPixKey] = useState("");
+  const [pixKeyType, setPixKeyType] = useState("EMAIL");
+  const [pixReceiverName, setPixReceiverName] = useState("");
+  const [salvandoPix, setSalvandoPix] = useState(false);
+  const [avisoPix, setAvisoPix] = useState<string | null>(null);
+  const [errorPix, setErrorPix] = useState<string | null>(null);
 
   function carregar() {
     api
@@ -30,6 +39,18 @@ export function ConfigTab({ eventId }: { eventId: string }) {
       })
       .catch((err) =>
         setError(err instanceof Error ? err.message : "Falha ao carregar a configuração")
+      );
+
+    api
+      .getEvent(eventId)
+      .then((ev) => {
+        setEvent(ev);
+        setPixKey(ev.pixKey ?? "");
+        setPixKeyType(ev.pixKeyType ?? "EMAIL");
+        setPixReceiverName(ev.pixReceiverName ?? "");
+      })
+      .catch((err) =>
+        setError(err instanceof Error ? err.message : "Falha ao carregar dados do evento")
       );
   }
 
@@ -52,6 +73,27 @@ export function ConfigTab({ eventId }: { eventId: string }) {
       setError(err instanceof Error ? err.message : "Falha ao salvar");
     } finally {
       setSalvando(false);
+    }
+  }
+
+  async function salvarPix(e: FormEvent) {
+    e.preventDefault();
+    if (!event) return;
+    setErrorPix(null);
+    setAvisoPix(null);
+    setSalvandoPix(true);
+    try {
+      await api.updateEvent(event.id, {
+        pixKey: pixKey.trim(),
+        pixKeyType,
+        pixReceiverName: pixReceiverName.trim(),
+      });
+      setAvisoPix("Configurações de PIX salvas com sucesso.");
+      carregar();
+    } catch (err) {
+      setErrorPix(err instanceof Error ? err.message : "Falha ao salvar configurações de PIX");
+    } finally {
+      setSalvandoPix(false);
     }
   }
 
@@ -143,6 +185,65 @@ export function ConfigTab({ eventId }: { eventId: string }) {
 
           <button type="submit" className="btn" disabled={salvando}>
             {salvando ? "Salvando…" : "Salvar"}
+          </button>
+        </form>
+      </section>
+
+      <section className="card">
+        <h3>Configurações de Pagamento PIX (Manual)</h3>
+        <p className="muted">
+          Defina as informações de pagamento via PIX exibidas aos participantes no ato da inscrição.
+          O pagador utilizará estes dados para transferir o valor e encaminhar o comprovante.
+        </p>
+
+        {errorPix && <p className="error-text">{errorPix}</p>}
+        {avisoPix && <p style={{ color: "var(--success)" }}>{avisoPix}</p>}
+
+        <form onSubmit={salvarPix} className="stack">
+          <label>
+            Chave PIX
+            <input
+              type="text"
+              value={pixKey}
+              onChange={(e) => setPixKey(e.target.value)}
+              placeholder="ex: terceirocopol@gmail.com ou 12345678000199"
+            />
+            <small className="muted">
+              Chave PIX cadastrada na instituição bancária do evento.
+            </small>
+          </label>
+
+          <label>
+            Tipo de Chave
+            <select
+              value={pixKeyType}
+              onChange={(e) => setPixKeyType(e.target.value)}
+            >
+              <option value="EMAIL">E-mail</option>
+              <option value="CPF_CNPJ">CPF/CNPJ</option>
+              <option value="PHONE">Telefone</option>
+              <option value="RANDOM">Chave Aleatória</option>
+            </select>
+            <small className="muted">
+              Formato da chave cadastrada para facilitar a identificação pelo pagador.
+            </small>
+          </label>
+
+          <label>
+            Nome do Titular / Beneficiário
+            <input
+              type="text"
+              value={pixReceiverName}
+              onChange={(e) => setPixReceiverName(e.target.value)}
+              placeholder="ex: 3º COPOL — Congresso Odontológico Positivo Londrinense"
+            />
+            <small className="muted">
+              Nome do favorecido exibido na tela de pagamento para validação do pagador.
+            </small>
+          </label>
+
+          <button type="submit" className="btn" disabled={salvandoPix || !event}>
+            {salvandoPix ? "Salvando…" : "Salvar Configurações de PIX"}
           </button>
         </form>
       </section>

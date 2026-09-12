@@ -22,6 +22,7 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
   const [statusFilter, setStatusFilter] = useState<"ALL" | "CONFIRMED" | "PENDING" | "CANCELLED">("ALL");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<api.InscriptionReportItem | null>(null);
+  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
 
   useEffect(() => {
     loadInscriptions();
@@ -297,7 +298,7 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
           style={{ maxWidth: 360, flex: 1 }}
         />
 
-        <div className="row" style={{ gap: 6 }}>
+        <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
           <FilterButton active={statusFilter === "ALL"} onClick={() => setStatusFilter("ALL")}>
             Todos ({totalCount})
           </FilterButton>
@@ -310,10 +311,31 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
           <FilterButton active={statusFilter === "CANCELLED"} onClick={() => setStatusFilter("CANCELLED")}>
             Cancelados ({cancelledCount})
           </FilterButton>
+
+          <div style={{ width: 1, height: 20, background: "var(--border)", margin: "0 4px" }} />
+
+          <button
+            type="button"
+            className={`btn btn-sm ${viewMode === "table" ? "" : "btn-secondary"}`}
+            onClick={() => setViewMode("table")}
+            style={{ padding: "5px 10px", fontSize: 12, fontWeight: 600 }}
+            title="Visualizar em Tabela Compacta sem rolagem lateral"
+          >
+            Tabela
+          </button>
+          <button
+            type="button"
+            className={`btn btn-sm ${viewMode === "cards" ? "" : "btn-secondary"}`}
+            onClick={() => setViewMode("cards")}
+            style={{ padding: "5px 10px", fontSize: 12, fontWeight: 600 }}
+            title="Visualizar em Fichas / Cards"
+          >
+            Fichas
+          </button>
         </div>
       </div>
 
-      {/* Tabela de Inscritos */}
+      {/* Listagem de Inscritos */}
       {loading ? (
         <p className="muted">Carregando inscritos...</p>
       ) : error && filtered.length === 0 ? (
@@ -322,42 +344,61 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
         <div className="card" style={{ padding: 32, textAlign: "center" }}>
           <p className="muted" style={{ margin: 0 }}>Nenhuma inscrição encontrada para os filtros selecionados.</p>
         </div>
-      ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table className="table" style={{ width: "100%", fontSize: 13 }}>
+      ) : viewMode === "table" ? (
+        <div style={{ width: "100%", overflowX: "auto" }}>
+          <table className="table" style={{ width: "100%", fontSize: 13, tableLayout: "auto" }}>
             <thead>
               <tr>
-                <th>Nome</th>
-                <th>E-mail</th>
-                <th>Telefone</th>
-                <th>CPF</th>
-                <th>Lote</th>
-                <th>Valor</th>
-                <th>Status</th>
-                <th>Data</th>
-                <th style={{ textAlign: "right" }}>Ações</th>
+                <th style={{ minWidth: 200 }}>Participante / Contato</th>
+                <th style={{ width: 140, whiteSpace: "nowrap" }}>Lote & Valor</th>
+                <th style={{ width: 110, whiteSpace: "nowrap" }}>Status & Data</th>
+                <th style={{ textAlign: "right", width: 200, whiteSpace: "nowrap" }}>Ações</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((item) => (
                 <tr key={item.id}>
-                  <td style={{ fontWeight: 600 }}>{item.name}</td>
-                  <td>{item.email}</td>
-                  <td style={{ whiteSpace: "nowrap" }}>{item.phone || "—"}</td>
-                  <td style={{ whiteSpace: "nowrap", fontFamily: "monospace" }}>{item.document}</td>
-                  <td>{item.category}</td>
-                  <td style={{ fontWeight: 600 }}>R$ {item.amount.toFixed(2).replace(".", ",")}</td>
                   <td>
-                    {item.status === "CONFIRMED" ? (
-                      <span className="badge badge-success">Confirmado</span>
-                    ) : item.status === "CANCELLED" ? (
-                      <span className="badge badge-danger">Cancelado</span>
-                    ) : (
-                      <span className="badge badge-warning">Pendente</span>
-                    )}
+                    <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text)" }}>{item.name}</div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "var(--text-muted)",
+                        marginTop: 4,
+                        display: "flex",
+                        flexWrap: "wrap",
+                        alignItems: "center",
+                        gap: "4px 10px",
+                      }}
+                    >
+                      <span title="E-mail">✉️ {item.email}</span>
+                      {item.phone && <span title="Telefone">📞 {item.phone}</span>}
+                      {item.document && (
+                        <span title="CPF" style={{ fontFamily: "monospace" }}>
+                          🪪 {item.document}
+                        </span>
+                      )}
+                    </div>
                   </td>
-                  <td style={{ fontSize: 12, color: "var(--muted-foreground)", whiteSpace: "nowrap" }}>
-                    {new Date(item.createdAt).toLocaleDateString("pt-BR")}
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    <div style={{ fontWeight: 500 }}>{item.category}</div>
+                    <div style={{ fontWeight: 700, color: "var(--primary)", marginTop: 2, fontSize: 13 }}>
+                      R$ {item.amount.toFixed(2).replace(".", ",")}
+                    </div>
+                  </td>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    <div>
+                      {item.status === "CONFIRMED" ? (
+                        <span className="badge badge-success">Confirmado</span>
+                      ) : item.status === "CANCELLED" ? (
+                        <span className="badge badge-danger">Cancelado</span>
+                      ) : (
+                        <span className="badge badge-warning">Pendente</span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+                      {new Date(item.createdAt).toLocaleDateString("pt-BR")}
+                    </div>
                   </td>
                   <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
                     <div className="row" style={{ gap: 6, justifyContent: "flex-end", flexWrap: "nowrap" }}>
@@ -372,7 +413,7 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
                             display: "inline-flex",
                             alignItems: "center",
                             gap: 4,
-                            padding: "4px 8px",
+                            padding: "5px 9px",
                             fontSize: 12,
                           }}
                         >
@@ -392,7 +433,7 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
                             display: "inline-flex",
                             alignItems: "center",
                             gap: 4,
-                            padding: "4px 8px",
+                            padding: "5px 9px",
                             fontSize: 12,
                           }}
                         >
@@ -411,7 +452,7 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
                           display: "inline-flex",
                           alignItems: "center",
                           gap: 4,
-                          padding: "4px 8px",
+                          padding: "5px 9px",
                           fontSize: 12,
                         }}
                       >
@@ -424,6 +465,139 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
               ))}
             </tbody>
           </table>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 }}>
+          {filtered.map((item) => (
+            <div
+              key={item.id}
+              className="card"
+              style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}
+            >
+              <div className="spread" style={{ alignItems: "flex-start", gap: 8 }}>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "var(--text)" }}>{item.name}</h4>
+                  <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{item.email}</div>
+                </div>
+                {item.status === "CONFIRMED" ? (
+                  <span className="badge badge-success">Confirmado</span>
+                ) : item.status === "CANCELLED" ? (
+                  <span className="badge badge-danger">Cancelado</span>
+                ) : (
+                  <span className="badge badge-warning">Pendente</span>
+                )}
+              </div>
+
+              <div
+                style={{
+                  fontSize: 12,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 5,
+                  background: "var(--bg)",
+                  padding: "10px 12px",
+                  borderRadius: "var(--radius)",
+                }}
+              >
+                <div className="spread">
+                  <span className="muted">Lote / Categoria:</span>
+                  <span style={{ fontWeight: 500 }}>{item.category}</span>
+                </div>
+                <div className="spread">
+                  <span className="muted">Valor:</span>
+                  <strong style={{ color: "var(--primary)", fontSize: 13 }}>
+                    R$ {item.amount.toFixed(2).replace(".", ",")}
+                  </strong>
+                </div>
+                {item.phone && (
+                  <div className="spread">
+                    <span className="muted">Telefone:</span>
+                    <span>{item.phone}</span>
+                  </div>
+                )}
+                {item.document && (
+                  <div className="spread">
+                    <span className="muted">CPF:</span>
+                    <span style={{ fontFamily: "monospace" }}>{item.document}</span>
+                  </div>
+                )}
+                <div className="spread">
+                  <span className="muted">Data da Inscrição:</span>
+                  <span>{new Date(item.createdAt).toLocaleDateString("pt-BR")}</span>
+                </div>
+              </div>
+
+              <div
+                className="row"
+                style={{
+                  gap: 8,
+                  marginTop: "auto",
+                  paddingTop: 10,
+                  borderTop: "1px solid var(--border)",
+                  justifyContent: "flex-end",
+                }}
+              >
+                {(item.status === "PENDING" || item.status === "CANCELLED") && (
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    disabled={actionLoading === item.id}
+                    onClick={() => handleConfirm(item)}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                      flex: 1,
+                      justifyContent: "center",
+                      padding: "6px 10px",
+                      fontSize: 12,
+                    }}
+                  >
+                    <CheckIcon size={14} />
+                    {actionLoading === item.id ? "..." : "Confirmar"}
+                  </button>
+                )}
+                {item.status === "PENDING" && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    disabled={actionLoading === item.id}
+                    onClick={() => handleCancel(item)}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                      flex: 1,
+                      justifyContent: "center",
+                      padding: "6px 10px",
+                      fontSize: 12,
+                    }}
+                  >
+                    <BanIcon size={14} />
+                    {actionLoading === item.id ? "..." : "Cancelar"}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-danger btn-sm"
+                  disabled={actionLoading === item.id}
+                  onClick={() => setDeleteTarget(item)}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                    flex: 1,
+                    justifyContent: "center",
+                    padding: "6px 10px",
+                    fontSize: 12,
+                  }}
+                >
+                  <TrashIcon size={14} />
+                  {actionLoading === item.id ? "..." : "Excluir"}
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

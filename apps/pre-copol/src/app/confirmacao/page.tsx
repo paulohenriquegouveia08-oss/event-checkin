@@ -32,6 +32,7 @@ function ConfirmationContent() {
 
   const [statusData, setStatusData] = useState<InscriptionPaymentStatus | null>(null);
   const [participantName, setParticipantName] = useState<string>("");
+  const [participantDocument, setParticipantDocument] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -62,11 +63,12 @@ function ConfirmationContent() {
       }
     }
 
-    // Busca detalhes da inscrição para obter nome do participante caso o endpoint de status ainda não o traga
+    // Busca detalhes da inscrição para obter nome e CPF do participante
     getInscription(inscriptionId)
       .then((ins) => {
-        if (isMounted && ins?.name) {
-          setParticipantName(ins.name);
+        if (isMounted) {
+          if (ins?.name) setParticipantName(ins.name);
+          if (ins?.document) setParticipantDocument(ins.document);
         }
       })
       .catch(() => {
@@ -75,12 +77,12 @@ function ConfirmationContent() {
 
     checkStatus();
 
-    // Polling a cada 3 segundos enquanto status for PENDING
+    // Polling suave a cada 15 segundos enquanto status for PENDING
     const interval = setInterval(() => {
       if (statusData?.status !== "CONFIRMED" && statusData?.status !== "CANCELLED") {
         checkStatus();
       }
-    }, 3000);
+    }, 15000);
 
     return () => {
       isMounted = false;
@@ -129,10 +131,11 @@ function ConfirmationContent() {
   }).format(statusData.amount);
 
   const effectiveName = statusData.name || participantName || "";
+  const effectiveDoc = participantDocument ? ` - CPF ${participantDocument}` : "";
   const codeSnippet = (statusData.id || "").substring(0, 8).toUpperCase();
 
-  const emailSubject = `Comprovante de Pagamento - Inscrição #${codeSnippet} - ${effectiveName}`;
-  const emailBody = `Olá Organização do 3º COPOL,\n\nSegue em anexo o comprovante de pagamento da minha inscrição.\n\nCódigo da Inscrição: ${statusData.id}\nNome: ${effectiveName}\nValor: ${formattedAmount}\n\nAtenciosamente,\n${effectiveName}`;
+  const emailSubject = `Comprovante de Pagamento - Inscrição #${codeSnippet} - ${effectiveName}${effectiveDoc}`;
+  const emailBody = `Olá Organização do 3º COPOL,\n\nSegue em anexo o comprovante de pagamento via PIX para confirmação da minha inscrição:\n\n• Nome Completo do Participante: ${effectiveName}\n• CPF do Participante: ${participantDocument || "(informar seu CPF aqui)"}\n• Código da Inscrição: ${statusData.id}\n• Categoria / Lote: ${statusData.category}\n• Valor da Inscrição: ${formattedAmount}\n• Conta utilizada no pagamento: ( ) Própria conta  ( ) Conta de terceiro (Nome do titular: ________________)\n\nO comprovante bancário está em anexo neste e-mail. Aguardo a confirmação da minha vaga!\n\nAtenciosamente,\n${effectiveName}`;
   const mailtoHref = `mailto:terceirocopol@gmail.com?subject=${encodeURIComponent(
     emailSubject
   )}&body=${encodeURIComponent(emailBody)}`;
@@ -627,38 +630,84 @@ function ConfirmationContent() {
                     textAlign: "left",
                     display: "flex",
                     flexDirection: "column",
-                    gap: 12,
+                    gap: 14,
+                    width: "100%",
                   }}
                 >
                   <div>
-                    <h4 style={{ margin: "0 0 6px", fontSize: 15, color: "var(--foreground)", fontWeight: 700 }}>
+                    <h4 style={{ margin: "0 0 6px", fontSize: 16, color: "var(--foreground)", fontWeight: 700 }}>
                       Instruções para Envio do Comprovante
                     </h4>
                     <p style={{ margin: 0, fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.6 }}>
-                      Após realizar a transferência no seu banco, envie o comprovante de pagamento para{" "}
-                      <strong style={{ color: "var(--foreground)" }}>terceirocopol@gmail.com</strong>.
-                      Você pode clicar no botão abaixo para abrir seu e-mail já preenchido com os dados da inscrição:
+                      Após realizar a transferência via PIX no seu banco, envie o comprovante para{" "}
+                      <strong style={{ color: "var(--foreground)" }}>terceirocopol@gmail.com</strong> para darmos baixa e confirmarmos sua vaga.
                     </p>
+                  </div>
+
+                  {/* Card de Orientação Importante / Facilitação da Confirmação */}
+                  <div
+                    style={{
+                      background: "rgba(45, 212, 191, 0.08)",
+                      border: "1px solid rgba(45, 212, 191, 0.25)",
+                      borderRadius: 10,
+                      padding: "14px 16px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 8,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 16 }}>💡</span>
+                      <strong style={{ fontSize: 13, color: "var(--primary)", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                        Para facilitar a confirmação do seu pagamento:
+                      </strong>
+                    </div>
+                    <p style={{ margin: 0, fontSize: 13, color: "var(--foreground)", lineHeight: 1.5 }}>
+                      No e-mail do comprovante, informe sempre o seu <strong>Nome Completo</strong> e <strong>CPF</strong> cadastrados na inscrição.
+                    </p>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "var(--muted-foreground)",
+                        background: "rgba(0, 0, 0, 0.25)",
+                        padding: "8px 12px",
+                        borderRadius: 6,
+                        lineHeight: 1.5,
+                        borderLeft: "3px solid var(--gold)",
+                      }}
+                    >
+                      <strong style={{ color: "var(--gold)" }}>⚠️ Pagou usando a conta de outra pessoa (mãe, pai ou terceiro)?</strong>
+                      <br />
+                      Como o comprovante sairá com o nome do titular da conta bancária, informar o <strong>seu Nome e CPF</strong> no e-mail é fundamental para que nossa equipe localize seu cadastro rapidamente e aprove sua inscrição sem atrasos!
+                    </div>
                   </div>
 
                   {/* Botão Enviar Comprovante por E-mail */}
                   <a
                     href={mailtoHref}
-                    className="btn-secondary"
+                    className="btn-primary"
                     style={{
                       width: "100%",
                       padding: 14,
                       fontSize: 15,
+                      fontWeight: 600,
                       display: "inline-flex",
                       alignItems: "center",
                       justifyContent: "center",
                       gap: 8,
                       textDecoration: "none",
+                      background: "var(--primary)",
+                      color: "#000",
+                      borderRadius: 8,
+                      transition: "all 0.2s ease",
                     }}
                   >
-                    <MailIcon size={18} />
-                    <span>Enviar Comprovante por E-mail</span>
+                    <MailIcon size={18} color="#000" />
+                    <span>Abrir E-mail Pré-Preenchido com Meus Dados</span>
                   </a>
+                  <p style={{ margin: "-4px 0 0", fontSize: 12, color: "var(--muted-foreground)", textAlign: "center" }}>
+                    O botão acima abrirá seu e-mail com seu Nome, CPF e Código de Inscrição já preenchidos automaticamente.
+                  </p>
                 </div>
 
                 {/* Indicador de Polling em Tempo Real */}

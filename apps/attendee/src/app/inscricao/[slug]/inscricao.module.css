@@ -20,15 +20,25 @@
   background: #0a0b0d;
 }
 
-/* A faixa de destaque no topo e no rodapé. */
+/* A faixa colorida no topo/rodapé: azul por padrão, ou o gradiente do evento (--gradiente) quando definido. */
 .faixaTopo,
 .faixaRodape {
   height: 6px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #163a8f, #2f6fed, #6fa2ff);
+  background: var(--gradiente, linear-gradient(90deg, #163a8f, #2f6fed, #6fa2ff));
 }
 .faixaTopo { margin: 1.25rem 0 2rem; }
 .faixaRodape { margin-top: 2.5rem; }
+
+.logoEcohub {
+  margin-bottom: 1.25rem;
+}
+
+.logoImg {
+  height: 40px;
+  width: auto;
+  display: block;
+}
 
 .hero { text-align: left; }
 

@@ -28,7 +28,16 @@ interface Evento {
   siteContent: Conteudo | null;
 }
 
+interface Tema {
+  primaria?: string;
+  primariaEscura?: string;
+  primariaClara?: string;
+  acento?: string;
+  gradiente?: string[];
+}
+
 interface Conteudo {
+  tema?: Tema;
   heroTitulo?: string;
   heroSubtitulo?: string;
   heroTexto?: string;
@@ -199,11 +208,37 @@ export function InscricaoCliente({ slug }: { slug: string }) {
     );
   }
 
+  const isEcohub = slug.toLowerCase().includes("ecohub");
+  const tema = c.tema ?? (isEcohub ? {
+    primaria: "#0b8161",
+    primariaEscura: "#075a43",
+    primariaClara: "#e8f5f1",
+    acento: "#f7c915",
+    gradiente: ["#f7c915", "#bdd10d", "#26a43a", "#33a2a4", "#0b8161", "#5a3088"],
+  } : undefined);
+
+  const styleTema = tema ? ({
+    "--roxo": tema.primaria,
+    "--roxo-escuro": tema.primariaEscura,
+    "--roxo-claro": tema.primariaClara || "#e8f5f1",
+    "--gradiente": tema.gradiente ? `linear-gradient(90deg, ${tema.gradiente.join(", ")})` : undefined,
+  } as React.CSSProperties) : undefined;
+
   return (
-    <main className={estilos.pagina}>
+    <main className={estilos.pagina} style={styleTema}>
       <div className={estilos.faixaTopo} aria-hidden="true" />
 
       <section className={estilos.hero}>
+        {isEcohub && (
+          <div className={estilos.logoEcohub}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/partners/ecohub-rodape.png"
+              alt="Ecohub — ecossistema de inovação"
+              className={estilos.logoImg}
+            />
+          </div>
+        )}
         <p className={estilos.sobreTitulo}>{c.realizacao?.join(" · ") ?? "Inscrições abertas"}</p>
         <h1 className={estilos.titulo}>{c.heroTitulo ?? evento.name}</h1>
         {c.heroSubtitulo && <p className={estilos.subtitulo}>{c.heroSubtitulo}</p>}

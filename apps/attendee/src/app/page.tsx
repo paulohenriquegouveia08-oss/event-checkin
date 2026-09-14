@@ -135,6 +135,19 @@ export default function LoginPage() {
                 placeholder="seu@email.com"
                 className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)]/60 px-4 py-3 text-base text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:outline-none"
               />
+              <a
+                href="/ecohub/incricao"
+                className="mt-2.5 flex items-center justify-between rounded-xl border border-[#0b8161]/50 bg-[#0b8161]/15 px-3.5 py-2.5 text-xs font-semibold text-[#10b981] transition hover:bg-[#0b8161]/25 hover:border-[#10b981] group"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#10b981] opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[#10b981]"></span>
+                  </span>
+                  <span className="text-white">Inscrição: Ecohub — Sistemas Multi-Agente</span>
+                </div>
+                <span aria-hidden="true" className="text-[#10b981] font-bold transition-transform group-hover:translate-x-0.5">→</span>
+              </a>
             </div>
 
             <button
@@ -154,7 +167,7 @@ export default function LoginPage() {
                   {abertos.map((e) => (
                     <li key={e.slug}>
                       <a
-                        href={`/inscricao/${e.slug}`}
+                        href={`/${e.slug}/incricao`}
                         className="flex items-center justify-between rounded-xl border border-[var(--primary)]/35 bg-[var(--primary)]/10 px-4 py-3 text-sm font-semibold transition hover:bg-[var(--primary)]/20"
                       >
                         <span>Inscrever-se em {e.name}</span>

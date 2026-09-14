@@ -218,9 +218,12 @@ export function InscricaoCliente({ slug }: { slug: string }) {
   } : undefined);
 
   const styleTema = tema ? ({
+    "--azul": tema.primaria,
+    "--azul-escuro": tema.primariaEscura,
+    "--azul-claro": "rgba(11, 129, 97, 0.18)",
     "--roxo": tema.primaria,
     "--roxo-escuro": tema.primariaEscura,
-    "--roxo-claro": tema.primariaClara || "#e8f5f1",
+    "--roxo-claro": "rgba(11, 129, 97, 0.18)",
     "--gradiente": tema.gradiente ? `linear-gradient(90deg, ${tema.gradiente.join(", ")})` : undefined,
   } as React.CSSProperties) : undefined;
 

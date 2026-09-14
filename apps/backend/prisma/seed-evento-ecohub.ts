@@ -151,7 +151,7 @@ async function main() {
   console.log(`✓ Módulos inscription, checkin e certificate habilitados`);
 
   console.log(`\nConfiguração concluída com sucesso para o Ecohub!`);
-  console.log(`Link público de inscrição: /${SLUG}/incricao e /${SLUG}/inscricao`);
+  console.log(`Link público de inscrição: /inscricao/${SLUG}`);
 }
 
 main()

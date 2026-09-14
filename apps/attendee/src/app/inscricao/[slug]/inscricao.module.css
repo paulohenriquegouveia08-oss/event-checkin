@@ -32,10 +32,14 @@
 
 .logoEcohub {
   margin-bottom: 1.25rem;
+  display: inline-block;
+  background: #ffffff;
+  padding: 0.35rem 0.75rem;
+  border-radius: 0.75rem;
 }
 
 .logoImg {
-  height: 40px;
+  height: 28px;
   width: auto;
   display: block;
 }

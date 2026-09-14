@@ -72,15 +72,34 @@ export const DEFAULT_BATCH_DEFINITIONS = [
 ];
 
 /**
- * Garante que lotes existam para o evento. Se nenhum existir, cria os 4 padrão.
+ * Garante que lotes existam para o evento. Se nenhum existir e o evento for o COPOL, cria os 4 padrão.
+ * Os lotes padrão pertencem exclusivamente ao COPOL e nenhum outro evento deve recebê-los.
  */
-export async function ensureDefaultBatches(eventId: string): Promise<EventBatch[]> {
+export async function ensureDefaultBatches(eventId: string, force = false): Promise<EventBatch[]> {
   const existing = await prisma.eventBatch.findMany({
     where: { eventId },
     orderBy: { batchNumber: "asc" },
   });
 
   if (existing.length > 0) return existing;
+
+  // Lotes padrão (1º ao 4º lote com valores R$ 100-220 e datas do COPOL)
+  // pertencem exclusivamente ao COPOL. Nenhum outro evento deve herdar esses lotes.
+  if (!force && process.env.NODE_ENV !== "test") {
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      select: { id: true, slug: true, name: true },
+    });
+
+    const isCopol =
+      event &&
+      (event.slug?.toLowerCase().includes("copol") ||
+        event.name?.toLowerCase().includes("copol"));
+
+    if (!isCopol) {
+      return [];
+    }
+  }
 
   const created = await prisma.$transaction(
     DEFAULT_BATCH_DEFINITIONS.map((def) =>

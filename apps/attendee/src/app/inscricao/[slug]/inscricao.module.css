@@ -20,15 +20,25 @@
   background: #fff;
 }
 
-/* A onda colorida da arte, reduzida a uma faixa. */
+/* A faixa colorida com gradiente tematico do evento. */
 .faixaTopo,
 .faixaRodape {
   height: 6px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #7b2fd6, #2e86e0, #1bb8c4, #6dc04b, #f2c230);
+  background: var(--gradiente, linear-gradient(90deg, #7b2fd6, #2e86e0, #1bb8c4, #6dc04b, #f2c230));
 }
 .faixaTopo { margin: 1.25rem 0 2rem; }
 .faixaRodape { margin-top: 2.5rem; }
+
+.logoEcohub {
+  margin-bottom: 1.25rem;
+}
+
+.logoImg {
+  height: 40px;
+  width: auto;
+  display: block;
+}
 
 .hero { text-align: left; }
 

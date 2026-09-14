@@ -1,15 +1,15 @@
 /*
- * Cores tiradas da arte do certificado, pixel a pixel — o roxo #55079B é
- * o do título "CERTIFICADO" e o da logo da Semantix. Quem se inscreve e
- * depois recebe o certificado precisa reconhecer o mesmo evento.
+ * Cores padrão do site de credenciamento: azul sobre fundo escuro,
+ * em vez da paleta roxa herdada da arte de um evento específico —
+ * esta página é usada por todos os eventos, não só por um.
  */
 .pagina {
-  --roxo: #55079b;
-  --roxo-escuro: #33055e;
-  --roxo-claro: #f4ecfb;
-  --tinta: #1a1033;
-  --tinta-fraca: #6b6480;
-  --linha: #e6e0f0;
+  --azul: #2f6fed;
+  --azul-escuro: #1a4fc4;
+  --azul-claro: #16223d;
+  --tinta: #f2f4f8;
+  --tinta-fraca: #9aa3b2;
+  --linha: rgba(255, 255, 255, 0.12);
 
   min-height: 100dvh;
   margin: 0 auto;
@@ -17,15 +17,15 @@
   max-width: 720px;
   color: var(--tinta);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background: #fff;
+  background: #0a0b0d;
 }
 
-/* A onda colorida da arte, reduzida a uma faixa. */
+/* A faixa de destaque no topo e no rodapé. */
 .faixaTopo,
 .faixaRodape {
   height: 6px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #7b2fd6, #2e86e0, #1bb8c4, #6dc04b, #f2c230);
+  background: linear-gradient(90deg, #163a8f, #2f6fed, #6fa2ff);
 }
 .faixaTopo { margin: 1.25rem 0 2rem; }
 .faixaRodape { margin-top: 2.5rem; }
@@ -38,7 +38,7 @@
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--roxo);
+  color: var(--azul);
 }
 
 .titulo {
@@ -47,7 +47,7 @@
   line-height: 1.05;
   font-weight: 800;
   letter-spacing: -0.02em;
-  color: var(--roxo);
+  color: var(--tinta);
   text-wrap: balance;
 }
 
@@ -80,7 +80,7 @@
   gap: 0.15rem;
   padding: 0.85rem 1rem;
   border-radius: 0.7rem;
-  background: var(--roxo-claro);
+  background: var(--azul-claro);
   border: 1px solid var(--linha);
 }
 
@@ -89,7 +89,7 @@
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--roxo);
+  color: var(--azul);
 }
 
 .fatos strong { font-size: 0.95rem; font-weight: 600; }
@@ -102,12 +102,12 @@
 
 .destaque {
   padding: 1rem 1.1rem;
-  border-left: 3px solid var(--roxo);
-  background: #fbf9fe;
+  border-left: 3px solid var(--azul);
+  background: var(--azul-claro);
   border-radius: 0 0.6rem 0.6rem 0;
 }
 
-.destaque h2 { margin: 0 0 0.25rem; font-size: 0.95rem; color: var(--roxo-escuro); }
+.destaque h2 { margin: 0 0 0.25rem; font-size: 0.95rem; color: var(--tinta); }
 .destaque p { margin: 0; font-size: 0.9rem; line-height: 1.55; color: var(--tinta-fraca); }
 
 .cartao {
@@ -115,11 +115,12 @@
   padding: 1.5rem 1.25rem;
   border: 1px solid var(--linha);
   border-radius: 1rem;
-  box-shadow: 0 10px 30px rgba(85, 7, 155, 0.07);
+  background: #0f1114;
+  box-shadow: 0 10px 30px rgba(47, 111, 237, 0.12);
 }
 
-.tituloForm { margin: 0 0 1.25rem; font-size: 1.25rem; color: var(--roxo-escuro); }
-.tituloErro { margin: 0 0 0.5rem; font-size: 1.25rem; color: var(--roxo-escuro); }
+.tituloForm { margin: 0 0 1.25rem; font-size: 1.25rem; color: var(--tinta); }
+.tituloErro { margin: 0 0 0.5rem; font-size: 1.25rem; color: var(--tinta); }
 
 .form { display: grid; gap: 1rem; }
 
@@ -143,15 +144,15 @@
   padding: 0.75rem 0.85rem;
   border: 1px solid var(--linha);
   border-radius: 0.6rem;
-  background: #fff;
+  background: #16181c;
   color: var(--tinta);
   font-family: inherit;
 }
 
 .campo input:focus-visible {
-  outline: 2px solid var(--roxo);
+  outline: 2px solid var(--azul);
   outline-offset: 1px;
-  border-color: var(--roxo);
+  border-color: var(--azul);
 }
 
 .campo small { font-weight: 400; font-size: 0.78rem; color: var(--tinta-fraca); }
@@ -165,13 +166,13 @@
   color: var(--tinta-fraca);
 }
 
-.aceite input { margin-top: 0.15rem; width: 1.1rem; height: 1.1rem; accent-color: var(--roxo); flex: none; }
+.aceite input { margin-top: 0.15rem; width: 1.1rem; height: 1.1rem; accent-color: var(--azul); flex: none; }
 
 .botao {
   padding: 0.95rem 1.25rem;
   border: 0;
   border-radius: 0.7rem;
-  background: var(--roxo);
+  background: var(--azul);
   color: #fff;
   font-size: 1rem;
   font-weight: 700;
@@ -180,15 +181,15 @@
 }
 
 .botao:disabled { opacity: 0.6; cursor: progress; }
-.botao:hover:not(:disabled) { background: var(--roxo-escuro); }
+.botao:hover:not(:disabled) { background: var(--azul-escuro); }
 
 .erro {
   margin: 0;
   padding: 0.7rem 0.85rem;
   border-radius: 0.5rem;
-  background: #fdecec;
-  border: 1px solid #f5c2c2;
-  color: #9b1c1c;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
   font-size: 0.88rem;
 }
 
@@ -196,13 +197,13 @@
   margin: 0;
   padding: 1rem;
   border-radius: 0.6rem;
-  background: var(--roxo-claro);
-  color: var(--roxo-escuro);
+  background: var(--azul-claro);
+  color: var(--tinta);
   font-weight: 600;
   text-align: center;
 }
 
 .rodapeForm { margin: 0; text-align: center; font-size: 0.85rem; color: var(--tinta-fraca); }
-.rodapeForm a { color: var(--roxo); font-weight: 600; }
+.rodapeForm a { color: var(--azul); font-weight: 600; }
 
 .aviso { padding: 3rem 0; text-align: center; color: var(--tinta-fraca); }

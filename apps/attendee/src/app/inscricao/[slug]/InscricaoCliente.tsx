@@ -209,26 +209,9 @@ export function InscricaoCliente({ slug }: { slug: string }) {
   }
 
   const isEcohub = slug.toLowerCase().includes("ecohub");
-  const tema = c.tema ?? (isEcohub ? {
-    primaria: "#0b8161",
-    primariaEscura: "#075a43",
-    primariaClara: "#e8f5f1",
-    acento: "#f7c915",
-    gradiente: ["#f7c915", "#bdd10d", "#26a43a", "#33a2a4", "#0b8161", "#5a3088"],
-  } : undefined);
-
-  const styleTema = tema ? ({
-    "--azul": tema.primaria,
-    "--azul-escuro": tema.primariaEscura,
-    "--azul-claro": "rgba(11, 129, 97, 0.18)",
-    "--roxo": tema.primaria,
-    "--roxo-escuro": tema.primariaEscura,
-    "--roxo-claro": "rgba(11, 129, 97, 0.18)",
-    "--gradiente": tema.gradiente ? `linear-gradient(90deg, ${tema.gradiente.join(", ")})` : undefined,
-  } as React.CSSProperties) : undefined;
 
   return (
-    <main className={estilos.pagina} style={styleTema}>
+    <main className={estilos.pagina}>
       <div className={estilos.faixaTopo} aria-hidden="true" />
 
       <section className={estilos.hero}>

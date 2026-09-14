@@ -32,9 +32,16 @@ export default function LoginPage() {
         // Sem filtrar de novo: a rota já devolve só quem tem endereço
         // público e inscrição aberta. Repetir o filtro com um campo que
         // ela não manda (`registrationsOpen`) esconderia tudo.
+        // O COPOL possui site próprio de inscrição (apps/pre-copol), portanto
+        // não deve exibir o botão de inscrição aqui no portal de credenciamento.
         setAbertos(
           lista
-            .filter((e: { slug?: string }) => Boolean(e.slug))
+            .filter((e: { slug?: string; name?: string }) => {
+              if (!e.slug) return false;
+              const slug = e.slug.toLowerCase();
+              const name = (e.name || "").toLowerCase();
+              return !slug.includes("copol") && !name.includes("copol");
+            })
             .map((e: { slug: string; name: string }) => ({ slug: e.slug, name: e.name })),
         );
       })

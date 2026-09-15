@@ -29,6 +29,7 @@ import {
   SparkleIcon,
   LockIcon,
   ShieldCheckIcon,
+  AlertTriangleIcon,
 } from "@/components/Icons";
 
 const SCHEDULE_DAY_TABS = [
@@ -472,6 +473,25 @@ export default function HomePage() {
                         {content?.aboutText ||
                           "O Pré-Copol 2026 é a abertura do 3º Congresso Odontológico Positivo Londrinense (COPOL)."}
                       </p>
+
+                      <div
+                        style={{
+                          marginTop: 24,
+                          background: "rgba(212, 168, 83, 0.08)",
+                          border: "1px solid rgba(212, 168, 83, 0.35)",
+                          borderRadius: 14,
+                          padding: "16px 20px",
+                          display: "flex",
+                          alignItems: "flex-start",
+                          gap: 12,
+                          textAlign: "left",
+                        }}
+                      >
+                        <AlertTriangleIcon size={20} color="var(--gold)" style={{ flexShrink: 0, marginTop: 2 }} />
+                        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: "var(--foreground)" }}>
+                          <strong style={{ color: "var(--gold)" }}>IMPORTANTE:</strong> O valor da inscrição refere-se exclusivamente à participação no Congresso COPOL, contemplando palestras, feira e coffee break. As atividades Hands-on não estão inclusas neste valor e terão inscrições e valores específicos, a serem divulgados posteriormente.
+                        </p>
+                      </div>
                     </div>
                   </section>
                 );
@@ -725,13 +745,33 @@ export default function HomePage() {
                 return (
                   <section id="lotes" style={{ ...sectionStyle, padding: "80px 24px", borderTop: "1px solid var(--border)" }}>
                     <div className="container-page scroll-reveal" style={{ maxWidth: 980 }}>
-                      <div style={{ textAlign: "center", marginBottom: 44 }}>
+                      <div style={{ textAlign: "center", marginBottom: 36 }}>
                         <SectionEyebrow>Inscrições Oficiais</SectionEyebrow>
                         <h2 style={{ fontSize: "clamp(26px, 3.8vw, 36px)", margin: "8px 0 12px", fontWeight: 800, letterSpacing: "-0.02em" }}>
                           {sec.title || "Lotes e Inscrições"}
                         </h2>
                         <p style={{ color: "var(--muted-foreground)", margin: 0, fontSize: "clamp(15px, 2vw, 17px)", maxWidth: 620, marginInline: "auto" }}>
                           {sec.subtitle || "Aproveite os valores promocionais dos lotes antecipados e garanta sua presença no congresso."}
+                        </p>
+                      </div>
+
+                      {/* Aviso Importante sobre Inscrição e Hands-on */}
+                      <div
+                        style={{
+                          background: "rgba(212, 168, 83, 0.08)",
+                          border: "1px solid rgba(212, 168, 83, 0.35)",
+                          borderRadius: 14,
+                          padding: "18px 22px",
+                          marginBottom: 36,
+                          display: "flex",
+                          alignItems: "flex-start",
+                          gap: 14,
+                          textAlign: "left",
+                        }}
+                      >
+                        <AlertTriangleIcon size={22} color="var(--gold)" style={{ flexShrink: 0, marginTop: 2 }} />
+                        <p style={{ margin: 0, fontSize: "clamp(13px, 1.8vw, 15px)", lineHeight: 1.6, color: "var(--foreground)" }}>
+                          <strong style={{ color: "var(--gold)" }}>IMPORTANTE:</strong> O valor da inscrição refere-se exclusivamente à participação no Congresso COPOL, contemplando palestras, feira e coffee break. As atividades Hands-on não estão inclusas neste valor e terão inscrições e valores específicos, a serem divulgados posteriormente.
                         </p>
                       </div>
 

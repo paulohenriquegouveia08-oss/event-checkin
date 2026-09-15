@@ -14,7 +14,7 @@ import {
 } from "@/lib/api";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
-import { ArrowRightIcon } from "@/components/Icons";
+import { ArrowRightIcon, AlertTriangleIcon } from "@/components/Icons";
 import { RESUMO_ACEITE, VERSAO_TERMOS } from "@/lib/termos";
 
 export default function InscriptionPage() {
@@ -310,6 +310,27 @@ const FALLBACK_EVENT: EventData = {
                 Inscrição única
               </span>
             </div>
+          </div>
+
+          {/* Aviso Importante sobre Inscrição e Hands-on */}
+          <div
+            className="animate-fade-up"
+            style={{
+              background: "rgba(212, 168, 83, 0.08)",
+              border: "1px solid rgba(212, 168, 83, 0.35)",
+              borderRadius: 14,
+              padding: "16px 20px",
+              marginBottom: 24,
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 12,
+              textAlign: "left",
+            }}
+          >
+            <AlertTriangleIcon size={20} color="var(--gold)" style={{ flexShrink: 0, marginTop: 2 }} />
+            <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: "var(--foreground)" }}>
+              <strong style={{ color: "var(--gold)" }}>IMPORTANTE:</strong> O valor da inscrição refere-se exclusivamente à participação no Congresso COPOL, contemplando palestras, feira e coffee break. As atividades Hands-on não estão inclusas neste valor e terão inscrições e valores específicos, a serem divulgados posteriormente.
+            </p>
           </div>
 
           <form

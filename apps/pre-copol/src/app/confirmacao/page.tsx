@@ -469,6 +469,29 @@ function ConfirmationContent() {
                 </div>
               </div>
 
+              {/* Aviso Importante sobre Inscrição e Hands-on */}
+              <div
+                style={{
+                  width: "100%",
+                  padding: "16px 20px",
+                  borderRadius: 12,
+                  background: "rgba(212, 168, 83, 0.08)",
+                  border: "1px solid rgba(212, 168, 83, 0.35)",
+                  color: "var(--foreground)",
+                  fontSize: 13,
+                  lineHeight: 1.6,
+                  textAlign: "left",
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 12,
+                }}
+              >
+                <AlertTriangleIcon size={20} color="var(--gold)" style={{ flexShrink: 0, marginTop: 2 }} />
+                <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: "var(--foreground)" }}>
+                  <strong style={{ color: "var(--gold)" }}>IMPORTANTE:</strong> O valor da inscrição refere-se exclusivamente à participação no Congresso COPOL, contemplando palestras, feira e coffee break. As atividades Hands-on não estão inclusas neste valor e terão inscrições e valores específicos, a serem divulgados posteriormente.
+                </p>
+              </div>
+
               {/* Card de Pagamento PIX */}
               <div
                 className="card"

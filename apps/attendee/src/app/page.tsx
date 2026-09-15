@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { loginAttendee, selectEvent, type ParticipantData } from "@/lib/api";
 import { CreditosParceiros } from "@/components/CreditosParceiros";
 
+export const dynamic = "force-dynamic";
+
 function formatarDataCurta(isoDate?: string): string {
   if (!isoDate) return "22/09";
   try {

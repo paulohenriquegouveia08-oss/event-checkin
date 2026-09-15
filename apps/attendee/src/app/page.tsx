@@ -5,6 +5,20 @@ import { useRouter } from "next/navigation";
 import { loginAttendee, selectEvent, type ParticipantData } from "@/lib/api";
 import { CreditosParceiros } from "@/components/CreditosParceiros";
 
+function formatarDataCurta(isoDate?: string): string {
+  if (!isoDate) return "22/09";
+  try {
+    const d = new Date(isoDate);
+    return d.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      timeZone: "America/Sao_Paulo",
+    });
+  } catch {
+    return "22/09";
+  }
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -22,18 +36,15 @@ export default function LoginPage() {
    *
    * Buscado do servidor, e não cravado: um evento novo aparece sozinho.
    */
-  const [abertos, setAbertos] = useState<{ slug: string; name: string }[]>([]);
+  const [abertos, setAbertos] = useState<{ slug: string; name: string; startDate?: string }[]>([
+    { slug: "ecohub", name: "Sistemas Multi-Agente", startDate: "2026-09-22T22:00:00.000Z" },
+  ]);
 
   useEffect(() => {
     fetch("/api/publico/eventos-abertos")
       .then((r) => r.json())
       .then((c) => {
         const lista = Array.isArray(c?.data) ? c.data : [];
-        // Sem filtrar de novo: a rota já devolve só quem tem endereço
-        // público e inscrição aberta. Repetir o filtro com um campo que
-        // ela não manda (`registrationsOpen`) esconderia tudo.
-        // O COPOL possui site próprio de inscrição (apps/pre-copol), portanto
-        // não deve exibir o botão de inscrição aqui no portal de credenciamento.
         setAbertos(
           lista
             .filter((e: { slug?: string; name?: string }) => {
@@ -42,10 +53,14 @@ export default function LoginPage() {
               const name = (e.name || "").toLowerCase();
               return !slug.includes("copol") && !name.includes("copol");
             })
-            .map((e: { slug: string; name: string }) => ({ slug: e.slug, name: e.name })),
+            .map((e: { slug: string; name: string; startDate?: string }) => ({
+              slug: e.slug,
+              name: e.name,
+              startDate: e.startDate,
+            })),
         );
       })
-      .catch(() => setAbertos([]));
+      .catch(() => {});
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -135,19 +150,6 @@ export default function LoginPage() {
                 placeholder="seu@email.com"
                 className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)]/60 px-4 py-3 text-base text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:outline-none"
               />
-              <a
-                href="/inscricao/ecohub"
-                className="mt-2.5 flex items-center justify-between rounded-xl border border-[var(--primary)]/40 bg-[var(--primary)]/10 px-3.5 py-2.5 text-xs font-semibold text-blue-400 transition hover:bg-[var(--primary)]/20 hover:border-[var(--primary)]/70 group"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-400"></span>
-                  </span>
-                  <span className="text-white">Inscrição: Ecohub — Sistemas Multi-Agente</span>
-                </div>
-                <span aria-hidden="true" className="text-[var(--primary)] font-bold transition-transform group-hover:translate-x-0.5">→</span>
-              </a>
             </div>
 
             <button
@@ -170,7 +172,12 @@ export default function LoginPage() {
                         href={`/inscricao/${e.slug}`}
                         className="flex items-center justify-between rounded-xl border border-[var(--primary)]/35 bg-[var(--primary)]/10 px-4 py-3 text-sm font-semibold transition hover:bg-[var(--primary)]/20"
                       >
-                        <span>Inscrever-se em {e.name}</span>
+                        <div className="flex items-center gap-2.5">
+                          <span>Inscrever-se em {e.name}</span>
+                          <span className="rounded-md border border-[var(--primary)]/40 bg-[var(--primary)]/25 px-2 py-0.5 text-xs font-semibold text-blue-300">
+                            {formatarDataCurta(e.startDate)}
+                          </span>
+                        </div>
                         <span aria-hidden="true" className="text-[var(--primary)]">→</span>
                       </a>
                     </li>

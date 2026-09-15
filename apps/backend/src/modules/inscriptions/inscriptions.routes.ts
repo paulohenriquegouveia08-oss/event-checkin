@@ -101,5 +101,18 @@ export async function inscriptionsRoutes(app: FastifyInstance) {
       return ok(result);
     }
   );
+
+  // Admin — Sortear equipes para quem se inscreveu sozinho (evento com
+  // inscrição em equipe — ver Event.siteContent.equipe)
+  app.post(
+    "/events/:eventId/inscriptions/sortear-equipes",
+    { preHandler: requirePermission("participants.edit") },
+    async (request) => {
+      const { eventId } = eventIdParams.parse(request.params);
+      const resultado = await inscriptionsService.sortearEquipes(eventId);
+      await recordAudit(request, "inscription.sortear_equipes", "Event", eventId, resultado);
+      return ok(resultado);
+    }
+  );
 }
 

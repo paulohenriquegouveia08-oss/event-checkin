@@ -93,6 +93,18 @@ export const siteContentSchema = z.object({
 
   // Rodapé
   footerText: z.string().trim().max(300).optional(),
+
+  // Inscrição em equipe (ex.: maratonas de programação): quando presente,
+  // a página de inscrição pede o nome da equipe e o nome de cada um dos
+  // demais integrantes, além dos dados do líder de sempre. Cada integrante
+  // vira um Participant próprio — com certificado individual — ao
+  // confirmar. Ausente = inscrição individual normal (padrão de todo evento
+  // que já existe).
+  equipe: z
+    .object({
+      tamanho: z.number().int().min(2).max(20),
+    })
+    .optional(),
 });
 
 export type SiteTheme = z.infer<typeof siteThemeSchema>;

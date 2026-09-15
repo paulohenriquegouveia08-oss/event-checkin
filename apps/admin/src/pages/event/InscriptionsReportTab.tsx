@@ -56,6 +56,33 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
     }
   }
 
+  const [sorteando, setSorteando] = useState(false);
+
+  async function handleSortearEquipes() {
+    setSorteando(true);
+    setError(null);
+    setSuccessMessage(null);
+    try {
+      const resultado = await api.sortearEquipes(eventId);
+      if (resultado.equipesFormadas === 0) {
+        setSuccessMessage("Nenhuma pessoa aguardando sorteio — todo mundo já está em uma equipe.");
+      } else {
+        const aviso =
+          resultado.ultimaEquipeIncompleta != null
+            ? ` (a última ficou com ${resultado.ultimaEquipeIncompleta} pessoa(s))`
+            : "";
+        setSuccessMessage(
+          `${resultado.equipesFormadas} equipe(s) sorteada(s) com ${resultado.pessoasAlocadas} pessoa(s)${aviso}.`,
+        );
+      }
+      await loadInscriptions();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao sortear equipes");
+    } finally {
+      setSorteando(false);
+    }
+  }
+
   async function handleCancel(item: api.InscriptionReportItem) {
     setActionLoading(item.id);
     setError(null);
@@ -201,6 +228,14 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
         </div>
 
         <div className="row" style={{ gap: 10 }}>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={handleSortearEquipes}
+            disabled={sorteando}
+            title="Forma equipes aleatórias com quem se inscreveu sozinho pedindo sorteio. Não afeta eventos sem inscrição em equipe."
+          >
+            {sorteando ? "Sorteando..." : "Sortear equipes"}
+          </button>
           <button className="btn btn-secondary btn-sm" onClick={handleExportCsv} disabled={filtered.length === 0}>
             Exportar CSV
           </button>

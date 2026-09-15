@@ -24,6 +24,16 @@ export const createInscriptionSchema = z.object({
     .trim()
     .min(1, "É necessário aceitar o termo de inscrição")
     .max(20),
+
+  // Inscrição em equipe (só exigido pelo service quando o evento pede —
+  // ver Event.siteContent.equipe). Aqui ficam opcionais porque o schema
+  // não conhece o evento; quem decide se são obrigatórios é o service.
+  teamName: z.string().trim().min(1).max(150).optional(),
+  teamMembers: z.array(z.string().trim().min(1, "Nome não pode ficar em branco").max(200)).max(19).optional(),
+  // Pessoa se inscreve sozinha e pede pra ser alocada depois numa equipe
+  // sorteada (ver inscriptionsService.sortearEquipes) — dispensa teamName
+  // e teamMembers mesmo em evento com inscrição em equipe.
+  soloParaSorteio: z.boolean().optional(),
 });
 
 export type CreateInscriptionInput = z.infer<typeof createInscriptionSchema>;

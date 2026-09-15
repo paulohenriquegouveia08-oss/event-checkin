@@ -45,6 +45,8 @@ interface Conteudo {
   cargaHoraria?: string;
   realizacao?: string[];
   destaques?: { titulo: string; texto: string }[];
+  /** Inscrição em equipe (ex.: maratonas de programação). Ausente = individual. */
+  equipe?: { tamanho: number };
 }
 
 /** Máscara de CPF, aplicada enquanto digita. */
@@ -95,6 +97,13 @@ export function InscricaoCliente({ slug }: { slug: string }) {
   const [telefone, setTelefone] = useState("");
   const [aceite, setAceite] = useState(false);
 
+  // Inscrição em equipe (ver Conteudo.equipe): nomeEquipe + o nome de cada
+  // integrante ALÉM do líder (que já é a pessoa preenchendo o formulário
+  // acima). Fica vazio/sem efeito em qualquer evento sem inscrição em equipe.
+  const [nomeEquipe, setNomeEquipe] = useState("");
+  const [integrantes, setIntegrantes] = useState<string[]>([]);
+  const [semEquipe, setSemEquipe] = useState(false);
+
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -104,12 +113,17 @@ export function InscricaoCliente({ slug }: { slug: string }) {
         const corpo = await r.json();
         if (!r.ok || !corpo?.data) throw new Error(corpo?.error?.message ?? "Evento não encontrado");
         setEvento(corpo.data);
+        const tamanho = corpo.data?.siteContent?.equipe?.tamanho;
+        if (typeof tamanho === "number" && tamanho > 1) {
+          setIntegrantes(Array.from({ length: tamanho - 1 }, () => ""));
+        }
       })
       .catch((e) => setErroDaPagina(e instanceof Error ? e.message : "Não consegui carregar o evento"))
       .finally(() => setCarregando(false));
   }, [slug]);
 
   const c: Conteudo = evento?.siteContent ?? {};
+  const equipeConfig = c.equipe;
 
   const dataFormatada = evento
     ? new Date(evento.startDate).toLocaleDateString("pt-BR", {
@@ -141,6 +155,16 @@ export function InscricaoCliente({ slug }: { slug: string }) {
       setErro("É preciso aceitar o uso dos seus dados para concluir a inscrição.");
       return;
     }
+    if (equipeConfig && !semEquipe) {
+      if (!nomeEquipe.trim()) {
+        setErro("Informe o nome da equipe.");
+        return;
+      }
+      if (integrantes.some((i) => !i.trim())) {
+        setErro(`Informe o nome dos ${integrantes.length} outros integrantes da equipe.`);
+        return;
+      }
+    }
 
     setEnviando(true);
     try {
@@ -156,6 +180,11 @@ export function InscricaoCliente({ slug }: { slug: string }) {
           document: cpf.replace(/\D/g, ""),
           phone: telefone.replace(/\D/g, "") || null,
           consentVersion: VERSAO_DO_TERMO,
+          ...(equipeConfig
+            ? semEquipe
+              ? { soloParaSorteio: true }
+              : { teamName: nomeEquipe.trim(), teamMembers: integrantes.map((i) => i.trim()) }
+            : {}),
         }),
       });
 
@@ -245,6 +274,12 @@ export function InscricaoCliente({ slug }: { slug: string }) {
             <span className={estilos.fatoRotulo}>Certificado</span>
             <strong>{c.cargaHoraria ?? "Com certificado"}</strong>
           </li>
+          {equipeConfig && (
+            <li>
+              <span className={estilos.fatoRotulo}>Formato</span>
+              <strong>Em equipe · {equipeConfig.tamanho} pessoas</strong>
+            </li>
+          )}
         </ul>
       </section>
 
@@ -327,6 +362,56 @@ export function InscricaoCliente({ slug }: { slug: string }) {
                 />
               </label>
             </div>
+
+            {equipeConfig && (
+              <>
+                <label className={estilos.aceite}>
+                  <input
+                    type="checkbox"
+                    checked={semEquipe}
+                    onChange={(e) => setSemEquipe(e.target.checked)}
+                  />
+                  <span>
+                    Não tenho equipe formada — quero ser alocado(a) em uma equipe sorteada pela
+                    organização.
+                  </span>
+                </label>
+
+                {!semEquipe && (
+                  <>
+                    <label className={estilos.campo}>
+                      Nome da equipe
+                      <input
+                        value={nomeEquipe}
+                        onChange={(e) => setNomeEquipe(e.target.value)}
+                        required
+                        placeholder="Nome da sua equipe"
+                      />
+                      <small>
+                        Você é o líder/representante da equipe. Informe abaixo o nome dos outros{" "}
+                        {integrantes.length} integrantes — cada um recebe certificado individual.
+                      </small>
+                    </label>
+
+                    {integrantes.map((valor, i) => (
+                      <label className={estilos.campo} key={i}>
+                        {`Integrante ${i + 2} — nome completo`}
+                        <input
+                          value={valor}
+                          onChange={(e) => {
+                            const proximos = [...integrantes];
+                            proximos[i] = e.target.value;
+                            setIntegrantes(proximos);
+                          }}
+                          required
+                          placeholder="Nome completo"
+                        />
+                      </label>
+                    ))}
+                  </>
+                )}
+              </>
+            )}
 
             <label className={estilos.aceite}>
               <input type="checkbox" checked={aceite} onChange={(e) => setAceite(e.target.checked)} />

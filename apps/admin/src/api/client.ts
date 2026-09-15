@@ -1108,4 +1108,17 @@ export function deleteInscription(eventId: string, id: string): Promise<any> {
   });
 }
 
+export interface SorteioEquipesResultado {
+  equipesFormadas: number;
+  pessoasAlocadas: number;
+  pessoasRestantes: number;
+  ultimaEquipeIncompleta: number | null;
+}
+
+export function sortearEquipes(eventId: string): Promise<SorteioEquipesResultado> {
+  return request<SorteioEquipesResultado>(`/events/${eventId}/inscriptions/sortear-equipes`, {
+    method: "POST",
+  });
+}
+
 

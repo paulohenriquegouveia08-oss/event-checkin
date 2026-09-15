@@ -578,12 +578,39 @@ model Inscription {
   // navegador: um valor que o cliente escolhe nao serve de evidencia.
   consentIp         String?   @db.VarChar(64)
 
+  // ---- inscrição em equipe (opcional) ------------------------------
+  // A Inscription continua sendo UMA pessoa de contato (líder: nome,
+  // e-mail, CPF, telefone acima). teamName e teamMembers só existem
+  // quando o evento pede inscrição em grupo (ver Event.siteContent.equipe
+  // em modules/events/site-content.ts) — em qualquer outro evento ficam
+  // vazios e nada muda.
+  teamName    String?      @db.VarChar(150)
+  teamMembers TeamMember[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([eventId])
   @@index([batchId])
   @@map("inscriptions")
+}
+
+/// Um integrante de uma inscrição em equipe, além do líder.
+///
+/// Guarda só o nome porque é isso que um certificado individual precisa
+/// para ser emitido em nome da pessoa certa — não um cadastro completo
+/// por integrante. Ao confirmar a inscrição, cada linha aqui vira um
+/// Participant próprio (nome, qrToken e certificado individuais).
+model TeamMember {
+  id            String      @id @default(uuid())
+  inscriptionId String
+  inscription   Inscription @relation(fields: [inscriptionId], references: [id], onDelete: Cascade)
+  name          String      @db.VarChar(200)
+  order         Int         @default(0)
+  createdAt     DateTime    @default(now())
+
+  @@index([inscriptionId])
+  @@map("team_members")
 }
 
 model EventBatch {

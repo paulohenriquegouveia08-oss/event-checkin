@@ -24,6 +24,25 @@ export async function createInscription(
     throw new ForbiddenError("As inscrições para este evento estão encerradas");
   }
 
+  // Inscrição em equipe: só quando o evento pede (Event.siteContent.equipe).
+  // Em qualquer outro evento este bloco não faz nada — input.teamName e
+  // input.teamMembers, se vierem, são simplesmente ignorados abaixo.
+  const equipeConfig = (event.siteContent as { equipe?: { tamanho: number } } | null)?.equipe;
+  if (equipeConfig && !input.soloParaSorteio) {
+    const integrantesEsperados = equipeConfig.tamanho - 1; // o líder já é a Inscription
+    if (!input.teamName) {
+      throw new ValidationError("Informe o nome da equipe");
+    }
+    if (!input.teamMembers || input.teamMembers.length !== integrantesEsperados) {
+      throw new ValidationError(
+        `Informe o nome dos outros ${integrantesEsperados} integrantes da equipe (equipes de ${equipeConfig.tamanho} pessoas)`,
+      );
+    }
+  }
+  // soloParaSorteio: pessoa se inscreve como líder de si mesma (Inscription
+  // normal, sem teamMembers) e fica com teamName nulo até sortearEquipes
+  // agrupá-la com outras pessoas soltas.
+
   // 1. Resolução do valor e lote:
   // Se categoria não foi enviada (fluxo novo sem seleção de categoria), aplica o lote ativo automaticamente.
   // Se foi enviada, valida contra tiers/lotes existentes mantendo 100% de compatibilidade retroativa.
@@ -93,6 +112,8 @@ export async function createInscription(
       // versao dele que o registro precisa valer.
       consentAcceptedAt: new Date(),
       consentIp: consentIp ?? null,
+      teamName: equipeConfig ? input.teamName ?? null : null,
+      teamMembers: equipeConfig ? input.teamMembers ?? [] : undefined,
     });
   });
 
@@ -216,7 +237,7 @@ export async function confirmInscriptionPayment(inscriptionId: string, authoriza
 
     const inscription = await tx.inscription.findUnique({
       where: { id: inscriptionId },
-      include: { event: true, batch: true },
+      include: { event: true, batch: true, teamMembers: { orderBy: { order: "asc" } } },
     });
 
     if (!inscription) {
@@ -253,6 +274,22 @@ export async function confirmInscriptionPayment(inscriptionId: string, authoriza
       },
       include: { event: true, batch: true },
     });
+
+    // Inscrição em equipe: o líder já virou Participant acima — cada
+    // outro integrante (só nome, sem e-mail/CPF) vira o seu próprio
+    // Participant, com qrToken e certificado individuais. O check-in e a
+    // emissão de certificado desses participantes seguem pelo painel
+    // admin (não têm e-mail para acessar o portal sozinhos).
+    for (const membro of inscription.teamMembers) {
+      await tx.participant.create({
+        data: {
+          eventId: inscription.eventId,
+          name: membro.name,
+          qrToken: generateQrToken(),
+          status: "ACTIVE",
+        },
+      });
+    }
 
     return { inscription: updatedInscription, participant, alreadyConfirmed: false };
   });
@@ -473,5 +510,73 @@ export async function deleteInscription(eventId: string, id: string) {
   });
 
   return { success: true, deletedId: id };
+}
+
+/**
+ * Sorteia equipes para quem se inscreveu sozinho pedindo alocação aleatória
+ * (soloParaSorteio — ver createInscription).
+ *
+ * Só olha inscrições CONFIRMED sem teamName. Embaralha, divide em grupos do
+ * tamanho configurado em Event.siteContent.equipe e dá um nome de equipe a
+ * cada grupo — sem criar nem mexer em Participant, que já existe desde a
+ * confirmação. Pode rodar de novo: quem já tem teamName não é tocado de
+ * novo, então só entra gente nova (ou quem foi excluída de uma equipe).
+ */
+export async function sortearEquipes(eventId: string) {
+  const event = await getEventOrThrow(eventId);
+  const equipeConfig = (event.siteContent as { equipe?: { tamanho: number } } | null)?.equipe;
+  if (!equipeConfig) {
+    throw new ValidationError("Este evento não usa inscrição em equipe");
+  }
+
+  const semEquipe = await prisma.inscription.findMany({
+    where: { eventId, status: "CONFIRMED", teamName: null },
+    select: { id: true, name: true },
+  });
+
+  if (semEquipe.length === 0) {
+    return { equipesFormadas: 0, pessoasAlocadas: 0, pessoasRestantes: 0 };
+  }
+
+  // Fisher-Yates — embaralhar de verdade, não só reordenar por um campo.
+  const embaralhado = [...semEquipe];
+  for (let i = embaralhado.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [embaralhado[i], embaralhado[j]] = [embaralhado[j], embaralhado[i]];
+  }
+
+  // Conta quantas "Equipe N" já existem pra não colidir nome ao sortear de novo.
+  const existentes = await prisma.inscription.findMany({
+    where: { eventId, teamName: { startsWith: "Equipe " } },
+    select: { teamName: true },
+    distinct: ["teamName"],
+  });
+  let proximoNumero = existentes.length + 1;
+
+  const tamanho = equipeConfig.tamanho;
+  const grupos: { id: string }[][] = [];
+  for (let i = 0; i < embaralhado.length; i += tamanho) {
+    grupos.push(embaralhado.slice(i, i + tamanho));
+  }
+
+  await prisma.$transaction(
+    grupos.map((grupo) => {
+      const nomeEquipe = `Equipe ${proximoNumero++}`;
+      return prisma.inscription.updateMany({
+        where: { id: { in: grupo.map((g) => g.id) } },
+        data: { teamName: nomeEquipe },
+      });
+    }),
+  );
+
+  const ultimoGrupo = grupos[grupos.length - 1];
+  const grupoIncompleto = ultimoGrupo.length < tamanho;
+
+  return {
+    equipesFormadas: grupos.length,
+    pessoasAlocadas: embaralhado.length,
+    pessoasRestantes: 0,
+    ultimaEquipeIncompleta: grupoIncompleto ? ultimoGrupo.length : null,
+  };
 }
 

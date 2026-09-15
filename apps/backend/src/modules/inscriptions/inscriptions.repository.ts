@@ -20,6 +20,9 @@ export interface CreateInscriptionParams {
   consentVersion: string;
   consentAcceptedAt: Date;
   consentIp?: string | null;
+  /** Inscrição em equipe (ver Event.siteContent.equipe). */
+  teamName?: string | null;
+  teamMembers?: string[];
 }
 
 /**
@@ -52,6 +55,10 @@ export function createInscription(
       consentVersion: params.consentVersion,
       consentAcceptedAt: params.consentAcceptedAt,
       consentIp: params.consentIp ?? null,
+      teamName: params.teamName ?? null,
+      teamMembers: params.teamMembers?.length
+        ? { create: params.teamMembers.map((name, index) => ({ name, order: index })) }
+        : undefined,
     },
   });
 }

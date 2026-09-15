@@ -11,7 +11,7 @@ const activateParams = z.object({ eventId: z.string(), id: z.string() });
 const createBatchSchema = z.object({
   batchNumber: z.coerce.number().int().positive().optional(),
   name: z.string().trim().min(1, "Nome é obrigatório").max(100),
-  price: z.coerce.number().positive("Preço deve ser positivo"),
+  price: z.coerce.number().min(0, "Preço não pode ser negativo"),
   maxQuantity: z.coerce.number().int().positive().optional().nullable(),
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
@@ -20,7 +20,7 @@ const createBatchSchema = z.object({
 const updateBatchSchema = z.object({
   batchNumber: z.coerce.number().int().positive().optional(),
   name: z.string().trim().min(1).max(100).optional(),
-  price: z.coerce.number().positive().optional(),
+  price: z.coerce.number().min(0, "Preço não pode ser negativo").optional(),
   maxQuantity: z.coerce.number().int().positive().optional().nullable(),
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),

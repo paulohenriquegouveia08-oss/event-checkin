@@ -551,13 +551,28 @@ export default function CheckInPage() {
           </div>
         )}
 
-        {/* Logout */}
-        <button
-          onClick={handleLogout}
-          className="w-full text-center text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-        >
-          Sair
-        </button>
+        {/* Actions */}
+        <div className="flex items-center justify-center gap-5 pt-1">
+          <button
+            type="button"
+            onClick={() => {
+              const email = participant.email;
+              localStorage.removeItem("attendee_token");
+              localStorage.removeItem("attendee_data");
+              router.push(`/?email=${encodeURIComponent(email)}`);
+            }}
+            className="text-xs font-semibold text-[var(--primary)] hover:underline"
+          >
+            ← Trocar de Evento
+          </button>
+          <span className="text-[var(--border)]">•</span>
+          <button
+            onClick={handleLogout}
+            className="text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+          >
+            Sair
+          </button>
+        </div>
 
         {/* Footer */}
         <p className="text-center text-xs text-[var(--muted-foreground)] pt-4">

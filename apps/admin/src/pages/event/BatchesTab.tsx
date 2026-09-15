@@ -33,6 +33,8 @@ export function BatchesTab({ eventId }: { eventId: string }) {
   // Modal / Formulário de Lote
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form, setForm] = useState<BatchFormData>(EMPTY_FORM);
+  const [isFree, setIsFree] = useState(false);
+  const [savedPrice, setSavedPrice] = useState<number>(100);
   const [saving, setSaving] = useState(false);
   const [togglingRegistrations, setTogglingRegistrations] = useState(false);
 
@@ -93,11 +95,15 @@ export function BatchesTab({ eventId }: { eventId: string }) {
       ...EMPTY_FORM,
       batchNumber: nextNumber,
       name: `${nextNumber}º Lote`,
+      price: 100,
     });
+    setIsFree(false);
+    setSavedPrice(100);
     setIsModalOpen(true);
   }
 
   function handleOpenEdit(b: api.BatchItem) {
+    const free = b.price === 0;
     setForm({
       id: b.id,
       batchNumber: b.batchNumber,
@@ -107,13 +113,31 @@ export function BatchesTab({ eventId }: { eventId: string }) {
       startDate: b.startDate ? b.startDate.split("T")[0]! : "",
       endDate: b.endDate ? b.endDate.split("T")[0]! : "",
     });
+    setIsFree(free);
+    setSavedPrice(free ? 100 : b.price);
     setIsModalOpen(true);
+  }
+
+  function handleToggleFree() {
+    if (!isFree) {
+      // Tornar lote gratuito
+      if (form.price > 0) {
+        setSavedPrice(form.price);
+      }
+      setIsFree(true);
+      setForm((prev) => ({ ...prev, price: 0 }));
+    } else {
+      // Reverter para lote pago (restaura o valor anterior)
+      const restorePrice = savedPrice > 0 ? savedPrice : 100;
+      setIsFree(false);
+      setForm((prev) => ({ ...prev, price: restorePrice }));
+    }
   }
 
   async function handleSaveBatch(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.name.trim() || form.price <= 0) {
-      alert("Por favor, preencha o nome e um valor positivo para o lote.");
+    if (!form.name.trim() || form.price < 0) {
+      alert("Por favor, preencha o nome do lote e um valor válido (ou marque como gratuito).");
       return;
     }
 
@@ -345,8 +369,14 @@ export function BatchesTab({ eventId }: { eventId: string }) {
             </div>
 
             <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 26, fontWeight: 800, color: "var(--primary, #2DD4BF)" }}>
-                R$ {activeBatch.price.toFixed(2).replace(".", ",")}
+              <div
+                style={{
+                  fontSize: 26,
+                  fontWeight: 800,
+                  color: activeBatch.price === 0 ? "var(--success, #22c55e)" : "var(--primary, #2DD4BF)",
+                }}
+              >
+                {activeBatch.price === 0 ? "GRÁTIS" : `R$ ${activeBatch.price.toFixed(2).replace(".", ",")}`}
               </div>
               <span className="muted" style={{ fontSize: 12 }}>
                 {activeBatch.confirmedCount} {activeBatch.maxQuantity ? `/ ${activeBatch.maxQuantity}` : ""} confirmados
@@ -397,7 +427,15 @@ export function BatchesTab({ eventId }: { eventId: string }) {
                 >
                   <td style={{ fontWeight: 700 }}>#{batch.batchNumber}</td>
                   <td>{batch.name}</td>
-                  <td style={{ fontWeight: 700 }}>R$ {batch.price.toFixed(2).replace(".", ",")}</td>
+                  <td style={{ fontWeight: 700 }}>
+                    {batch.price === 0 ? (
+                      <span className="badge badge-success" style={{ fontSize: 11, fontWeight: 700 }}>
+                        Grátis
+                      </span>
+                    ) : (
+                      `R$ ${batch.price.toFixed(2).replace(".", ",")}`
+                    )}
+                  </td>
                   <td>{batch.maxQuantity ? `${batch.maxQuantity} vagas` : "Ilimitado"}</td>
                   <td>
                     <strong>{batch.confirmedCount}</strong>
@@ -490,19 +528,80 @@ export function BatchesTab({ eventId }: { eventId: string }) {
                 </label>
               </div>
 
-              <div className="row" style={{ gap: 10 }}>
-                <label className="stack" style={{ flex: 1, gap: 4, fontSize: 12 }}>
-                  <span>Valor (R$) *</span>
+              <div className="row" style={{ gap: 10, alignItems: "flex-start" }}>
+                <div className="stack" style={{ flex: 1, gap: 4 }}>
+                  <div className="spread" style={{ alignItems: "center" }}>
+                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Valor (R$) *</span>
+                    <button
+                      type="button"
+                      onClick={handleToggleFree}
+                      className="btn btn-sm"
+                      style={{
+                        padding: "2px 8px",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        borderRadius: 6,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        ...(isFree
+                          ? {
+                              background: "rgba(59, 130, 246, 0.2)",
+                              color: "#60a5fa",
+                              border: "1px solid rgba(59, 130, 246, 0.4)",
+                            }
+                          : {
+                              background: "rgba(34, 197, 94, 0.15)",
+                              color: "#4ade80",
+                              border: "1px solid rgba(34, 197, 94, 0.35)",
+                            }),
+                      }}
+                      title={
+                        isFree
+                          ? "Reverter para lote pago (restaura o valor anterior)"
+                          : "Definir este lote como gratuito (R$ 0,00)"
+                      }
+                    >
+                      {isFree ? "↩ Reverter para Pago" : "🎁 Tornar Grátis"}
+                    </button>
+                  </div>
+
                   <input
                     type="number"
                     step="0.01"
-                    min={0.01}
-                    value={form.price}
-                    onChange={(e) => setForm({ ...form, price: parseFloat(e.target.value) || 0 })}
+                    min={0}
+                    disabled={isFree}
+                    value={isFree ? 0 : form.price}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value) || 0;
+                      setForm({ ...form, price: val });
+                      if (val > 0) setSavedPrice(val);
+                    }}
                     required
+                    style={
+                      isFree
+                        ? {
+                            opacity: 0.7,
+                            background: "rgba(34, 197, 94, 0.08)",
+                            borderColor: "rgba(34, 197, 94, 0.4)",
+                            fontWeight: 600,
+                          }
+                        : undefined
+                    }
                   />
-                  <small className="muted">Oculto do público nos lotes futuros.</small>
-                </label>
+
+                  {isFree ? (
+                    <span
+                      className="badge badge-success"
+                      style={{ alignSelf: "flex-start", fontSize: 11, padding: "2px 8px" }}
+                    >
+                      Lote 100% Gratuito (R$ 0,00)
+                    </span>
+                  ) : (
+                    <small className="muted">Oculto do público nos lotes futuros.</small>
+                  )}
+                </div>
 
                 <label className="stack" style={{ flex: 1, gap: 4, fontSize: 12 }}>
                   <span>Limite de Vagas</span>
@@ -512,6 +611,7 @@ export function BatchesTab({ eventId }: { eventId: string }) {
                     value={form.maxQuantity}
                     onChange={(e) => setForm({ ...form, maxQuantity: e.target.value })}
                   />
+                  <small className="muted">Deixe vazio para vagas ilimitadas.</small>
                 </label>
               </div>
 

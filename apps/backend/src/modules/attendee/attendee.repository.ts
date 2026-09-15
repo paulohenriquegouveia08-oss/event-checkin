@@ -2,13 +2,10 @@ import { prisma } from "../../database/prisma.js";
 
 export const attendeeRepository = {
   async findParticipantByEmail(email: string, eventId?: string) {
-    const where: {
-      email: { equals: string; mode: "insensitive" };
-      event: { status: "ACTIVE" };
-      eventId?: string;
-    } = {
-      email: { equals: email, mode: "insensitive" },
-      event: { status: "ACTIVE" },
+    const cleanEmail = email.trim();
+    const where: any = {
+      email: { equals: cleanEmail, mode: "insensitive" },
+      event: { status: { in: ["ACTIVE", "CLOSED"] } },
     };
 
     if (eventId) {

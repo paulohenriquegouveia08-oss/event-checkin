@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { prisma } from "../../database/prisma.js";
 import { attendeeLoginSchema } from "./attendee.schema.js";
 import { attendeeRepository } from "./attendee.repository.js";
 import { ok, fail } from "../../shared/response.js";
@@ -31,6 +32,23 @@ export async function attendeeRoutes(app: FastifyInstance) {
     );
 
     if (participants.length === 0) {
+      const pendingInscription = await prisma.inscription.findFirst({
+        where: {
+          email: { equals: email.trim(), mode: "insensitive" },
+          status: "PENDING",
+        },
+        include: { event: { select: { name: true } } },
+      });
+
+      if (pendingInscription) {
+        return reply.status(400).send(
+          fail(
+            "PAYMENT_PENDING",
+            `Sua inscrição para "${pendingInscription.event.name}" está com pagamento pendente. Conclua o pagamento via Pix para liberar seu QR Code.`
+          )
+        );
+      }
+
       return reply.status(404).send(
         fail("NOT_FOUND", "Nenhum evento encontrado para este e-mail")
       );
@@ -48,19 +66,23 @@ export async function attendeeRoutes(app: FastifyInstance) {
         { expiresIn: "24h" }
       );
 
+      const participantPayload = {
+        id: participant.id,
+        participantId: participant.id,
+        name: participant.name,
+        email: participant.email,
+        qrToken: participant.qrToken,
+        status: participant.status,
+        event: participant.event,
+        lastCheckIn: participant.checkIns[0] ?? null,
+        checkedIn: participant.checkIns.length > 0,
+      };
+
       return reply.send(
         ok({
           token,
-          participant: {
-            id: participant.id,
-            name: participant.name,
-            email: participant.email,
-            qrToken: participant.qrToken,
-            status: participant.status,
-            event: participant.event,
-            lastCheckIn: participant.checkIns[0] ?? null,
-            checkedIn: participant.checkIns.length > 0,
-          },
+          participant: participantPayload,
+          events: [participantPayload],
         })
       );
     }

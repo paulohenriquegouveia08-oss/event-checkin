@@ -27,6 +27,10 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [events, setEvents] = useState<ParticipantData[] | null>(null);
+  const [singleEventSession, setSingleEventSession] = useState<{
+    token: string;
+    participant: ParticipantData;
+  } | null>(null);
 
   /**
    * Eventos com inscrição aberta.
@@ -43,6 +47,14 @@ export default function LoginPage() {
   ]);
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const emailParam = params.get("email");
+      if (emailParam) {
+        setEmail(emailParam);
+      }
+    }
+
     fetch("/api/publico/eventos-abertos")
       .then((r) => r.json())
       .then((c) => {
@@ -71,20 +83,32 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await loginAttendee(email);
+      const cleanEmail = email.trim().toLowerCase();
+      const response = await loginAttendee(cleanEmail);
 
-      if (response.data.requiresEventSelection && response.data.events) {
-        setEvents(response.data.events);
+      const foundEvents: ParticipantData[] =
+        response.data.events && response.data.events.length > 0
+          ? response.data.events
+          : response.data.participant
+          ? [response.data.participant]
+          : [];
+
+      if (foundEvents.length === 0) {
+        setError("Nenhum evento encontrado para este e-mail.");
         setLoading(false);
         return;
       }
 
-      localStorage.setItem("attendee_token", response.data.token!);
-      localStorage.setItem(
-        "attendee_data",
-        JSON.stringify(response.data.participant)
-      );
-      router.push("/checkin");
+      setEvents(foundEvents);
+
+      if (response.data.token && response.data.participant) {
+        setSingleEventSession({
+          token: response.data.token,
+          participant: response.data.participant,
+        });
+      } else {
+        setSingleEventSession(null);
+      }
     } catch (err: any) {
       setError(err.message ?? "Erro ao fazer login");
     } finally {
@@ -92,12 +116,22 @@ export default function LoginPage() {
     }
   };
 
-  const handleSelectEvent = async (participantId: string) => {
+  const handleAccessEvent = async (p: ParticipantData) => {
     setError(null);
     setLoading(true);
 
     try {
-      const response = await selectEvent(participantId);
+      if (singleEventSession && singleEventSession.participant.id === p.id) {
+        localStorage.setItem("attendee_token", singleEventSession.token);
+        localStorage.setItem(
+          "attendee_data",
+          JSON.stringify(singleEventSession.participant)
+        );
+        router.push("/checkin");
+        return;
+      }
+
+      const response = await selectEvent(p.id);
       localStorage.setItem("attendee_token", response.data.token!);
       localStorage.setItem(
         "attendee_data",
@@ -105,7 +139,7 @@ export default function LoginPage() {
       );
       router.push("/checkin");
     } catch (err: any) {
-      setError(err.message ?? "Erro ao selecionar evento");
+      setError(err.message ?? "Erro ao acessar credencial do evento");
     } finally {
       setLoading(false);
     }
@@ -189,43 +223,89 @@ export default function LoginPage() {
             )}
           </form>
         ) : (
-          <div className="space-y-4">
+          <div className="cartao space-y-5 p-6 animate-in fade-in duration-300">
             {error && (
               <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
                 {error}
               </div>
             )}
 
-            <p className="text-sm text-[var(--muted-foreground)] text-center">
-              Você está cadastrado em {events.length} eventos. Qual deseja acessar?
-            </p>
+            <div className="text-center space-y-1">
+              <span className="mono text-[0.68rem] font-bold uppercase tracking-[0.16em] text-[var(--primary)]">
+                Inscrições Encontradas
+              </span>
+              <h2 className="text-xl font-bold">
+                {events.length === 1 ? "Seu Evento Cadastrado" : "Selecione o Evento"}
+              </h2>
+              <p className="text-xs text-[var(--muted-foreground)]">
+                Identificamos {events.length} {events.length === 1 ? "evento vinculado" : "eventos vinculados"} ao e-mail:
+                <br />
+                <strong className="text-[var(--foreground)] break-all">{email}</strong>
+              </p>
+            </div>
 
-            <div className="space-y-2">
-              {events.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => handleSelectEvent(p.id)}
-                  disabled={loading}
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--muted)] px-4 py-3 text-left transition-colors hover:border-[var(--primary)] hover:bg-[var(--primary)]/5 disabled:opacity-50"
-                >
-                  <p className="font-medium">{p.event.name}</p>
-                  <p className="text-xs text-[var(--muted-foreground)]">
-                    {p.event.location || "Sem local definido"} •{" "}
-                    {new Date(p.event.startDate).toLocaleDateString("pt-BR")}
-                  </p>
-                </button>
-              ))}
+            <div className="space-y-3">
+              {events.map((p) => {
+                const dateFormatted = p.event.startDate
+                  ? new Date(p.event.startDate).toLocaleDateString("pt-BR", {
+                      day: "2-digit",
+                      month: "long",
+                      year: "numeric",
+                      timeZone: "America/Sao_Paulo",
+                    })
+                  : "Data a confirmar";
+
+                return (
+                  <div
+                    key={p.id}
+                    onClick={() => !loading && handleAccessEvent(p)}
+                    className="group relative flex flex-col gap-3 rounded-xl border border-[var(--border)] bg-[var(--background)]/60 p-4 transition-all hover:border-[var(--primary)] hover:bg-[var(--primary)]/5 hover:shadow-[0_6px_24px_-10px_rgba(59,91,255,0.4)] cursor-pointer"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <span className="inline-block rounded-md border border-[var(--primary)]/30 bg-[var(--primary)]/15 px-2 py-0.5 text-[0.7rem] font-semibold text-blue-300 mb-1.5">
+                          {p.checkedIn ? "✓ Check-in Realizado" : "Inscrição Confirmada"}
+                        </span>
+                        <h3 className="text-base font-bold text-[var(--foreground)] group-hover:text-[var(--primary)] transition-colors">
+                          {p.event.name}
+                        </h3>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[var(--muted-foreground)]">
+                      <span className="flex items-center gap-1.5">
+                        📅 {dateFormatted}
+                      </span>
+                      {p.event.location && (
+                        <span className="flex items-center gap-1.5">
+                          📍 {p.event.location}
+                        </span>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={loading}
+                      className="mt-1 flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--primary)] px-4 py-2.5 text-sm font-bold text-[var(--primary-foreground)] shadow-[0_8px_20px_-10px_rgba(59,91,255,0.8)] transition hover:brightness-110 active:scale-[0.99] disabled:opacity-50"
+                    >
+                      <span>{loading ? "Acessando..." : "Pegar QR Code para Check-in"}</span>
+                      <span>→</span>
+                    </button>
+                  </div>
+                );
+              })}
             </div>
 
             <button
+              type="button"
               onClick={() => {
                 setEvents(null);
-                setEmail("");
+                setSingleEventSession(null);
                 setError(null);
               }}
-              className="w-full text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+              className="w-full text-center text-xs font-medium text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors pt-2"
             >
-              Voltar
+              ← Buscar outro e-mail
             </button>
           </div>
         )}

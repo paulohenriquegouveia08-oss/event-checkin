@@ -429,4 +429,53 @@ describe("Copol — Programação do Evento", () => {
     });
     expect(publicAfterRes.json().data.length).toBe(0);
   });
+
+  it("permite ao admin criar lote gratuito (preço 0) e reverter para pago", async () => {
+    const token = await loginAsAdmin();
+    const event = await createTestEvent({ name: "Evento com Lote Grátis", slug: "evento-gratis" });
+
+    // 1. Criar lote gratuito (preço 0)
+    const createRes = await app.inject({
+      method: "POST",
+      url: `/events/${event.id}/batches`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        batchNumber: 1,
+        name: "Lote Gratuito",
+        price: 0,
+        maxQuantity: 100,
+      },
+    });
+
+    expect(createRes.statusCode).toBe(201);
+    const createdBatch = createRes.json().data;
+    expect(Number(createdBatch.price)).toBe(0);
+    expect(createdBatch.name).toBe("Lote Gratuito");
+
+    // 2. Reverter para lote pago (preço 120.00)
+    const updatePaidRes = await app.inject({
+      method: "PUT",
+      url: `/batches/${createdBatch.id}`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        price: 120.0,
+      },
+    });
+
+    expect(updatePaidRes.statusCode).toBe(200);
+    expect(Number(updatePaidRes.json().data.price)).toBe(120);
+
+    // 3. Reverter novamente para grátis (preço 0)
+    const updateFreeRes = await app.inject({
+      method: "PUT",
+      url: `/batches/${createdBatch.id}`,
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        price: 0,
+      },
+    });
+
+    expect(updateFreeRes.statusCode).toBe(200);
+    expect(Number(updateFreeRes.json().data.price)).toBe(0);
+  });
 });

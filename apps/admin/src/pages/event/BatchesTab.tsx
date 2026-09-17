@@ -349,8 +349,8 @@ export function BatchesTab({ eventId }: { eventId: string }) {
           className="card"
           style={{
             padding: 24,
-            borderLeft: "4px solid var(--primary, #2DD4BF)",
-            background: "rgba(45, 212, 191, 0.05)",
+            borderLeft: "4px solid var(--primary, #3b5bff)",
+            background: "rgba(59, 91, 255, 0.05)",
           }}
         >
           <div className="spread" style={{ flexWrap: "wrap", gap: 16 }}>
@@ -373,7 +373,7 @@ export function BatchesTab({ eventId }: { eventId: string }) {
                 style={{
                   fontSize: 26,
                   fontWeight: 800,
-                  color: activeBatch.price === 0 ? "var(--success, #22c55e)" : "var(--primary, #2DD4BF)",
+                  color: activeBatch.price === 0 ? "var(--success, #22c55e)" : "var(--primary, #3b5bff)",
                 }}
               >
                 {activeBatch.price === 0 ? "GRÁTIS" : `R$ ${activeBatch.price.toFixed(2).replace(".", ",")}`}

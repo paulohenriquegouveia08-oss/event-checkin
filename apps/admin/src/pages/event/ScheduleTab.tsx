@@ -204,7 +204,7 @@ export function ScheduleTab({ eventId }: { eventId: string }) {
             const items = grouped[dateStr] ?? [];
             return (
               <div key={dateStr} className="stack" style={{ gap: 10 }}>
-                <h3 style={{ margin: 0, fontSize: 15, color: "var(--primary, #0E3634)", display: "flex", alignItems: "center", gap: 8 }}>
+                <h3 style={{ margin: 0, fontSize: 15, color: "var(--primary, #3b5bff)", display: "flex", alignItems: "center", gap: 8 }}>
                   <CalendarIcon size={16} /> {dateStr}
                 </h3>
 

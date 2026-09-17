@@ -34,8 +34,7 @@ export function Layout() {
             to="/eventos"
             style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--text)", textDecoration: "none", fontWeight: 700 }}
           >
-            <img src="/logo-mark.png" alt="" width={28} height={28} style={{ display: "block" }} />
-            PK Digital — Credenciamento
+            LSPK — Credenciamento
           </Link>
           <nav className="row" style={{ gap: 4 }}>
             {NAV_LINKS.filter((link) => link.permission === null || hasPermission(link.permission)).map((link) => {
@@ -50,7 +49,7 @@ export function Layout() {
                     fontSize: 13,
                     fontWeight: 600,
                     textDecoration: "none",
-                    color: active ? "#000" : "var(--text-muted)",
+                    color: active ? "var(--primary-foreground)" : "var(--text-muted)",
                     background: active ? "var(--primary)" : "transparent",
                   }}
                 >

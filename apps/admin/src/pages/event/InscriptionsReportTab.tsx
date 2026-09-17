@@ -668,7 +668,7 @@ function MetricCard({
     success: "var(--success, #16a34a)",
     warning: "var(--warning, #eab308)",
     danger: "var(--danger, #ef4444)",
-    primary: "var(--primary, #0e3634)",
+    primary: "var(--primary, #3b5bff)",
   };
 
   return (

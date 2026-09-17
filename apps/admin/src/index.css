@@ -1,12 +1,18 @@
+/*
+ * Mesma paleta do site de credenciamento (apps/attendee/src/app/globals.css):
+ * grafite, osso e azul-sinal — para o admin parecer parte da mesma
+ * plataforma, e não de um evento específico.
+ */
 :root {
-  --bg: #0e3634;
-  --surface: #154b4c;
-  --surface-alt: #1c5f5f;
-  --border: #2a6f6e;
-  --text: #f0faf9;
-  --text-muted: #9fc4c2;
-  --primary: #2dd4bf;
-  --primary-hover: #16a69a;
+  --bg: #101214;
+  --surface: #1a1d21;
+  --surface-alt: #22262b;
+  --border: #2a2e34;
+  --text: #f5f2ec;
+  --text-muted: #9a968d;
+  --primary: #3b5bff;
+  --primary-hover: #5b78ff;
+  --primary-foreground: #ffffff;
   --success: #22c55e;
   --warning: #f59e0b;
   --danger: #ef4444;
@@ -40,7 +46,7 @@ button {
 
 .btn {
   background: var(--primary);
-  color: #000;
+  color: var(--primary-foreground);
   border: none;
   border-radius: var(--radius);
   padding: 10px 18px;

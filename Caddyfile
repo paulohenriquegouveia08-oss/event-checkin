@@ -1,0 +1,14 @@
+# Proxy HTTPS na frente do painel admin.
+#
+# Câmera ao vivo (getUserMedia, usada pelo Leitor QR do painel) só
+# funciona em contexto seguro — o navegador recusa em HTTP puro, que é
+# como o admin é servido hoje (ver docker-compose.yml, ADMIN_PORT). O
+# Caddy tira certificado TLS sozinho (Let's Encrypt) pro hostname
+# abaixo, sem precisar comprar domínio: por padrão é um endereço
+# sslip.io, que resolve pro próprio IP da VPS.
+#
+# ADMIN_PUBLIC_HOSTNAME (no .env da VPS) troca esse endereço por um
+# domínio de verdade quando existir um, sem mexer neste arquivo.
+{$ADMIN_PUBLIC_HOSTNAME} {
+	reverse_proxy admin:80
+}

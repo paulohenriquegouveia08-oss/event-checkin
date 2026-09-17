@@ -4,7 +4,6 @@ import * as api from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { ParticipantsTab } from "./event/ParticipantsTab";
 import { TerminalsTab } from "./event/TerminalsTab";
-import { ScannerTab } from "./event/ScannerTab";
 import { StatisticsTab } from "./event/StatisticsTab";
 import { LiveMonitorTab } from "./event/LiveMonitorTab";
 import { ReportTab } from "./event/ReportTab";
@@ -22,7 +21,6 @@ type Tab =
   | "batches"
   | "schedule"
   | "terminals"
-  | "scanner"
   | "statistics"
   | "monitor"
   | "report"
@@ -37,7 +35,6 @@ const TABS: { key: Tab; label: string; permission: string }[] = [
   { key: "batches", label: "Lotes", permission: "events.view" },
   { key: "schedule", label: "Programação", permission: "events.view" },
   { key: "terminals", label: "Terminais", permission: "terminals.view" },
-  { key: "scanner", label: "Leitor QR", permission: "terminals.create" },
   { key: "statistics", label: "Estatísticas", permission: "statistics.view" },
   { key: "monitor", label: "Monitor", permission: "monitor.view" },
   { key: "report", label: "Relatório Presença", permission: "reports.view" },
@@ -235,7 +232,6 @@ export function EventDetailPage() {
       {activeTab === "batches" ? <BatchesTab eventId={eventId} /> : null}
       {activeTab === "schedule" ? <ScheduleTab eventId={eventId} /> : null}
       {activeTab === "terminals" ? <TerminalsTab eventId={eventId} /> : null}
-      {activeTab === "scanner" ? <ScannerTab eventId={eventId} /> : null}
       {activeTab === "statistics" ? <StatisticsTab eventId={eventId} /> : null}
       {activeTab === "monitor" ? <LiveMonitorTab eventId={eventId} /> : null}
       {activeTab === "report" ? <ReportTab eventId={eventId} /> : null}

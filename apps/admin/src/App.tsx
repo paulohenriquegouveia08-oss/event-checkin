@@ -10,6 +10,7 @@ import { UsersPage } from "./pages/UsersPage";
 import { RolesPage } from "./pages/RolesPage";
 import { AuditPage } from "./pages/AuditPage";
 import { ApkPage } from "./pages/ApkPage";
+import { ScannerPage } from "./pages/ScannerPage";
 
 export default function App() {
   return (
@@ -32,6 +33,9 @@ export default function App() {
               </Route>
               <Route element={<ProtectedRoute permission="audit.view" />}>
                 <Route path="/auditoria" element={<AuditPage />} />
+              </Route>
+              <Route element={<ProtectedRoute permission="terminals.create" />}>
+                <Route path="/leitor" element={<ScannerPage />} />
               </Route>
               <Route path="/apk" element={<ApkPage />} />
             </Route>

@@ -104,7 +104,30 @@ services:
     ports:
       - "${ADMIN_PORT}:80"
 
+  # HTTPS na frente do admin — só existe porque câmera ao vivo
+  # (getUserMedia, usada pelo Leitor QR) exige contexto seguro, e o
+  # admin acima é servido em HTTP puro. Ver Caddyfile.
+  #
+  # ADMIN_PUBLIC_HOSTNAME tem um padrão sslip.io (sem precisar de domínio
+  # próprio): resolve pro IP desta VPS sozinho. Troque no .env por um
+  # domínio de verdade quando existir, sem mexer em nenhum arquivo.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - admin
+    environment:
+      ADMIN_PUBLIC_HOSTNAME: ${ADMIN_PUBLIC_HOSTNAME:-137-131-233-254.sslip.io}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
 
 volumes:
   db_data:
   certificates_storage:
+  caddy_data:
+  caddy_config:

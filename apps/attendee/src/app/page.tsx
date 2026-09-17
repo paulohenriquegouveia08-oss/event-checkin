@@ -162,6 +162,14 @@ export default function LoginPage() {
           </p>
         </div>
 
+        <a
+          href="/eti-summit-2026"
+          className="flex items-center justify-between rounded-xl border border-[var(--primary)]/35 bg-[var(--primary)]/10 px-4 py-3 text-sm font-semibold transition hover:bg-[var(--primary)]/20"
+        >
+          <span>ETI Summit 2026 — programação completa</span>
+          <span aria-hidden="true" className="text-[var(--primary)]">→</span>
+        </a>
+
         {!events ? (
           <form onSubmit={handleSubmit} className="cartao space-y-4 p-6">
             {error && (

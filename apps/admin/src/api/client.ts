@@ -1,6 +1,11 @@
 // Base URL configurável em build-time (VITE_API_URL) — aponta pro backend
 // Fastify da Fase 1. Em dev local, cai para localhost:3900 por padrão.
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3900";
+//
+// Exportado porque o leitor de QR do painel (ScannerTab) fala com
+// /events/:eventId/checkins autenticado como TERMINAL, não como admin —
+// precisa montar a chamada por fora do `request()` abaixo, que sempre
+// manda o token de admin.
+export const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3900";
 
 const TOKEN_KEY = "admin_token";
 
@@ -522,6 +527,55 @@ export function createTerminal(eventId: string, name: string) {
 }
 export function deleteTerminal(eventId: string, terminalId: string) {
   return request<void>(`/events/${eventId}/terminals/${terminalId}`, { method: "DELETE" });
+}
+
+// --- Leitor de QR do painel (ScannerTab) ---
+//
+// Mesma lógica do app do terminal (M10 Pro): ativa um terminal com um
+// código de ativação e usa o token de TERMINAL devolvido — não o do
+// admin — para credenciar. Só existe porque o navegador já tem os dois
+// lados da ativação na mesma sessão (quem cria o terminal é quem vai
+// usá-lo), então o código de ativação nunca precisa ser digitado à mão.
+export interface TerminalActivation {
+  token: string;
+  terminal: { id: string; name: string; identifier: string };
+  event: { id: string; name: string; status: string };
+}
+export function activateTerminal(activationCode: string) {
+  return request<TerminalActivation>("/terminals/activate", {
+    method: "POST",
+    body: { activationCode },
+    auth: false,
+  });
+}
+
+export interface TerminalCheckInResult {
+  status: "CONFIRMED" | "ALREADY_CHECKED_IN";
+  participant: { id: string; name: string; email: string | null; phone: string | null; document: string | null };
+  checkedInAt: string;
+}
+/**
+ * POST /events/:eventId/checkins autenticado como TERMINAL — mesma rota e
+ * mesmo contrato usados pelo app do terminal (ver
+ * apps/mobile/src/services/api/client.ts#submitCheckIn). `request()` não
+ * serve aqui: ela sempre manda o Bearer do admin logado, e este endpoint
+ * exige um Bearer de terminal (checkins.routes.ts#requireTerminal).
+ */
+export async function submitTerminalCheckIn(
+  terminalToken: string,
+  eventId: string,
+  qrToken: string,
+): Promise<TerminalCheckInResult> {
+  const response = await fetch(`${API_URL}/events/${eventId}/checkins`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${terminalToken}` },
+    body: JSON.stringify({ qrToken }),
+  });
+  const json = (await response.json()) as ApiSuccess<TerminalCheckInResult> | ApiFailure;
+  if (!json.success) {
+    throw new ApiError(json.error.message, json.error.code, response.status);
+  }
+  return json.data;
 }
 
 // --- Statistics ---

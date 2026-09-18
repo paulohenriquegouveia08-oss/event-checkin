@@ -28,6 +28,8 @@ export function WebQrScanner({ onScan, paused, manualMode, onToggleManual }: Pro
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [isPermissionDenied, setIsPermissionDenied] = useState(false);
+
   // Checa se a origem é segura (HTTPS ou localhost)
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -46,13 +48,12 @@ export function WebQrScanner({ onScan, paused, manualMode, onToggleManual }: Pro
       return;
     }
 
-    // Se estiver em HTTPS, tenta inicializar automaticamente
     if (typeof window !== "undefined" && window.isSecureContext) {
-      startCamera();
+      // Tenta inicialização automática sem marcar erro ruidoso caso o navegador exija toque
+      startCamera(false);
     } else {
-      // Em HTTP inseguro, não tenta autoplay para não gerar erro silencioso
       setCameraError(
-        "Navegadores bloqueiam o uso de câmera de vídeo ao vivo sem HTTPS. Acesse via HTTPS seguro ou use o botão de foto abaixo."
+        "Navegadores de celular bloqueiam a câmera em conexões HTTP. Acesse via HTTPS seguro para ler ao vivo ou use o botão de foto."
       );
     }
 
@@ -61,31 +62,16 @@ export function WebQrScanner({ onScan, paused, manualMode, onToggleManual }: Pro
     };
   }, [manualMode]);
 
-  async function startCamera() {
+  async function startCamera(fromUserGesture = true) {
     setInitializing(true);
     setCameraError(null);
+    setIsPermissionDenied(false);
 
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error(
-          "Câmera de vídeo ao vivo requer HTTPS no celular. Utilize o botão 'Câmera do Aparelho (Foto)' abaixo ou abra o endereço seguro HTTPS."
+          "Câmera ao vivo indisponível neste navegador ou contexto inseguro. Acesse via HTTPS seguro ou use 'Foto com Câmera Nativa'."
         );
-      }
-
-      // Solicita permissão explicitamente via getUserMedia primeiro
-      // No iOS Safari e Android Chrome, isso garante que o diálogo nativo apareça
-      let stream: MediaStream | null = null;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" } },
-        });
-      } catch (permErr) {
-        console.warn("Falha no getUserMedia inicial, tentando Html5Qrcode direto:", permErr);
-      } finally {
-        if (stream) {
-          // Fecha o stream de teste para liberar a câmera para o Html5Qrcode
-          stream.getTracks().forEach((track) => track.stop());
-        }
       }
 
       if (!scannerRef.current) {
@@ -112,7 +98,8 @@ export function WebQrScanner({ onScan, paused, manualMode, onToggleManual }: Pro
         }
       };
 
-      // Tenta primeiro câmera traseira ("environment")
+      // Tenta iniciar direto pelo Html5Qrcode com a câmera traseira (sem probe manual que bloqueia o WebKit)
+      let started = false;
       try {
         await scanner.start(
           { facingMode: "environment" },
@@ -120,21 +107,47 @@ export function WebQrScanner({ onScan, paused, manualMode, onToggleManual }: Pro
           handleDecoded,
           () => {}
         );
+        started = true;
       } catch (envErr) {
-        console.warn("Falha ao iniciar com facingMode environment, tentando padrão:", envErr);
-        // Fallback para câmera frontal ou qualquer disponível
-        await scanner.start(
-          { facingMode: "user" },
-          scanConfig,
-          handleDecoded,
-          () => {}
-        );
+        console.warn("Tentando câmera por lista de dispositivos:", envErr);
+        try {
+          const devices = await Html5Qrcode.getCameras();
+          if (devices && devices.length > 0) {
+            // Em smartphones, a câmera traseira costuma ser a última da lista
+            const backCam = devices.length > 1 ? devices[devices.length - 1] : devices[0];
+            setCurrentCameraId(backCam.id);
+            await scanner.start(backCam.id, scanConfig, handleDecoded, () => {});
+            started = true;
+          }
+        } catch (deviceErr) {
+          console.warn("Falha no fallback por ID de câmera:", deviceErr);
+        }
+
+        if (!started) {
+          // Último recurso: qualquer câmera disponível (user)
+          await scanner.start(
+            { facingMode: "user" },
+            scanConfig,
+            handleDecoded,
+            () => {}
+          );
+          started = true;
+        }
+      }
+
+      // Garante suporte a reprodução inline no iOS WebKit / Safari
+      const videoElem = document.querySelector(`#${CONTAINER_ID} video`) as HTMLVideoElement | null;
+      if (videoElem) {
+        videoElem.setAttribute("playsinline", "true");
+        videoElem.setAttribute("webkit-playsinline", "true");
+        videoElem.play().catch(() => {});
       }
 
       isRunningRef.current = true;
       setCameraStarted(true);
+      setInitializing(false);
 
-      // Agora que a permissão foi concedida, lista as câmeras com rótulos reais
+      // Atualiza lista de câmeras detectadas
       try {
         const devices = await Html5Qrcode.getCameras();
         setCameras(devices);
@@ -151,23 +164,29 @@ export function WebQrScanner({ onScan, paused, manualMode, onToggleManual }: Pro
       } catch {
         // Ignora
       }
-
-      setInitializing(false);
-      setCameraError(null);
     } catch (err) {
       setInitializing(false);
       setCameraStarted(false);
       const msg = err instanceof Error ? err.message : String(err);
-      if (
+      const isDenied =
         msg.includes("Permission denied") ||
         msg.includes("NotAllowedError") ||
-        msg.includes("PermissionDeniedError")
-      ) {
-        setCameraError(
-          "Permissão de câmera não foi concedida. Toque no ícone ao lado da barra de endereço do navegador e autorize a Câmera."
-        );
+        msg.includes("PermissionDeniedError") ||
+        msg.includes("permission");
+
+      if (isDenied) {
+        if (fromUserGesture) {
+          setIsPermissionDenied(true);
+          setCameraError(
+            "Permissão da câmera bloqueada pelo navegador. Siga as instruções abaixo para desbloquear ou use a câmera nativa por foto."
+          );
+        } else {
+          // Se falhou apenas no carregamento automático (exigência de gesto do Safari/Android),
+          // não assusta o usuário com erro vermelho: apenas deixa pronto para o toque.
+          setCameraError(null);
+        }
       } else if (msg.includes("NotFoundError") || msg.includes("DevicesNotFoundError")) {
-        setCameraError("Nenhuma câmera encontrada neste dispositivo.");
+        setCameraError("Nenhuma câmera encontrada neste aparelho.");
       } else {
         setCameraError(msg || "Não foi possível iniciar a câmera de vídeo ao vivo.");
       }
@@ -448,19 +467,51 @@ export function WebQrScanner({ onScan, paused, manualMode, onToggleManual }: Pro
               </div>
 
               <div>
-                <p style={{ color: "var(--text)", fontSize: 14, margin: "0 0 6px", lineHeight: 1.5, fontWeight: 600 }}>
-                  {cameraError || "Toque para autorizar e iniciar a câmera"}
+                <p style={{ color: "var(--text)", fontSize: 15, margin: "0 0 6px", lineHeight: 1.4, fontWeight: 700 }}>
+                  {cameraError ? (isPermissionDenied ? "Permissão de Câmera Bloqueada" : cameraError) : "Câmera Pronta para Credenciamento"}
                 </p>
-                <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                  O navegador solicitará permissão para usar sua câmera.
+                <span style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5 }}>
+                  {isPermissionDenied ? (
+                    "O navegador não permitiu abrir a câmera automaticamente. Veja como liberar abaixo ou utilize a câmera nativa:"
+                  ) : cameraError ? (
+                    "Verifique a conexão segura ou use a câmera do aparelho."
+                  ) : (
+                    "Toque no botão abaixo para abrir a câmera e autorizar a leitura no seu celular."
+                  )}
                 </span>
               </div>
+
+              {isPermissionDenied && (
+                <div
+                  style={{
+                    width: "100%",
+                    backgroundColor: "rgba(239, 68, 68, 0.12)",
+                    border: "1px solid rgba(239, 68, 68, 0.3)",
+                    borderRadius: 10,
+                    padding: "10px 14px",
+                    textAlign: "left",
+                    fontSize: 12,
+                    color: "var(--text)",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  <div style={{ fontWeight: 700, marginBottom: 4, color: "var(--danger)" }}>
+                    Como liberar a câmera no seu aparelho:
+                  </div>
+                  <div style={{ marginBottom: 4 }}>
+                    🍎 <strong>iPhone (Safari):</strong> Toque no ícone <code>aA</code> ao lado do endereço ➔ Ajustes do Site ➔ Câmera ➔ <strong>Permitir</strong>.
+                  </div>
+                  <div>
+                    🤖 <strong>Android (Chrome):</strong> Toque no ícone de cadeado/ajustes ao lado do endereço ➔ Permissões ➔ Câmera ➔ <strong>Permitir</strong>.
+                  </div>
+                </div>
+              )}
 
               <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: 280 }}>
                 <button
                   type="button"
                   className="btn"
-                  onClick={startCamera}
+                  onClick={() => startCamera(true)}
                   style={{
                     padding: "12px 18px",
                     fontSize: 15,
@@ -470,6 +521,7 @@ export function WebQrScanner({ onScan, paused, manualMode, onToggleManual }: Pro
                     justifyContent: "center",
                     gap: 8,
                     background: "#16a34a",
+                    boxShadow: "0 4px 14px rgba(22, 163, 74, 0.4)",
                   }}
                 >
                   📷 Ativar Câmera ao Vivo
@@ -480,7 +532,7 @@ export function WebQrScanner({ onScan, paused, manualMode, onToggleManual }: Pro
                   className="btn btn-secondary"
                   onClick={() => fileInputRef.current?.click()}
                   style={{
-                    padding: "10px 16px",
+                    padding: "11px 16px",
                     fontSize: 13,
                     display: "inline-flex",
                     alignItems: "center",

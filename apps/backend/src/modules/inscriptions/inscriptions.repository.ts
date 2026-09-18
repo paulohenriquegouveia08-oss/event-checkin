@@ -1,5 +1,5 @@
 import { prisma } from "../../database/prisma.js";
-import type { InscriptionStatus, Prisma } from "@prisma/client";
+import type { InscriptionStatus, PaymentMethod, PaymentProvider, Prisma } from "@prisma/client";
 
 export interface CreateInscriptionParams {
   eventId: string;
@@ -76,10 +76,16 @@ export function findInscriptionById(id: string) {
 export function updateInscriptionPayment(
   id: string,
   data: {
+    /** Id do pagamento no gateway — permite consultar o status depois. */
+    paymentId?: string | null;
     paymentUrl?: string | null;
     qrCodeBase64?: string | null;
     qrCodeContent?: string | null;
     paymentExpiresAt?: Date | null;
+    /** Por onde foi cobrada; o relatório do admin usa para separar o que
+     * foi conferido à mão do que veio de gateway. */
+    paymentProvider?: PaymentProvider | null;
+    paymentMethod?: PaymentMethod | null;
   }
 ) {
   return prisma.inscription.update({

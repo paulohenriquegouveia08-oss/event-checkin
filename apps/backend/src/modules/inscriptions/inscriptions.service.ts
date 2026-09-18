@@ -147,7 +147,13 @@ export async function createInscription(
     };
   }
 
-  // 4. Gera a cobrança no PicPay
+  // 4. Gera a cobrança.
+  //
+  // QUEM DECIDE A FORMA É O LOTE: o COPOL vende o 1º lote só no Pix e
+  // abre cartão no 2º (ver EventBatch.allowPix/allowCard). Quem decide o
+  // PROVEDOR é o ambiente: com MP_ACCESS_TOKEN configurado o Pix sai pelo
+  // Mercado Pago; sem ele, segue o caminho antigo do PicPay — que é o que
+  // roda nos testes, sem tocar em conta real.
   const nameParts = input.name.trim().split(/\s+/);
   const firstName = nameParts[0] || "Participante";
   const lastName = nameParts.slice(1).join(" ") || "COPOL";
@@ -156,34 +162,76 @@ export async function createInscription(
   let qrCodeBase64: string | null = null;
   let qrCodeContent: string | null = null;
 
+  const lote = batchId ? await prisma.eventBatch.findUnique({ where: { id: batchId } }) : null;
+  // Sem lote (preço por categoria no siteContent), Pix continua valendo:
+  // é como o COPOL sempre cobrou.
+  const aceitaPix = lote ? lote.allowPix : true;
+
   try {
-    const payment = await picPayClient.createPayment({
-      referenceId: inscription.id,
-      value: amount,
-      expiresAt: expiresAt.toISOString(),
-      buyer: {
-        firstName,
-        lastName,
-        document: input.document,
-        email: input.email,
-        phone: input.phone,
-      },
-    });
+    if (!aceitaPix) {
+      // Lote só de cartão: ainda não há checkout de cartão implementado.
+      // Não gerar cobrança nenhuma é melhor que gerar um Pix que o lote
+      // não aceita — a inscrição fica PENDING e aparece assim no painel.
+      console.warn(
+        `[InscriptionsService] Lote ${lote?.name ?? batchId} não aceita Pix e o cartão ainda não está implementado; inscrição ${inscription.id} ficou sem cobrança.`
+      );
+    } else if (mercadoPagoClient.configurado) {
+      const pagamento = await mercadoPagoClient.createPixPayment({
+        referenceId: inscription.id,
+        amount,
+        description: `${event.name} — ${category}`,
+        expiresAt,
+        payer: { firstName, lastName, document: input.document, email: input.email },
+      });
 
-    paymentUrl = payment.paymentUrl;
-    qrCodeBase64 = payment.qrcode.base64;
-    qrCodeContent = payment.qrcode.content;
+      paymentUrl = pagamento.paymentUrl;
+      qrCodeBase64 = pagamento.qrCodeBase64;
+      qrCodeContent = pagamento.qrCodeContent;
 
-    // Atualiza a inscrição com os dados de pagamento gerados
-    await inscriptionsRepository.updateInscriptionPayment(inscription.id, {
-      paymentUrl,
-      qrCodeBase64,
-      qrCodeContent,
-      paymentExpiresAt: expiresAt,
-    });
+      await inscriptionsRepository.updateInscriptionPayment(inscription.id, {
+        // O id do pagamento no Mercado Pago. Guardar aqui permite consultar
+        // o status sem depender só do webhook.
+        paymentId: pagamento.paymentId,
+        paymentUrl,
+        qrCodeBase64,
+        qrCodeContent,
+        // A validade que vale é a que o Mercado Pago devolveu, não a nossa
+        // estimativa: é ela que o Pix respeita.
+        paymentExpiresAt: new Date(pagamento.expiresAt),
+        paymentProvider: "MERCADO_PAGO",
+        paymentMethod: "PIX",
+      });
+    } else {
+      const payment = await picPayClient.createPayment({
+        referenceId: inscription.id,
+        value: amount,
+        expiresAt: expiresAt.toISOString(),
+        buyer: {
+          firstName,
+          lastName,
+          document: input.document,
+          email: input.email,
+          phone: input.phone,
+        },
+      });
+
+      paymentUrl = payment.paymentUrl;
+      qrCodeBase64 = payment.qrcode.base64;
+      qrCodeContent = payment.qrcode.content;
+
+      await inscriptionsRepository.updateInscriptionPayment(inscription.id, {
+        paymentUrl,
+        qrCodeBase64,
+        qrCodeContent,
+        paymentExpiresAt: expiresAt,
+        paymentProvider: "PICPAY",
+        paymentMethod: "PIX",
+      });
+    }
   } catch (err) {
-    console.error("[InscriptionsService] Falha ao gerar cobrança PicPay:", err);
-    // Em caso de falha externa do gateway, a inscrição continua PENDING para retry
+    console.error("[InscriptionsService] Falha ao gerar cobrança:", err);
+    // Falha do gateway não derruba a inscrição: ela fica PENDING e pode
+    // ser cobrada de novo ou confirmada à mão pelo painel.
   }
 
   return {

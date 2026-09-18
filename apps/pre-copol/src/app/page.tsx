@@ -850,7 +850,7 @@ export default function HomePage() {
                                   <div className="capacity-track">
                                     <div
                                       className={`capacity-fill ${percent >= 90 ? "capacity-fill-full" : ""}`}
-                                      style={{ width: `${Math.max(8, percent)}%` }}
+                                      style={{ width: `${percent === 0 ? 0 : Math.max(8, percent)}%` }}
                                     />
                                   </div>
                                 </div>

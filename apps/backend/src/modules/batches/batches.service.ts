@@ -7,6 +7,10 @@ export interface BatchViewItem {
   batchNumber: number;
   name: string;
   price: number | null;
+  /** Formas aceitas no lote. O painel precisa ler para nao sobrescrever
+   * a escolha do admin ao salvar o formulario. */
+  allowPix: boolean;
+  allowCard: boolean;
   maxQuantity: number | null;
   confirmedCount: number;
   startDate: string | null;
@@ -430,6 +434,8 @@ export async function getBatchesOverview(
       batchNumber: b.batchNumber,
       name: b.name,
       price,
+      allowPix: b.allowPix,
+      allowCard: b.allowCard,
       maxQuantity: b.maxQuantity,
       confirmedCount: confirmed,
       startDate: b.startDate ? b.startDate.toISOString() : null,

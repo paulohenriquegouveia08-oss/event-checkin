@@ -942,6 +942,9 @@ export interface BatchItem {
   batchNumber: number;
   name: string;
   price: number;
+  /** Formas de pagamento aceitas neste lote. */
+  allowPix: boolean;
+  allowCard: boolean;
   maxQuantity: number | null;
   confirmedCount: number;
   startDate?: string | null;
@@ -973,6 +976,8 @@ export function createBatch(
     batchNumber?: number;
     name: string;
     price: number;
+    allowPix?: boolean;
+    allowCard?: boolean;
     maxQuantity?: number | null;
     startDate?: string | null;
     endDate?: string | null;
@@ -987,6 +992,8 @@ export function updateBatch(
     batchNumber?: number;
     name?: string;
     price?: number;
+    allowPix?: boolean;
+    allowCard?: boolean;
     maxQuantity?: number | null;
     startDate?: string | null;
     endDate?: string | null;

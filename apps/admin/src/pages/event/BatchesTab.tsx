@@ -7,6 +7,8 @@ interface BatchFormData {
   batchNumber: number;
   name: string;
   price: number;
+  allowPix: boolean;
+  allowCard: boolean;
   maxQuantity: string;
   startDate: string;
   endDate: string;
@@ -16,6 +18,8 @@ const EMPTY_FORM: BatchFormData = {
   batchNumber: 1,
   name: "",
   price: 100,
+  allowPix: true,
+  allowCard: false,
   maxQuantity: "",
   startDate: "",
   endDate: "",
@@ -109,6 +113,8 @@ export function BatchesTab({ eventId }: { eventId: string }) {
       batchNumber: b.batchNumber,
       name: b.name,
       price: b.price,
+      allowPix: b.allowPix,
+      allowCard: b.allowCard,
       maxQuantity: b.maxQuantity ? String(b.maxQuantity) : "",
       startDate: b.startDate ? b.startDate.split("T")[0]! : "",
       endDate: b.endDate ? b.endDate.split("T")[0]! : "",
@@ -148,6 +154,8 @@ export function BatchesTab({ eventId }: { eventId: string }) {
           batchNumber: form.batchNumber,
           name: form.name.trim(),
           price: form.price,
+          allowPix: form.allowPix,
+          allowCard: form.allowCard,
           maxQuantity: form.maxQuantity ? parseInt(form.maxQuantity, 10) : null,
           startDate: form.startDate ? `${form.startDate}T00:00:00.000Z` : null,
           endDate: form.endDate ? `${form.endDate}T23:59:59.999Z` : null,
@@ -157,6 +165,8 @@ export function BatchesTab({ eventId }: { eventId: string }) {
           batchNumber: form.batchNumber,
           name: form.name.trim(),
           price: form.price,
+          allowPix: form.allowPix,
+          allowCard: form.allowCard,
           maxQuantity: form.maxQuantity ? parseInt(form.maxQuantity, 10) : null,
           startDate: form.startDate ? `${form.startDate}T00:00:00.000Z` : null,
           endDate: form.endDate ? `${form.endDate}T23:59:59.999Z` : null,
@@ -635,6 +645,33 @@ export function BatchesTab({ eventId }: { eventId: string }) {
                   />
                   <small className="muted">Encerra às 23:59 desta data.</small>
                 </label>
+              </div>
+
+              <div className="stack" style={{ gap: 6 }}>
+                <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Formas de pagamento deste lote</span>
+                <div className="row" style={{ gap: 18 }}>
+                  <label className="row" style={{ gap: 6, alignItems: "center", fontSize: 13 }}>
+                    <input
+                      type="checkbox"
+                      checked={form.allowPix}
+                      onChange={(e) => setForm({ ...form, allowPix: e.target.checked })}
+                    />
+                    <span>Pix</span>
+                  </label>
+
+                  <label className="row" style={{ gap: 6, alignItems: "center", fontSize: 13 }}>
+                    <input
+                      type="checkbox"
+                      checked={form.allowCard}
+                      onChange={(e) => setForm({ ...form, allowCard: e.target.checked })}
+                    />
+                    <span>Cartão</span>
+                  </label>
+                </div>
+                <small className="muted">
+                  Hoje a cobrança automática sai apenas no Pix. Cartão fica registrado para quando o
+                  checkout entrar — e um lote sem Pix não gera cobrança automática.
+                </small>
               </div>
 
               <div className="spread" style={{ marginTop: 16 }}>

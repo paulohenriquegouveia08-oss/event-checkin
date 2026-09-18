@@ -159,12 +159,47 @@ const FALLBACK_EVENT: EventData = {
     return digits.replace(/(\d{2})(\d)/, "($1) $2").replace(/(\d{5})(\d)/, "$1-$2");
   }
 
+  function isValidCPF(cpf: string): boolean {
+    if (!cpf) return false;
+    const clean = cpf.replace(/\D/g, "");
+    if (clean.length !== 11) return false;
+    if (/^(\d)\1{10}$/.test(clean)) return false;
+
+    let sum = 0;
+    for (let i = 0; i < 9; i++) {
+      sum += Number(clean.charAt(i)) * (10 - i);
+    }
+    let rev = (sum * 10) % 11;
+    if (rev === 10 || rev === 11) rev = 0;
+    if (rev !== Number(clean.charAt(9))) return false;
+
+    sum = 0;
+    for (let i = 0; i < 10; i++) {
+      sum += Number(clean.charAt(i)) * (11 - i);
+    }
+    rev = (sum * 10) % 11;
+    if (rev === 10 || rev === 11) rev = 0;
+    if (rev !== Number(clean.charAt(10))) return false;
+
+    return true;
+  }
+
+  const cleanCpf = (form.document || "").replace(/\D/g, "");
+  const isCpfValid = isValidCPF(form.document);
+  const cpfPreenchido = cleanCpf.length === 11;
+  const cpfInvalido = cpfPreenchido && !isCpfValid;
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
     if (!form.name.trim() || !form.email.trim() || !form.document.trim()) {
       setError("Preencha nome, e-mail e CPF.");
+      return;
+    }
+
+    if (!isValidCPF(form.document)) {
+      setError("CPF inválido. Por favor, informe um CPF verdadeiro com os 11 dígitos corretos.");
       return;
     }
 
@@ -366,9 +401,27 @@ const FALLBACK_EVENT: EventData = {
                 value={form.document}
                 onChange={(e) => updateField("document", formatCpf(e.target.value))}
                 placeholder="000.000.000-00"
+                maxLength={14}
                 required
-                style={inputStyle}
+                style={{
+                  ...inputStyle,
+                  borderColor: cpfInvalido
+                    ? "var(--destructive, #ef4444)"
+                    : isCpfValid
+                      ? "rgba(34, 197, 94, 0.7)"
+                      : undefined,
+                }}
               />
+              {cpfInvalido && (
+                <span style={{ fontSize: 12, color: "#f87171", marginTop: 2 }}>
+                  CPF inválido. Digite um CPF verdadeiro para liberar a inscrição.
+                </span>
+              )}
+              {isCpfValid && (
+                <span style={{ fontSize: 12, color: "#4ade80", marginTop: 2 }}>
+                  ✓ CPF validado
+                </span>
+              )}
             </Field>
 
             <Field label="Telefone com DDD *">
@@ -461,11 +514,30 @@ const FALLBACK_EVENT: EventData = {
 
             <button
               type="submit"
-              disabled={submitting || !aceitou}
+              disabled={submitting || !aceitou || !isCpfValid}
               className="btn-primary"
-              style={{ width: "100%", padding: 14, fontSize: 16, marginTop: 8, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+              style={{
+                width: "100%",
+                padding: 14,
+                fontSize: 16,
+                marginTop: 8,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                opacity: submitting || !aceitou || !isCpfValid ? 0.6 : 1,
+                cursor: submitting || !aceitou || !isCpfValid ? "not-allowed" : "pointer",
+              }}
             >
-              <span>{submitting ? "Processando inscrição..." : "Avançar para Pagamento"}</span>
+              <span>
+                {submitting
+                  ? "Processando inscrição..."
+                  : !isCpfValid && cpfPreenchido
+                    ? "Informe um CPF válido para continuar"
+                    : !isCpfValid
+                      ? "Preencha um CPF válido para liberar"
+                      : "Avançar para Pagamento"}
+              </span>
               <ArrowRightIcon size={16} />
             </button>
           </form>

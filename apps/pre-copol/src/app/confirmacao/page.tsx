@@ -158,10 +158,12 @@ function ConfirmationContent() {
 
   const expiraEm = statusData.paymentExpiresAt ? new Date(statusData.paymentExpiresAt).getTime() : null;
   const segundosRestantes = expiraEm === null ? null : Math.max(0, Math.floor((expiraEm - agora) / 1000));
+  const minutos = segundosRestantes !== null ? Math.floor(segundosRestantes / 60) : 0;
+  const segundos = segundosRestantes !== null ? segundosRestantes % 60 : 0;
   const tempoRestante =
     segundosRestantes === null
       ? null
-      : `${String(Math.floor(segundosRestantes / 60)).padStart(2, "0")}:${String(segundosRestantes % 60).padStart(2, "0")}`;
+      : `${String(minutos).padStart(2, "0")} : ${String(segundos).padStart(2, "0")}`;
 
   const effectiveName = statusData.name || participantName || "";
   const effectiveDoc = participantDocument ? ` - CPF ${participantDocument}` : "";
@@ -685,13 +687,37 @@ function ConfirmationContent() {
                     </button>
 
                     {tempoRestante ? (
-                      <p style={{ margin: 0, fontSize: 13, color: "var(--muted-foreground)" }}>
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: 13,
+                          color: "var(--muted-foreground)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 8,
+                          flexWrap: "wrap",
+                        }}
+                      >
                         {segundosRestantes === 0 ? (
                           <strong style={{ color: "var(--destructive)" }}>Este código expirou.</strong>
                         ) : (
                           <>
-                            Este código expira em{" "}
-                            <strong style={{ color: "var(--gold)", fontFamily: "monospace" }}>{tempoRestante}</strong>
+                            <span>Este código expira em</span>
+                            <strong
+                              style={{
+                                color: "var(--gold)",
+                                fontFamily: "monospace",
+                                fontSize: 14,
+                                letterSpacing: "3px",
+                                background: "rgba(200, 162, 97, 0.12)",
+                                padding: "3px 10px",
+                                borderRadius: 6,
+                                border: "1px solid rgba(200, 162, 97, 0.3)",
+                              }}
+                            >
+                              {tempoRestante}
+                            </strong>
                           </>
                         )}
                       </p>
@@ -758,7 +784,20 @@ function ConfirmationContent() {
                       {tempoRestante && segundosRestantes !== 0 ? (
                         <>
                           {" "}Este link expira em{" "}
-                          <strong style={{ color: "var(--gold)", fontFamily: "monospace" }}>{tempoRestante}</strong>.
+                          <strong
+                            style={{
+                              color: "var(--gold)",
+                              fontFamily: "monospace",
+                              fontSize: 14,
+                              letterSpacing: "3px",
+                              background: "rgba(200, 162, 97, 0.12)",
+                              padding: "2px 8px",
+                              borderRadius: 6,
+                              border: "1px solid rgba(200, 162, 97, 0.3)",
+                            }}
+                          >
+                            {tempoRestante}
+                          </strong>.
                         </>
                       ) : null}
                     </p>

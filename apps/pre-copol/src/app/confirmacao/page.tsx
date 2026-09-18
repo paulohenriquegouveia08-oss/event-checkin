@@ -90,15 +90,29 @@ function ConfirmationContent() {
     };
   }, [inscriptionId, statusData?.status]);
 
+  // Relogio proprio: a contagem do Pix precisa andar sozinha, sem depender
+  // do polling de 15s.
+  const [agora, setAgora] = useState(() => Date.now());
+  useEffect(() => {
+    const relogio = setInterval(() => setAgora(Date.now()), 1000);
+    return () => clearInterval(relogio);
+  }, []);
+
   const pixKey = statusData?.pixKey || "terceirocopol@gmail.com";
   const pixKeyType = statusData?.pixKeyType || "E-mail";
   const pixReceiverName =
     statusData?.pixReceiverName || "3º COPOL — Congresso Odontológico Positivo Londrinense";
 
-  function handleCopyPix() {
-    if (!pixKey) return;
+  // Sem copia-e-cola, o evento ainda esta no PIX manual (chave + comprovante
+  // por e-mail). A tela serve os dois casos.
+  const codigoPix = statusData?.qrCodeContent ?? null;
+  const temPixAutomatico = Boolean(codigoPix);
 
-    navigator.clipboard.writeText(pixKey).then(() => {
+  function handleCopyPix() {
+    const valor = codigoPix ?? pixKey;
+    if (!valor) return;
+
+    navigator.clipboard.writeText(valor).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 3000);
     });
@@ -129,6 +143,13 @@ function ConfirmationContent() {
     style: "currency",
     currency: "BRL",
   }).format(statusData.amount);
+
+  const expiraEm = statusData.paymentExpiresAt ? new Date(statusData.paymentExpiresAt).getTime() : null;
+  const segundosRestantes = expiraEm === null ? null : Math.max(0, Math.floor((expiraEm - agora) / 1000));
+  const tempoRestante =
+    segundosRestantes === null
+      ? null
+      : `${String(Math.floor(segundosRestantes / 60)).padStart(2, "0")}:${String(segundosRestantes % 60).padStart(2, "0")}`;
 
   const effectiveName = statusData.name || participantName || "";
   const effectiveDoc = participantDocument ? ` - CPF ${participantDocument}` : "";
@@ -439,7 +460,9 @@ function ConfirmationContent() {
                   Quase lá! Realize o pagamento via PIX
                 </h1>
                 <p style={{ margin: 0, color: "var(--muted-foreground)", fontSize: 14 }}>
-                  Transfira o valor da inscrição para a chave PIX abaixo e envie o comprovante por e-mail.
+                  {temPixAutomatico
+                    ? "Pague o Pix abaixo pelo app do seu banco. A confirmação é automática."
+                    : "Transfira o valor da inscrição para a chave PIX abaixo e envie o comprovante por e-mail."}
                 </p>
               </div>
 
@@ -549,189 +572,272 @@ function ConfirmationContent() {
                   </div>
                 </div>
 
-                {/* Dados da Conta / Chave PIX */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 12, textAlign: "left" }}>
+                {temPixAutomatico ? (
+                  /* ---------- PIX AUTOMATICO (Mercado Pago) ---------- */
+                  <div style={{ display: "flex", flexDirection: "column", gap: 14, alignItems: "center" }}>
+                    {statusData.qrCodeBase64 ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={`data:image/png;base64,${statusData.qrCodeBase64}`}
+                        alt="QR Code do Pix para pagar a inscrição"
+                        width={220}
+                        height={220}
+                        style={{ width: 220, height: 220, background: "#fff", padding: 10, borderRadius: 12 }}
+                      />
+                    ) : null}
+
+                    <p style={{ margin: 0, fontSize: 13, color: "var(--muted-foreground)", textAlign: "center" }}>
+                      No app do seu banco, escolha <strong>Pix</strong> &rarr; <strong>Ler QR Code</strong>, ou
+                      use o código copia e cola abaixo.
+                    </p>
+
+                    <div
+                      style={{
+                        width: "100%",
+                        background: "var(--background)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 10,
+                        padding: "12px 14px",
+                        fontFamily: "monospace",
+                        fontSize: 12,
+                        color: "var(--foreground)",
+                        wordBreak: "break-all",
+                        textAlign: "left",
+                        maxHeight: 96,
+                        overflowY: "auto",
+                      }}
+                    >
+                      {codigoPix}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleCopyPix}
+                      className="btn-primary"
+                      style={{
+                        width: "100%",
+                        padding: 14,
+                        fontSize: 15,
+                        background: copied ? "var(--success)" : "var(--primary)",
+                        transition: "all 0.2s ease",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 8,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {copied ? (
+                        <>
+                          <CheckIcon size={18} /> Código Pix copiado!
+                        </>
+                      ) : (
+                        <>
+                          <CopyIcon size={18} /> Copiar código Pix
+                        </>
+                      )}
+                    </button>
+
+                    {tempoRestante ? (
+                      <p style={{ margin: 0, fontSize: 13, color: "var(--muted-foreground)" }}>
+                        {segundosRestantes === 0 ? (
+                          <strong style={{ color: "var(--destructive)" }}>Este código expirou.</strong>
+                        ) : (
+                          <>
+                            Este código expira em{" "}
+                            <strong style={{ color: "var(--gold)", fontFamily: "monospace" }}>{tempoRestante}</strong>
+                          </>
+                        )}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : (
+                  /* Dados da Conta / Chave PIX */
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12, textAlign: "left" }}>
+                    <div
+                      style={{
+                        background: "var(--background)",
+                        padding: "14px 16px",
+                        borderRadius: 10,
+                        border: "1px solid var(--border)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 10,
+                      }}
+                    >
+                      <div>
+                        <span
+                          style={{
+                            fontSize: 11,
+                            color: "var(--muted-foreground)",
+                            textTransform: "uppercase",
+                            letterSpacing: 0.5,
+                            display: "block",
+                          }}
+                        >
+                          Beneficiário / Titular
+                        </span>
+                        <strong style={{ fontSize: 14, color: "var(--foreground)" }}>
+                          {pixReceiverName}
+                        </strong>
+                      </div>
+
+                      <div style={{ borderTop: "1px solid var(--border)", paddingTop: 10 }}>
+                        <span
+                          style={{
+                            fontSize: 11,
+                            color: "var(--muted-foreground)",
+                            textTransform: "uppercase",
+                            letterSpacing: 0.5,
+                            display: "block",
+                          }}
+                        >
+                          Chave PIX ({pixKeyType})
+                        </span>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 8,
+                            marginTop: 4,
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: 16,
+                              fontWeight: 700,
+                              fontFamily: "monospace",
+                              color: "var(--gold)",
+                              wordBreak: "break-all",
+                            }}
+                          >
+                            {pixKey}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Botão Copiar Chave Pix */}
+                    <button
+                      type="button"
+                      onClick={handleCopyPix}
+                      className="btn-primary"
+                      style={{
+                        width: "100%",
+                        padding: 14,
+                        fontSize: 15,
+                        background: copied ? "var(--success)" : "var(--primary)",
+                        transition: "all 0.2s ease",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 8,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {copied ? (
+                        <>
+                          <CheckIcon size={18} /> Chave PIX Copiada!
+                        </>
+                      ) : (
+                        <>
+                          <CopyIcon size={18} /> Copiar Chave Pix
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {temPixAutomatico ? null : (
+                  /* Seção de Envio de Comprovante */
                   <div
                     style={{
-                      background: "var(--background)",
-                      padding: "14px 16px",
-                      borderRadius: 10,
-                      border: "1px solid var(--border)",
+                      borderTop: "1px solid var(--border)",
+                      paddingTop: 18,
+                      textAlign: "left",
                       display: "flex",
                       flexDirection: "column",
-                      gap: 10,
+                      gap: 14,
+                      width: "100%",
                     }}
                   >
                     <div>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          color: "var(--muted-foreground)",
-                          textTransform: "uppercase",
-                          letterSpacing: 0.5,
-                          display: "block",
-                        }}
-                      >
-                        Beneficiário / Titular
-                      </span>
-                      <strong style={{ fontSize: 14, color: "var(--foreground)" }}>
-                        {pixReceiverName}
-                      </strong>
+                      <h4 style={{ margin: "0 0 6px", fontSize: 16, color: "var(--foreground)", fontWeight: 700 }}>
+                        Instruções para Envio do Comprovante
+                      </h4>
+                      <p style={{ margin: 0, fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.6 }}>
+                        Após realizar a transferência via PIX no seu banco, envie o comprovante para{" "}
+                        <strong style={{ color: "var(--foreground)" }}>terceirocopol@gmail.com</strong> para darmos baixa e confirmarmos sua vaga.
+                      </p>
                     </div>
 
-                    <div style={{ borderTop: "1px solid var(--border)", paddingTop: 10 }}>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          color: "var(--muted-foreground)",
-                          textTransform: "uppercase",
-                          letterSpacing: 0.5,
-                          display: "block",
-                        }}
-                      >
-                        Chave PIX ({pixKeyType})
-                      </span>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: 8,
-                          marginTop: 4,
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: 16,
-                            fontWeight: 700,
-                            fontFamily: "monospace",
-                            color: "var(--gold)",
-                            wordBreak: "break-all",
-                          }}
-                        >
-                          {pixKey}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Botão Copiar Chave Pix */}
-                  <button
-                    type="button"
-                    onClick={handleCopyPix}
-                    className="btn-primary"
-                    style={{
-                      width: "100%",
-                      padding: 14,
-                      fontSize: 15,
-                      background: copied ? "var(--success)" : "var(--primary)",
-                      transition: "all 0.2s ease",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 8,
-                      cursor: "pointer",
-                    }}
-                  >
-                    {copied ? (
-                      <>
-                        <CheckIcon size={18} /> Chave PIX Copiada!
-                      </>
-                    ) : (
-                      <>
-                        <CopyIcon size={18} /> Copiar Chave Pix
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {/* Seção de Envio de Comprovante */}
-                <div
-                  style={{
-                    borderTop: "1px solid var(--border)",
-                    paddingTop: 18,
-                    textAlign: "left",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 14,
-                    width: "100%",
-                  }}
-                >
-                  <div>
-                    <h4 style={{ margin: "0 0 6px", fontSize: 16, color: "var(--foreground)", fontWeight: 700 }}>
-                      Instruções para Envio do Comprovante
-                    </h4>
-                    <p style={{ margin: 0, fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.6 }}>
-                      Após realizar a transferência via PIX no seu banco, envie o comprovante para{" "}
-                      <strong style={{ color: "var(--foreground)" }}>terceirocopol@gmail.com</strong> para darmos baixa e confirmarmos sua vaga.
-                    </p>
-                  </div>
-
-                  {/* Card de Orientação Importante / Facilitação da Confirmação */}
-                  <div
-                    style={{
-                      background: "rgba(45, 212, 191, 0.08)",
-                      border: "1px solid rgba(45, 212, 191, 0.25)",
-                      borderRadius: 10,
-                      padding: "14px 16px",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 8,
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontSize: 16 }}>💡</span>
-                      <strong style={{ fontSize: 13, color: "var(--primary)", textTransform: "uppercase", letterSpacing: 0.5 }}>
-                        Para facilitar a confirmação do seu pagamento:
-                      </strong>
-                    </div>
-                    <p style={{ margin: 0, fontSize: 13, color: "var(--foreground)", lineHeight: 1.5 }}>
-                      No e-mail do comprovante, informe sempre o seu <strong>Nome Completo</strong> e <strong>CPF</strong> cadastrados na inscrição.
-                    </p>
+                    {/* Card de Orientação Importante / Facilitação da Confirmação */}
                     <div
                       style={{
-                        fontSize: 12,
-                        color: "var(--muted-foreground)",
-                        background: "rgba(0, 0, 0, 0.25)",
-                        padding: "8px 12px",
-                        borderRadius: 6,
-                        lineHeight: 1.5,
-                        borderLeft: "3px solid var(--gold)",
+                        background: "rgba(45, 212, 191, 0.08)",
+                        border: "1px solid rgba(45, 212, 191, 0.25)",
+                        borderRadius: 10,
+                        padding: "14px 16px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 8,
                       }}
                     >
-                      <strong style={{ color: "var(--gold)" }}>⚠️ Pagou usando a conta de outra pessoa (mãe, pai ou terceiro)?</strong>
-                      <br />
-                      Como o comprovante sairá com o nome do titular da conta bancária, informar o <strong>seu Nome e CPF</strong> no e-mail é fundamental para que nossa equipe localize seu cadastro rapidamente e aprove sua inscrição sem atrasos!
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 16 }}>💡</span>
+                        <strong style={{ fontSize: 13, color: "var(--primary)", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                          Para facilitar a confirmação do seu pagamento:
+                        </strong>
+                      </div>
+                      <p style={{ margin: 0, fontSize: 13, color: "var(--foreground)", lineHeight: 1.5 }}>
+                        No e-mail do comprovante, informe sempre o seu <strong>Nome Completo</strong> e <strong>CPF</strong> cadastrados na inscrição.
+                      </p>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "var(--muted-foreground)",
+                          background: "rgba(0, 0, 0, 0.25)",
+                          padding: "8px 12px",
+                          borderRadius: 6,
+                          lineHeight: 1.5,
+                          borderLeft: "3px solid var(--gold)",
+                        }}
+                      >
+                        <strong style={{ color: "var(--gold)" }}>⚠️ Pagou usando a conta de outra pessoa (mãe, pai ou terceiro)?</strong>
+                        <br />
+                        Como o comprovante sairá com o nome do titular da conta bancária, informar o <strong>seu Nome e CPF</strong> no e-mail é fundamental para que nossa equipe localize seu cadastro rapidamente e aprove sua inscrição sem atrasos!
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Botão Enviar Comprovante por E-mail */}
-                  <a
-                    href={mailtoHref}
-                    className="btn-primary"
-                    style={{
-                      width: "100%",
-                      padding: 14,
-                      fontSize: 15,
-                      fontWeight: 600,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 8,
-                      textDecoration: "none",
-                      background: "var(--primary)",
-                      color: "#000",
-                      borderRadius: 8,
-                      transition: "all 0.2s ease",
-                    }}
-                  >
-                    <MailIcon size={18} color="#000" />
-                    <span>Abrir E-mail Pré-Preenchido com Meus Dados</span>
-                  </a>
-                  <p style={{ margin: "-4px 0 0", fontSize: 12, color: "var(--muted-foreground)", textAlign: "center" }}>
-                    O botão acima abrirá seu e-mail com seu Nome, CPF e Código de Inscrição já preenchidos automaticamente.
-                  </p>
-                </div>
+                    {/* Botão Enviar Comprovante por E-mail */}
+                    <a
+                      href={mailtoHref}
+                      className="btn-primary"
+                      style={{
+                        width: "100%",
+                        padding: 14,
+                        fontSize: 15,
+                        fontWeight: 600,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 8,
+                        textDecoration: "none",
+                        background: "var(--primary)",
+                        color: "#000",
+                        borderRadius: 8,
+                        transition: "all 0.2s ease",
+                      }}
+                    >
+                      <MailIcon size={18} color="#000" />
+                      <span>Abrir E-mail Pré-Preenchido com Meus Dados</span>
+                    </a>
+                    <p style={{ margin: "-4px 0 0", fontSize: 12, color: "var(--muted-foreground)", textAlign: "center" }}>
+                      O botão acima abrirá seu e-mail com seu Nome, CPF e Código de Inscrição já preenchidos automaticamente.
+                    </p>
+                  </div>
+                )}
 
                 {/* Indicador de Polling em Tempo Real */}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 4 }}>
@@ -745,7 +851,9 @@ function ConfirmationContent() {
                     }}
                   />
                   <p style={{ margin: 0, fontSize: 12, color: "var(--muted-foreground)" }}>
-                    Assim que a organização confirmar seu pagamento, esta tela será atualizada automaticamente em tempo real.
+                    {temPixAutomatico
+                      ? "Assim que o pagamento cair, esta tela confirma sua inscrição automaticamente."
+                      : "Assim que a organização confirmar seu pagamento, esta tela será atualizada automaticamente em tempo real."}
                   </p>
                 </div>
               </div>

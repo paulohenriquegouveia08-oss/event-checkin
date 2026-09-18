@@ -4,7 +4,6 @@ import { useAuth } from "../auth/AuthContext";
 
 const NAV_LINKS = [
   { to: "/eventos", label: "Eventos", permission: "events.view" },
-  { to: "/leitor", label: "Leitor QR", permission: "terminals.create" },
   { to: "/modelos-certificado", label: "Modelos de certificado", permission: "certificates.view" },
   { to: "/apk", label: "App do terminal", permission: null },
   { to: "/usuarios", label: "Usuários", permission: "users.view" },

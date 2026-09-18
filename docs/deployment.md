@@ -47,33 +47,7 @@ migrate   — roda "prisma migrate deploy" e sai; backend só sobe depois
             deste terminar com sucesso (depends_on: service_completed_successfully)
 backend   — API Fastify, porta ${PORT}
 admin     — painel web (Nginx servindo build estático), porta ${ADMIN_PORT}
-caddy     — proxy HTTPS na frente do admin, portas 80 e 443 (ver abaixo)
 ```
-
-### `caddy` — HTTPS na frente do admin
-
-Existe só porque câmera ao vivo (`getUserMedia`, usada pelo Leitor QR do
-painel) exige contexto seguro — em HTTP puro (`admin`/`${ADMIN_PORT}`) o
-navegador recusa a câmera. O Caddy tira certificado TLS sozinho (Let's
-Encrypt) para `ADMIN_PUBLIC_HOSTNAME` (`.env`) — por padrão um endereço
-`sslip.io`, que resolve pro IP da própria VPS sem precisar de domínio.
-
-**Portas 80 e 443 são fixas** (Let's Encrypt e navegadores esperam
-essas portas exatas — não dá pra remapear como `PORT`/`ADMIN_PORT`).
-Como esta VPS hospeda outros projetos do cliente (ver aviso no topo
-deste arquivo), **confira antes de subir**:
-
-```bash
-sudo ss -tlnp | grep -E ':80 |:443 '
-```
-
-Se alguma das duas já estiver em uso por outro projeto, o container
-`caddy` vai falhar ao subir (conflito de porta) — os demais serviços
-deste projeto (`backend`, `admin`, `db`) continuam funcionando
-normalmente, só o HTTPS/Leitor-com-câmera-ao-vivo fica indisponível até
-resolver o conflito. Nas duas camadas de firewall citadas acima, a porta
-443 (e a 80, para a validação do certificado) também precisa estar
-liberada.
 
 Uso de recursos real observado (VPS com outros ~15 containers de outros
 projetos rodando simultaneamente): **~90MB de RAM no total** para os 3

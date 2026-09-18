@@ -59,14 +59,7 @@ jobs:
             git reset --hard origin/main
 
             echo "==> Reconstruindo containers e aplicando migrations..."
-            docker compose up -d --build db migrate backend admin
-
-            # Proxy HTTPS (Caddy) — best-effort, de propósito. Portas 80/443
-            # são fixas (Let's Encrypt exige) e esta VPS hospeda outros
-            # projetos do cliente: se alguma já estiver ocupada, subir o
-            # resto do deploy não pode travar por causa disso.
-            echo "==> Subindo o proxy HTTPS (Caddy)..."
-            docker compose up -d --build caddy || echo "Aviso: 'caddy' não subiu (porta 80/443 já em uso por outro projeto?). O resto do deploy segue normal; HTTPS e câmera ao vivo do Leitor QR ficam indisponíveis até isso ser resolvido."
+            docker compose up -d --build
 
             echo "==> Verificando saúde dos serviços..."
             sleep 5

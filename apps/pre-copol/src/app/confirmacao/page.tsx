@@ -101,7 +101,7 @@ function ConfirmationContent() {
   const pixKey = statusData?.pixKey || "terceirocopol@gmail.com";
   const pixKeyType = statusData?.pixKeyType || "E-mail";
   const pixReceiverName =
-    statusData?.pixReceiverName || "3º COPOL — Congresso Odontológico Positivo Londrinense";
+    statusData?.pixReceiverName || "Ana Laura de Matos Xavier";
 
   // Sem copia-e-cola, o evento ainda esta no PIX manual (chave + comprovante
   // por e-mail). A tela serve os dois casos.
@@ -593,6 +593,38 @@ function ConfirmationContent() {
                         style={{ width: 220, height: 220, background: "#fff", padding: 10, borderRadius: 12 }}
                       />
                     ) : null}
+
+                    {/* Informação do recebedor no app do banco */}
+                    <div
+                      style={{
+                        width: "100%",
+                        background: "rgba(200, 162, 97, 0.08)",
+                        border: "1px solid rgba(200, 162, 97, 0.25)",
+                        borderRadius: 10,
+                        padding: "12px 16px",
+                        textAlign: "center",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 4,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 12,
+                          color: "var(--muted-foreground)",
+                          textTransform: "uppercase",
+                          letterSpacing: 0.5,
+                        }}
+                      >
+                        Nome que vai aparecer no app do seu banco:
+                      </span>
+                      <strong style={{ fontSize: 16, color: "var(--gold)" }}>
+                        Ana Laura de Matos Xavier
+                      </strong>
+                      <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
+                        (Conta oficial da organização vinculada ao Mercado Pago)
+                      </span>
+                    </div>
 
                     <p style={{ margin: 0, fontSize: 13, color: "var(--muted-foreground)", textAlign: "center" }}>
                       No app do seu banco, escolha <strong>Pix</strong> &rarr; <strong>Ler QR Code</strong>, ou

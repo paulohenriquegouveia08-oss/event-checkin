@@ -3,6 +3,7 @@ import { buildApp } from "../src/app.js";
 import { prisma } from "../src/database/prisma.js";
 import { createTestEvent, resetDatabase } from "./helpers.js";
 import { mercadoPagoClient } from "../src/lib/mercadopago/mercadopago.client.js";
+import { ocupaVagaWhere } from "../src/modules/batches/batches.service.js";
 
 /**
  * Geração da cobrança na inscrição.
@@ -131,6 +132,45 @@ describe.sequential("Cobrança da inscrição", () => {
     const registro = await prisma.inscription.findUnique({ where: { id: dados.id } });
     expect(registro?.status).toBe("PENDING");
     expect(registro?.paymentProvider).toBeNull();
+  });
+
+  it("Pix vencido cancela a inscrição na consulta e libera a vaga do lote", async () => {
+    ligarMercadoPago();
+    const evento = await eventoComLote({ preco: 100 });
+    const criada = await inscrever(evento.id);
+    const id = criada.json().data.id as string;
+
+    const lote = await prisma.eventBatch.findFirstOrThrow({ where: { eventId: evento.id } });
+    const ocupadaAntes = await prisma.inscription.count({ where: ocupaVagaWhere(lote.id) });
+    expect(ocupadaAntes).toBe(1);
+
+    // Vence a cobrança: é o que o Mercado Pago faz sozinho aos 30 minutos.
+    await prisma.inscription.update({
+      where: { id },
+      data: { paymentExpiresAt: new Date(Date.now() - 60 * 1000) },
+    });
+
+    const status = await app.inject({ method: "GET", url: `/inscriptions/${id}/payment-status` });
+    expect(status.statusCode).toBe(200);
+    expect(status.json().data.status).toBe("CANCELLED");
+
+    const registro = await prisma.inscription.findUnique({ where: { id } });
+    expect(registro?.status).toBe("CANCELLED");
+    expect(registro?.participantId).toBeNull();
+
+    const ocupadaDepois = await prisma.inscription.count({ where: ocupaVagaWhere(lote.id) });
+    expect(ocupadaDepois).toBe(0);
+  });
+
+  it("Pix dentro do prazo continua pendente", async () => {
+    ligarMercadoPago();
+    const evento = await eventoComLote({ preco: 100 });
+    const criada = await inscrever(evento.id);
+    const id = criada.json().data.id as string;
+
+    const status = await app.inject({ method: "GET", url: `/inscriptions/${id}/payment-status` });
+    expect(status.statusCode).toBe(200);
+    expect(status.json().data.status).toBe("PENDING");
   });
 
   it("evento gratuito não gera cobrança e confirma na hora", async () => {

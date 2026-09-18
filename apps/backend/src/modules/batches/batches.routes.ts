@@ -12,6 +12,10 @@ const createBatchSchema = z.object({
   batchNumber: z.coerce.number().int().positive().optional(),
   name: z.string().trim().min(1, "Nome é obrigatório").max(100),
   price: z.coerce.number().min(0, "Preço não pode ser negativo"),
+  // Formas aceitas NESTE lote: o COPOL vende o 1º só no Pix e abre cartão
+  // no 2º. Ausente = Pix ligado, cartão desligado (o padrão do banco).
+  allowPix: z.boolean().optional(),
+  allowCard: z.boolean().optional(),
   maxQuantity: z.coerce.number().int().positive().optional().nullable(),
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
@@ -21,6 +25,8 @@ const updateBatchSchema = z.object({
   batchNumber: z.coerce.number().int().positive().optional(),
   name: z.string().trim().min(1).max(100).optional(),
   price: z.coerce.number().min(0, "Preço não pode ser negativo").optional(),
+  allowPix: z.boolean().optional(),
+  allowCard: z.boolean().optional(),
   maxQuantity: z.coerce.number().int().positive().optional().nullable(),
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),

@@ -536,6 +536,37 @@ export async function getInscriptionPaymentStatus(id: string) {
   if (!current) throw new NotFoundError("Inscrição não encontrada");
   let inscription = current;
 
+  // COBRANÇA VENCIDA VIRA INSCRIÇÃO CANCELADA.
+  //
+  // A vaga em si JÁ volta ao lote sem isto: `ocupaVagaWhere` só conta
+  // PENDING com `paymentExpiresAt` no futuro. O que falta é o estado
+  // definitivo — sem ele a inscrição fica PENDING para sempre, a tela
+  // do site segue oferecendo um QR Code que o banco não aceita mais, e
+  // o painel enche de pendências que nunca vão pagar.
+  //
+  // Cancela pelo MESMO cancelInscription do painel: um segundo caminho
+  // para o mesmo destino é o que ninguém testa.
+  //
+  // Pagar no último minuto não é prejudicado: `confirmInscriptionPayment`
+  // não recusa inscrição cancelada, então o webhook de um Pix aprovado
+  // ainda confirma e gera o participante. Quem pagou entra.
+  //
+  // É cancelamento na leitura, não job agendado: não há scheduler no
+  // projeto, e a tela de confirmação consulta este endpoint em intervalo
+  // fixo — é por ela que a expiração é percebida.
+  if (
+    inscription.status === "PENDING" &&
+    inscription.paymentExpiresAt &&
+    inscription.paymentExpiresAt.getTime() < Date.now()
+  ) {
+    await cancelInscription(inscription.eventId, inscription.id);
+    const recarregada = await prisma.inscription.findUnique({
+      where: { id },
+      include: { batch: true, event: true },
+    });
+    if (recarregada) inscription = recarregada;
+  }
+
   // Fallback ativo: se ainda está PENDING, faz uma checagem ativa no PicPay
   if (inscription.status === "PENDING" && env.PICPAY_TOKEN) {
     try {

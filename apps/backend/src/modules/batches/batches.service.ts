@@ -20,6 +20,9 @@ export interface CreateBatchInput {
   batchNumber?: number;
   name: string;
   price: number;
+  /** Formas de pagamento aceitas neste lote. Ausente = padrão do banco. */
+  allowPix?: boolean;
+  allowCard?: boolean;
   maxQuantity?: number | null;
   startDate?: string | null;
   endDate?: string | null;
@@ -29,6 +32,8 @@ export interface UpdateBatchInput {
   batchNumber?: number;
   name?: string;
   price?: number;
+  allowPix?: boolean;
+  allowCard?: boolean;
   maxQuantity?: number | null;
   startDate?: string | null;
   endDate?: string | null;
@@ -470,6 +475,9 @@ export async function createBatch(eventId: string, input: CreateBatchInput) {
       batchNumber: batchNum,
       name: input.name,
       price: input.price,
+      // Sem valor informado, vale o padrão do banco: Pix sim, cartão não.
+      ...(input.allowPix === undefined ? {} : { allowPix: input.allowPix }),
+      ...(input.allowCard === undefined ? {} : { allowCard: input.allowCard }),
       maxQuantity: input.maxQuantity ?? null,
       startDate: input.startDate ? new Date(input.startDate) : null,
       endDate: input.endDate ? new Date(input.endDate) : null,
@@ -492,6 +500,8 @@ export async function updateBatch(id: string, input: UpdateBatchInput) {
       name: input.name ?? undefined,
       batchNumber: input.batchNumber ?? undefined,
       price: input.price !== undefined ? input.price : undefined,
+      allowPix: input.allowPix !== undefined ? input.allowPix : undefined,
+      allowCard: input.allowCard !== undefined ? input.allowCard : undefined,
       maxQuantity: input.maxQuantity !== undefined ? input.maxQuantity : undefined,
       startDate: input.startDate !== undefined ? (input.startDate ? new Date(input.startDate) : null) : undefined,
       endDate: input.endDate !== undefined ? (input.endDate ? new Date(input.endDate) : null) : undefined,

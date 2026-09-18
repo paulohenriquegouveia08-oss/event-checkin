@@ -275,11 +275,6 @@ export function WebQrScanner({ onScan, paused, manualMode, onToggleManual }: Pro
     setManualInput("");
   }
 
-  const httpsUrl =
-    typeof window !== "undefined"
-      ? `https://137-131-233-254.sslip.io${window.location.pathname}${window.location.search}`
-      : "https://137-131-233-254.sslip.io";
-
   return (
     <div
       style={{
@@ -319,22 +314,6 @@ export function WebQrScanner({ onScan, paused, manualMode, onToggleManual }: Pro
             </div>
           </div>
           <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <a
-              href={httpsUrl}
-              className="btn btn-sm"
-              style={{
-                textDecoration: "none",
-                fontSize: 12,
-                background: "#16a34a",
-                color: "#ffffff",
-                fontWeight: 700,
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 4,
-              }}
-            >
-              👉 Abrir via HTTPS Seguro (Recomendado)
-            </a>
             <button
               type="button"
               className="btn btn-secondary btn-sm"
@@ -543,22 +522,6 @@ export function WebQrScanner({ onScan, paused, manualMode, onToggleManual }: Pro
                   📸 Tirar Foto com Câmera do Aparelho
                 </button>
 
-                {isInsecureOrigin && (
-                  <a
-                    href={httpsUrl}
-                    className="btn btn-secondary"
-                    style={{
-                      padding: "10px 16px",
-                      fontSize: 13,
-                      textDecoration: "none",
-                      color: "var(--warning)",
-                      borderColor: "rgba(234, 179, 8, 0.4)",
-                      textAlign: "center",
-                    }}
-                  >
-                    🔒 Abrir versão HTTPS
-                  </a>
-                )}
               </div>
             </div>
           )}

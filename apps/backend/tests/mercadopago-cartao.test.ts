@@ -126,18 +126,24 @@ describe.sequential("Cobrança no cartão", () => {
     expect(registro?.paymentUrl).toBeNull();
   });
 
-  it("lote que aceita Pix e cartão cobra no Pix", async () => {
+  it("lote que aceita Pix e cartão gera Pix com opção de cartão", async () => {
     const { cartao, pix } = ligarMercadoPago();
     const evento = await eventoComLote({ preco: 150, allowPix: true, allowCard: true });
 
     const resposta = await inscrever(evento.id);
     expect(resposta.statusCode).toBe(201);
 
-    expect(cartao).not.toHaveBeenCalled();
+    expect(cartao).toHaveBeenCalledTimes(1);
     expect(pix).toHaveBeenCalledTimes(1);
 
-    const registro = await prisma.inscription.findUnique({ where: { id: resposta.json().data.id } });
+    const dados = resposta.json().data;
+    expect(dados.qrCodeContent).toBeTruthy();
+    expect(dados.paymentUrl).toContain("mercadopago.com.br/checkout");
+
+    const registro = await prisma.inscription.findUnique({ where: { id: dados.id } });
     expect(registro?.paymentMethod).toBe("PIX");
+    expect(registro?.qrCodeContent).toBeTruthy();
+    expect(registro?.paymentUrl).toContain("mercadopago.com.br/checkout");
   });
 
   it("webhook com pagamento no cartão registra a forma como CARD", async () => {

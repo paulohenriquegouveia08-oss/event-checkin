@@ -90,10 +90,6 @@ function nomeDoPagador(payer: PixPayer) {
     first_name: payer.firstName,
     last_name: payer.lastName,
     email: payer.email,
-    identification: {
-      type: "CPF",
-      number: payer.document.replace(/\D/g, ""),
-    },
   };
 }
 
@@ -218,10 +214,11 @@ export class MercadoPagoClient {
         name: params.payer.firstName,
         surname: params.payer.lastName,
         email: params.payer.email,
-        identification: {
-          type: "CPF",
-          number: params.payer.document.replace(/\D/g, ""),
-        },
+        ...(params.payer.document.replace(/\D/g, "").length === 11
+          ? { identification: { type: "CPF", number: params.payer.document.replace(/\D/g, "") } }
+          : params.payer.document.replace(/\D/g, "").length === 14
+            ? { identification: { type: "CNPJ", number: params.payer.document.replace(/\D/g, "") } }
+            : {}),
       },
       external_reference: params.referenceId,
       notification_url: `${env.BACKEND_PUBLIC_URL}/inscriptions/mercadopago/webhook`,

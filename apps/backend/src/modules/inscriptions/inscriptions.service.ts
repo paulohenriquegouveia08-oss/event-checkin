@@ -168,7 +168,51 @@ export async function createInscription(
   const aceitaPix = lote ? lote.allowPix : true;
 
   try {
-    if (!aceitaPix && lote?.allowCard && mercadoPagoClient.configurado) {
+    if (aceitaPix && mercadoPagoClient.configurado) {
+      const pagamento = await mercadoPagoClient.createPixPayment({
+        referenceId: inscription.id,
+        amount,
+        description: `${event.name} — ${category}`,
+        expiresAt,
+        payer: { firstName, lastName, document: input.document, email: input.email },
+      });
+
+      paymentUrl = pagamento.paymentUrl;
+      qrCodeBase64 = pagamento.qrCodeBase64;
+      qrCodeContent = pagamento.qrCodeContent;
+
+      // Se o lote também aceita cartão, gera em conjunto a preferência do Checkout Pro.
+      // A tela de confirmação exibe o QR Code do Pix e também o botão para pagar com cartão.
+      if (lote?.allowCard) {
+        try {
+          const checkout = await mercadoPagoClient.createCardCheckout({
+            referenceId: inscription.id,
+            amount,
+            description: `${event.name} — ${category}`,
+            expiresAt,
+            payer: { firstName, lastName, document: input.document, email: input.email },
+            returnUrl: `${env.PRE_COPOL_BASE_URL}/confirmacao?id=${inscription.id}`,
+          });
+          paymentUrl = checkout.checkoutUrl;
+        } catch (cardErr) {
+          console.error("[InscriptionsService] Falha ao gerar checkout de cartão para lote híbrido:", cardErr);
+        }
+      }
+
+      await inscriptionsRepository.updateInscriptionPayment(inscription.id, {
+        // O id do pagamento no Mercado Pago. Guardar aqui permite consultar
+        // o status sem depender só do webhook.
+        paymentId: pagamento.paymentId,
+        paymentUrl,
+        qrCodeBase64,
+        qrCodeContent,
+        // A validade que vale é a que o Mercado Pago devolveu, não a nossa
+        // estimativa: é ela que o Pix respeita.
+        paymentExpiresAt: new Date(pagamento.expiresAt),
+        paymentProvider: "MERCADO_PAGO",
+        paymentMethod: "PIX",
+      });
+    } else if (!aceitaPix && lote?.allowCard && mercadoPagoClient.configurado) {
       // Lote de cartão: Checkout Pro. A pessoa paga numa página do Mercado
       // Pago e volta para cá; quem confirma é o webhook, igual ao Pix.
       const checkout = await mercadoPagoClient.createCardCheckout({
@@ -198,32 +242,6 @@ export async function createInscription(
       console.warn(
         `[InscriptionsService] Lote ${lote?.name ?? batchId} não aceita Pix e não há cartão disponível; inscrição ${inscription.id} ficou sem cobrança.`
       );
-    } else if (mercadoPagoClient.configurado) {
-      const pagamento = await mercadoPagoClient.createPixPayment({
-        referenceId: inscription.id,
-        amount,
-        description: `${event.name} — ${category}`,
-        expiresAt,
-        payer: { firstName, lastName, document: input.document, email: input.email },
-      });
-
-      paymentUrl = pagamento.paymentUrl;
-      qrCodeBase64 = pagamento.qrCodeBase64;
-      qrCodeContent = pagamento.qrCodeContent;
-
-      await inscriptionsRepository.updateInscriptionPayment(inscription.id, {
-        // O id do pagamento no Mercado Pago. Guardar aqui permite consultar
-        // o status sem depender só do webhook.
-        paymentId: pagamento.paymentId,
-        paymentUrl,
-        qrCodeBase64,
-        qrCodeContent,
-        // A validade que vale é a que o Mercado Pago devolveu, não a nossa
-        // estimativa: é ela que o Pix respeita.
-        paymentExpiresAt: new Date(pagamento.expiresAt),
-        paymentProvider: "MERCADO_PAGO",
-        paymentMethod: "PIX",
-      });
     } else {
       const payment = await picPayClient.createPayment({
         referenceId: inscription.id,

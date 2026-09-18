@@ -654,7 +654,11 @@ export function BatchesTab({ eventId }: { eventId: string }) {
                     <input
                       type="checkbox"
                       checked={form.allowPix}
-                      onChange={(e) => setForm({ ...form, allowPix: e.target.checked })}
+                      onChange={(e) => {
+                        const newPix = e.target.checked;
+                        if (!newPix && !form.allowCard) return;
+                        setForm({ ...form, allowPix: newPix });
+                      }}
                     />
                     <span>Pix</span>
                   </label>
@@ -663,14 +667,17 @@ export function BatchesTab({ eventId }: { eventId: string }) {
                     <input
                       type="checkbox"
                       checked={form.allowCard}
-                      onChange={(e) => setForm({ ...form, allowCard: e.target.checked })}
+                      onChange={(e) => {
+                        const newCard = e.target.checked;
+                        if (!newCard && !form.allowPix) return;
+                        setForm({ ...form, allowCard: newCard });
+                      }}
                     />
                     <span>Cartão</span>
                   </label>
                 </div>
                 <small className="muted">
-                  Hoje a cobrança automática sai apenas no Pix. Cartão fica registrado para quando o
-                  checkout entrar — e um lote sem Pix não gera cobrança automática.
+                  Marque Pix, Cartão ou ambos. Se ambos forem marcados, a tela de confirmação exibe o QR Code do Pix e o botão para pagamento com cartão.
                 </small>
               </div>
 

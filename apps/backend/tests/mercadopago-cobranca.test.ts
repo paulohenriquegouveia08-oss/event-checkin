@@ -119,7 +119,7 @@ describe.sequential("Cobrança da inscrição", () => {
 
   it("lote que não aceita Pix não recebe cobrança de Pix", async () => {
     const criar = ligarMercadoPago();
-    const evento = await eventoComLote({ preco: 150, allowPix: false, allowCard: true });
+    const evento = await eventoComLote({ preco: 150, allowPix: false, allowCard: false });
 
     const resposta = await inscrever(evento.id);
     expect(resposta.statusCode).toBe(201);

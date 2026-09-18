@@ -108,9 +108,15 @@ function ConfirmationContent() {
   const codigoPix = statusData?.qrCodeContent ?? null;
   const temPixAutomatico = Boolean(codigoPix);
 
-  // Lote de cartao: o Mercado Pago devolve uma pagina de pagamento. Com Pix
-  // tambem vem um link (o ticket), por isso so vale quando nao ha QR Code.
-  const linkCartao = codigoPix ? null : statusData?.paymentUrl ?? null;
+  const isCheckoutPro = Boolean(
+    statusData?.paymentUrl &&
+      (statusData.paymentUrl.includes("/checkout/") || statusData.paymentUrl.includes("pref_id"))
+  );
+  const linkCartao = isCheckoutPro
+    ? statusData?.paymentUrl ?? null
+    : codigoPix
+      ? null
+      : statusData?.paymentUrl ?? null;
   const temCartao = Boolean(linkCartao);
   const temCobrancaAutomatica = Boolean(codigoPix) || Boolean(linkCartao);
 
@@ -690,6 +696,40 @@ function ConfirmationContent() {
                         )}
                       </p>
                     ) : null}
+
+                    {temCartao && (
+                      <div style={{ width: "100%", marginTop: 8, display: "flex", flexDirection: "column", gap: 12 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                          <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+                          <span style={{ fontSize: 12, color: "var(--muted-foreground)", textTransform: "uppercase" }}>ou</span>
+                          <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+                        </div>
+
+                        <a
+                          href={linkCartao ?? "#"}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn-secondary"
+                          style={{
+                            width: "100%",
+                            padding: 14,
+                            fontSize: 15,
+                            fontWeight: 600,
+                            textAlign: "center",
+                            textDecoration: "none",
+                            borderRadius: 8,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 8,
+                            color: "var(--foreground)",
+                            border: "1px solid var(--border)",
+                          }}
+                        >
+                          Pagar com Cartão de Crédito
+                        </a>
+                      </div>
+                    )}
                   </div>
                 ) : temCartao ? (
                   /* ---------- CARTAO (Checkout Pro) ---------- */

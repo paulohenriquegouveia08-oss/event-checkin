@@ -63,18 +63,40 @@ export function EventsPage() {
                 <th>Local</th>
                 <th>Início</th>
                 <th>Status</th>
+                <th style={{ textAlign: "right" }}>Ações</th>
               </tr>
             </thead>
             <tbody>
               {events.map((event) => (
                 <tr key={event.id}>
                   <td>
-                    <Link to={`/eventos/${event.id}`}>{event.name}</Link>
+                    <Link to={`/eventos/${event.id}`} style={{ fontWeight: 600 }}>{event.name}</Link>
                   </td>
                   <td className="muted">{event.location ?? "—"}</td>
                   <td className="muted">{new Date(event.startDate).toLocaleDateString("pt-BR")}</td>
                   <td>
                     <span className={`badge ${STATUS_BADGE[event.status]}`}>{STATUS_LABEL[event.status]}</span>
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    <Link
+                      to={`/eventos/${event.id}/credenciamento`}
+                      className="btn btn-sm"
+                      style={{
+                        textDecoration: "none",
+                        background: "#16a34a",
+                        color: "#ffffff",
+                        fontSize: 12,
+                        padding: "5px 10px",
+                        fontWeight: 600,
+                        whiteSpace: "nowrap",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                      title="Abrir leitor de QR Code para este evento"
+                    >
+                      📱 Credenciamento
+                    </Link>
                   </td>
                 </tr>
               ))}

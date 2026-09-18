@@ -54,7 +54,7 @@ declare module "fastify" {
  * bootstrap ADMINISTRADOR) é tratado como "todas as permissões" sem
  * precisar de linha em role_permissions — ver comentário no schema.prisma.
  */
-async function loadAdminSession(request: FastifyRequest) {
+export async function loadAdminSession(request: FastifyRequest) {
   try {
     await request.jwtVerify();
   } catch {
@@ -117,6 +117,17 @@ export function requirePermission(permissionKey: string) {
     const admin = request.admin!;
     if (!admin.isSystem && !admin.permissions.has(permissionKey)) {
       throw new ForbiddenError(`Seu perfil não tem a permissão "${permissionKey}"`);
+    }
+  };
+}
+
+/** Exige sessão de admin válida E ao menos uma das permissões informadas (ou isSystem). */
+export function requireAnyPermission(...permissionKeys: string[]) {
+  return async function (request: FastifyRequest, _reply: FastifyReply) {
+    await loadAdminSession(request);
+    const admin = request.admin!;
+    if (!admin.isSystem && !permissionKeys.some((k) => admin.permissions.has(k))) {
+      throw new ForbiddenError(`Seu perfil não tem permissão para esta ação`);
     }
   };
 }

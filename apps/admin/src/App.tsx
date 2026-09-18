@@ -10,6 +10,7 @@ import { UsersPage } from "./pages/UsersPage";
 import { RolesPage } from "./pages/RolesPage";
 import { AuditPage } from "./pages/AuditPage";
 import { ApkPage } from "./pages/ApkPage";
+import { CredenciamentoPage } from "./pages/CredenciamentoPage";
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route element={<ProtectedRoute />}>
+            <Route path="/eventos/:eventId/credenciamento" element={<CredenciamentoPage />} />
             <Route element={<Layout />}>
               <Route path="/eventos" element={<EventsPage />} />
               <Route path="/eventos/:eventId" element={<EventDetailPage />} />

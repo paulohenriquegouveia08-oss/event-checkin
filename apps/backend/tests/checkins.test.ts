@@ -3,6 +3,7 @@ import { buildApp } from "../src/app.js";
 import { prisma } from "../src/database/prisma.js";
 import {
   createActiveTerminalWithToken,
+  createTestAdmin,
   createTestEvent,
   createTestParticipant,
   resetDatabase,
@@ -141,5 +142,107 @@ describe("POST /events/:eventId/checkins", () => {
     });
 
     expect(response.statusCode).toBe(403);
+  });
+});
+
+describe("POST /events/:eventId/checkins/admin", () => {
+  async function getAdminToken() {
+    const { user, password } = await createTestAdmin();
+    const loginRes = await app.inject({
+      method: "POST",
+      url: "/auth/login",
+      payload: { email: user.email, password },
+    });
+    return loginRes.json().data.token;
+  }
+
+  it("confirma presença via admin com um QR válido", async () => {
+    const event = await createTestEvent();
+    const participant = await createTestParticipant(event.id);
+    const adminToken = await getAdminToken();
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/events/${event.id}/checkins/admin`,
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { qrToken: participant.qrToken },
+    });
+
+    expect(response.statusCode).toBe(201);
+    const body = response.json();
+    expect(body.success).toBe(true);
+    expect(body.data.status).toBe("CONFIRMED");
+    expect(body.data.participant.name).toBe(participant.name);
+
+    const count = await prisma.checkIn.count({ where: { eventId: event.id, participantId: participant.id } });
+    expect(count).toBe(1);
+  });
+
+  it("extrai token corretamente mesmo se o scan contiver uma URL com token", async () => {
+    const event = await createTestEvent();
+    const participant = await createTestParticipant(event.id);
+    const adminToken = await getAdminToken();
+
+    const rawScanned = `https://copol.com.br/confirmacao?token=${participant.qrToken}&lang=pt`;
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/events/${event.id}/checkins/admin`,
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { qrToken: rawScanned },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json().data.status).toBe("CONFIRMED");
+  });
+
+  it("identifica check-in duplicado via admin com status ALREADY_CHECKED_IN", async () => {
+    const event = await createTestEvent();
+    const participant = await createTestParticipant(event.id);
+    const adminToken = await getAdminToken();
+
+    const first = await app.inject({
+      method: "POST",
+      url: `/events/${event.id}/checkins/admin`,
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { qrToken: participant.qrToken },
+    });
+    expect(first.statusCode).toBe(201);
+
+    const second = await app.inject({
+      method: "POST",
+      url: `/events/${event.id}/checkins/admin`,
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { qrToken: participant.qrToken },
+    });
+    expect(second.statusCode).toBe(200);
+    expect(second.json().data.status).toBe("ALREADY_CHECKED_IN");
+  });
+
+  it("rejeita QR inexistente via admin", async () => {
+    const event = await createTestEvent();
+    const adminToken = await getAdminToken();
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/events/${event.id}/checkins/admin`,
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: { qrToken: "evt_inexistente_12345" },
+    });
+
+    expect(response.statusCode).toBe(404);
+  });
+
+  it("rejeita requisição sem token de autenticação", async () => {
+    const event = await createTestEvent();
+    const participant = await createTestParticipant(event.id);
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/events/${event.id}/checkins/admin`,
+      payload: { qrToken: participant.qrToken },
+    });
+
+    expect(response.statusCode).toBe(401);
   });
 });

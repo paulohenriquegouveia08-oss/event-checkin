@@ -14,8 +14,10 @@ import { SubmissionsTab } from "./event/SubmissionsTab";
 import { InscriptionsReportTab } from "./event/InscriptionsReportTab";
 import { BatchesTab } from "./event/BatchesTab";
 import { ScheduleTab } from "./event/ScheduleTab";
+import { CredenciamentoTab } from "./event/CredenciamentoTab";
 
 type Tab =
+  | "credenciamento"
   | "participants"
   | "inscriptions"
   | "batches"
@@ -30,6 +32,7 @@ type Tab =
   | "config";
 
 const TABS: { key: Tab; label: string; permission: string }[] = [
+  { key: "credenciamento", label: "📷 Credenciamento", permission: "participants.view" },
   { key: "participants", label: "Participantes", permission: "participants.view" },
   { key: "inscriptions", label: "Inscritos", permission: "participants.view" },
   { key: "batches", label: "Lotes", permission: "events.view" },
@@ -205,16 +208,34 @@ export function EventDetailPage() {
             </div>
           )}
         </div>
-        {canEditEvent ? (
-          <select value={event.status} onChange={(e) => handleStatusChange(e.target.value as api.EventRecord["status"])} style={{ width: 160 }}>
-            <option value="ACTIVE">Ativo</option>
-            <option value="CLOSED">Encerrado</option>
-          </select>
-        ) : (
-          <span className={`badge ${event.status === "ACTIVE" ? "badge-success" : "badge-warning"}`}>
-            {event.status === "ACTIVE" ? "Ativo" : "Encerrado"}
-          </span>
-        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <Link
+            to={`/eventos/${event.id}/credenciamento`}
+            className="btn btn-sm"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              textDecoration: "none",
+              background: "#16a34a",
+              color: "#ffffff",
+              fontWeight: 700,
+              padding: "8px 14px",
+            }}
+          >
+            📱 Fazer Credenciamento
+          </Link>
+          {canEditEvent ? (
+            <select value={event.status} onChange={(e) => handleStatusChange(e.target.value as api.EventRecord["status"])} style={{ width: 140 }}>
+              <option value="ACTIVE">Ativo</option>
+              <option value="CLOSED">Encerrado</option>
+            </select>
+          ) : (
+            <span className={`badge ${event.status === "ACTIVE" ? "badge-success" : "badge-warning"}`}>
+              {event.status === "ACTIVE" ? "Ativo" : "Encerrado"}
+            </span>
+          )}
+        </div>
       </div>
 
       {visibleTabs.length > 0 ? (
@@ -227,6 +248,7 @@ export function EventDetailPage() {
         </div>
       ) : null}
 
+      {activeTab === "credenciamento" ? <CredenciamentoTab eventId={eventId} /> : null}
       {activeTab === "participants" ? <ParticipantsTab eventId={eventId} /> : null}
       {activeTab === "inscriptions" ? <InscriptionsReportTab eventId={eventId} /> : null}
       {activeTab === "batches" ? <BatchesTab eventId={eventId} /> : null}

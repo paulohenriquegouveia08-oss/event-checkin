@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { requirePermission, requireTerminal, userHasPermission } from "../../middleware/auth.js";
+import { requireAnyPermission, requirePermission, requireTerminal, userHasPermission } from "../../middleware/auth.js";
 import { ForbiddenError, NotFoundError } from "../../shared/errors.js";
 import { ok } from "../../shared/response.js";
 import * as checkinsService from "./checkins.service.js";
@@ -7,13 +7,29 @@ import * as checkinsRepository from "./checkins.repository.js";
 import { checkinEventParamsSchema, createCheckInSchema } from "./checkins.schema.js";
 import { adminCheckInBus } from "../admin/adminMonitor.events.js";
 
+function cleanQrToken(raw: string): string {
+  const trimmed = raw.trim();
+  const match = trimmed.match(/evt_[A-Za-z0-9_-]+/);
+  if (match) return match[0];
+  try {
+    const url = new URL(trimmed);
+    const tokenParam = url.searchParams.get("token") || url.searchParams.get("qrToken");
+    if (tokenParam) return tokenParam.trim();
+  } catch {
+    // URL inválida, mantém string
+  }
+  return trimmed;
+}
+
 export async function checkinsRoutes(app: FastifyInstance) {
+  // Check-in via terminal físico / APK com requireTerminal
   app.post("/events/:eventId/checkins", { preHandler: requireTerminal }, async (request, reply) => {
     const { eventId } = checkinEventParamsSchema.parse(request.params);
     if (request.terminal?.eventId !== eventId) {
       throw new ForbiddenError("Este terminal não pertence a este evento");
     }
-    const { qrToken } = createCheckInSchema.parse(request.body);
+    const { qrToken: rawQrToken } = createCheckInSchema.parse(request.body);
+    const qrToken = cleanQrToken(rawQrToken);
 
     try {
       const outcome = await checkinsService.performCheckIn({
@@ -60,6 +76,61 @@ export async function checkinsRoutes(app: FastifyInstance) {
       throw error;
     }
   });
+
+  // Check-in via navegador web no Painel Admin (sem necessidade de terminal físico ou APK)
+  app.post(
+    "/events/:eventId/checkins/admin",
+    { preHandler: requireAnyPermission("participants.edit", "participants.view") },
+    async (request, reply) => {
+      const { eventId } = checkinEventParamsSchema.parse(request.params);
+      const { qrToken: rawQrToken } = createCheckInSchema.parse(request.body);
+      const qrToken = cleanQrToken(rawQrToken);
+
+      const operatorName = request.admin?.email ? `Web (${request.admin.email})` : "Painel Web";
+
+      try {
+        const outcome = await checkinsService.performCheckIn({
+          eventId,
+          qrToken,
+          terminalId: null,
+          terminalName: operatorName,
+          source: "ONLINE",
+        });
+
+        return reply.status(outcome.status === "CONFIRMED" ? 201 : 200).send(
+          ok({
+            status: outcome.status,
+            participant: outcome.participant,
+            checkedInAt: outcome.checkIn.checkedInAt,
+          })
+        );
+      } catch (error) {
+        if (error instanceof NotFoundError || error instanceof ForbiddenError) {
+          adminCheckInBus.publish(eventId, {
+            type: "check_in",
+            eventId,
+            participantId: "",
+            participantName: "—",
+            status: "REJECTED",
+            checkedInAt: new Date().toISOString(),
+            terminalName: operatorName,
+            terminalId: null,
+            source: "ONLINE",
+            errorMessage: error.message,
+          });
+          void checkinsRepository.createCheckInAttempt({
+            eventId,
+            terminalId: null,
+            terminalName: operatorName,
+            status: "REJECTED",
+            source: "ONLINE",
+            errorMessage: error.message,
+          });
+        }
+        throw error;
+      }
+    }
+  );
 
   app.get(
     "/events/:eventId/statistics",

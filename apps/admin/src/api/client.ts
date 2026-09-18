@@ -1128,4 +1128,25 @@ export function sortearEquipes(eventId: string): Promise<SorteioEquipesResultado
   });
 }
 
+// --- Credenciamento / Check-in via Navegador Web (Admin) ---
+export interface AdminCheckInResult {
+  status: "CONFIRMED" | "ALREADY_CHECKED_IN";
+  participant: {
+    id: string;
+    name: string;
+    email: string | null;
+    phone: string | null;
+    document: string | null;
+  };
+  checkedInAt: string;
+}
+
+export function performAdminCheckIn(eventId: string, qrToken: string): Promise<AdminCheckInResult> {
+  return request<AdminCheckInResult>(`/events/${eventId}/checkins/admin`, {
+    method: "POST",
+    body: { qrToken },
+  });
+}
+
+
 

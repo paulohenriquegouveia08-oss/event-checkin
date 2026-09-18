@@ -11,6 +11,16 @@ process.env.JWT_SECRET = "test-secret-32-characters-minimum-length";
 process.env.JWT_ADMIN_EXPIRES_IN = "1h";
 process.env.RESEND_API_KEY = "";
 
+// Mercado Pago nos testes.
+//
+// Sem MP_ACCESS_TOKEN o cliente fica em modo simulado: nenhuma chamada
+// sai para fora e nenhuma cobranca real e' criada. Ja o segredo do
+// webhook PRECISA existir aqui — o env.ts congela as variaveis no
+// import, e definir isso dentro do arquivo de teste seria tarde demais.
+process.env.MP_ACCESS_TOKEN = "";
+process.env.MP_PUBLIC_KEY = "";
+process.env.MP_WEBHOOK_SECRET = "segredo-de-teste-do-webhook";
+
 // Mock do Resend com transporte mock para evitar chamadas de rede e erros 403 em testes
 vi.mock("resend", () => {
   return {

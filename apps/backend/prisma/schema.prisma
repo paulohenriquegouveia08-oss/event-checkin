@@ -70,6 +70,17 @@ enum InscriptionStatus {
   CANCELLED
 }
 
+enum PaymentProvider {
+  MANUAL
+  PICPAY
+  MERCADO_PAGO
+}
+
+enum PaymentMethod {
+  PIX
+  CARD
+}
+
 // Ver src/modules/certificates/certificate-eligibility.service.ts —
 // LOCKED e ELIGIBLE nunca têm fileKey; o PDF só é gerado (GENERATED) sob
 // demanda, no primeiro download, depois de elegível.
@@ -557,6 +568,11 @@ model Inscription {
   amount           Decimal           @db.Decimal(10, 2)
   status           InscriptionStatus @default(PENDING)
   paymentId        String?
+  // Por onde esta inscricao foi cobrada. MANUAL e' o Pix na chave do
+  // evento com confirmacao pelo admin (fluxo antigo); o relatorio precisa
+  // distinguir, senao ninguem sabe o que foi conferido a mao.
+  paymentProvider  PaymentProvider?
+  paymentMethod    PaymentMethod?
   notes            String?
   paymentUrl       String?
   qrCodeBase64     String?           @db.Text
@@ -620,6 +636,12 @@ model EventBatch {
   batchNumber Int
   name        String    @db.VarChar(100)
   price       Decimal   @db.Decimal(10, 2)
+  // Formas de pagamento aceitas NESTE lote. O COPOL vende o 1o lote so
+  // no Pix e abre cartao no 2o — por isso a configuracao e' do lote, nao
+  // do evento. Pix ligado por padrao para nenhum lote existente mudar de
+  // comportamento na migration.
+  allowPix    Boolean   @default(true)
+  allowCard   Boolean   @default(false)
   maxQuantity Int?
   startDate   DateTime?
   endDate     DateTime?

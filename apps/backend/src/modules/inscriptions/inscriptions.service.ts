@@ -5,6 +5,7 @@ import { prisma } from "../../database/prisma.js";
 import { getEventOrThrow } from "../events/events.service.js";
 import { findTierAmount } from "../events/site-content.js";
 import { picPayClient } from "../../lib/picpay/picpay.client.js";
+import { mercadoPagoClient } from "../../lib/mercadopago/mercadopago.client.js";
 import { emailService } from "../../lib/email/email.service.js";
 import { resolveEmailSettings } from "../../lib/email/email-settings.js";
 import * as batchesService from "../batches/batches.service.js";
@@ -320,6 +321,123 @@ export async function confirmInscriptionPayment(inscriptionId: string, authoriza
   }
 
   return result.inscription;
+}
+
+/**
+ * Trata notificações de webhook do Mercado Pago.
+ *
+ * Devolve o código HTTP junto com o corpo porque o Mercado Pago REENVIA a
+ * notificação até receber 200/201. Isso inverte a intuição: quase tudo
+ * aqui responde 200, inclusive o que ignoramos — responder erro para algo
+ * que nunca vai dar certo faz o reenvio nunca parar.
+ *
+ * A exceção é assinatura inválida: 401 é a resposta certa, porque nesse
+ * caso a requisição não veio do Mercado Pago.
+ */
+export async function handleMercadoPagoWebhook(
+  headers: { xSignature: string | null; xRequestId: string | null },
+  query: { dataId?: string | null; type?: string | null },
+  body: { type?: string; action?: string; data?: { id?: string | number } }
+): Promise<{ httpStatus: number; body: Record<string, unknown> }> {
+  const dataId = query.dataId ?? (body.data?.id != null ? String(body.data.id) : null);
+
+  // A assinatura é conferida ANTES de qualquer outra coisa. Sem isso, quem
+  // descobrisse o endereço mandaria "pagamento aprovado" e confirmaria
+  // inscrição sem pagar.
+  const assinatura = mercadoPagoClient.assinaturaConfere({
+    xSignature: headers.xSignature,
+    xRequestId: headers.xRequestId,
+    dataId,
+  });
+
+  if (!assinatura.ok) {
+    console.warn("[MercadoPago] assinatura recusada:", assinatura.motivo);
+    return { httpStatus: 401, body: { erro: "assinatura_invalida", motivo: assinatura.motivo } };
+  }
+
+  const tipo = String(body.type ?? query.type ?? "");
+  if (tipo !== "payment") {
+    return { httpStatus: 200, body: { ok: true, ignorado: tipo || "sem_tipo" } };
+  }
+
+  if (!dataId) {
+    return { httpStatus: 200, body: { ok: true, ignorado: "sem_data_id" } };
+  }
+
+  // A notificação diz QUE algo mudou; ela não é fonte de verdade sobre o
+  // quê. Quem confirma valor e situação é a API do Mercado Pago,
+  // consultada com o nosso token.
+  const conferencia = await mercadoPagoClient.conferirPagamento(dataId);
+
+  if (!conferencia.ok) {
+    // O botão de teste do painel manda data.id "123456", que não existe.
+    // Responder erro faria o teste falhar sempre e, em produção, o
+    // Mercado Pago reenviaria essa notificação para sempre.
+    if (conferencia.definitivo) {
+      return { httpStatus: 200, body: { ok: true, ignorado: conferencia.erro } };
+    }
+
+    // Falha temporária (token recusado, MP fora do ar): aqui 500 é o certo,
+    // porque queremos o reenvio depois de consertarmos. O corpo aparece no
+    // painel de notificações do Mercado Pago, então diz o que fazer.
+    const comoResolver: Record<string, string> = {
+      mp_sem_access_token: "MP_ACCESS_TOKEN não está definida no ambiente do backend.",
+      mp_consulta_401:
+        "O MP_ACCESS_TOKEN foi recusado. Confira se é o token da mesma aplicação do webhook e se teste e produção não foram trocados.",
+      mp_consulta_403: "O MP_ACCESS_TOKEN não tem permissão para consultar este pagamento.",
+      mp_inacessivel: "Não foi possível falar com a API do Mercado Pago.",
+    };
+    console.error("[MercadoPago] falha temporária:", conferencia.erro);
+    return {
+      httpStatus: 500,
+      body: { erro: conferencia.erro, comoResolver: comoResolver[conferencia.erro] ?? "Ver logs do backend." },
+    };
+  }
+
+  const pagamento = conferencia.dados;
+
+  if (!pagamento.aprovado) {
+    // "pending" e "in_process" são estados legítimos e ainda NÃO são
+    // pagamento. Confirmar aqui daria credencial antes de o dinheiro existir.
+    return { httpStatus: 200, body: { ok: true, ignorado: "nao_aprovado", status: pagamento.status } };
+  }
+
+  const inscription = await inscriptionsRepository.findInscriptionById(pagamento.referenceId);
+  if (!inscription) {
+    return { httpStatus: 200, body: { ok: true, ignorado: "inscricao_inexistente" } };
+  }
+
+  if (inscription.status === "CONFIRMED") {
+    return { httpStatus: 200, body: { ok: true, status: "already_confirmed" } };
+  }
+
+  // O VALOR PAGO PRECISA COBRIR O PREÇO.
+  //
+  // Sem esta conferência, alguém cria pelo próprio Mercado Pago um
+  // pagamento de R$ 0,01 com o id desta inscrição como referência externa
+  // e entra no congresso por um centavo.
+  const esperadoEmCentavos = Math.round(Number(inscription.amount) * 100);
+  if (pagamento.centavos < esperadoEmCentavos) {
+    console.warn(
+      `[MercadoPago] valor abaixo do preço: pagou ${pagamento.centavos}, esperado ${esperadoEmCentavos}, inscrição ${inscription.id}`
+    );
+    return {
+      httpStatus: 200,
+      body: { ok: true, ignorado: "valor_insuficiente", pago: pagamento.centavos, esperado: esperadoEmCentavos },
+    };
+  }
+
+  // Confirma pelo MESMO caminho de sempre: é ele que trava a linha, cria o
+  // participante com QR Code e dispara o comprovante. Reentrega simultânea
+  // não duplica participante por causa dessa trava.
+  await confirmInscriptionPayment(inscription.id, pagamento.paymentId);
+
+  await prisma.inscription.update({
+    where: { id: inscription.id },
+    data: { paymentProvider: "MERCADO_PAGO", paymentMethod: "PIX" },
+  });
+
+  return { httpStatus: 200, body: { ok: true, status: "confirmed" } };
 }
 
 /**

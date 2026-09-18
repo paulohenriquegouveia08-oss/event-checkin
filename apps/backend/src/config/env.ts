@@ -25,6 +25,19 @@ const envSchema = z.object({
   PICPAY_TOKEN: z.string().optional().default(""),
   PICPAY_SELLER_TOKEN: z.string().optional().default(""),
 
+  // Integração Mercado Pago (Pix transparente).
+  //
+  // Sem MP_ACCESS_TOKEN o cliente entra em modo simulado — nenhuma
+  // chamada sai para fora e nenhuma cobrança real é criada. É assim que
+  // os testes rodam sem tocar a conta de produção.
+  MP_ACCESS_TOKEN: z.string().optional().default(""),
+  MP_PUBLIC_KEY: z.string().optional().default(""),
+  // Chave secreta gerada ao cadastrar o webhook no painel do Mercado
+  // Pago. NÃO é o access token. Sem ela a assinatura da notificação não
+  // é validada, e uma notificação forjada confirmaria inscrição sem
+  // pagamento.
+  MP_WEBHOOK_SECRET: z.string().optional().default(""),
+
   // Envio de e-mails via Resend
   RESEND_API_KEY: z.string().optional().default(""),
   EMAIL_FROM: z.string().default("COPOL 2026 <contato@copol2026.com.br>"),

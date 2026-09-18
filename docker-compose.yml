@@ -74,6 +74,17 @@ services:
       # Endereco de fallback do botao "Acessar pagina do evento", para
       # evento que nao configurou o proprio site na aba E-mails.
       PRE_COPOL_BASE_URL: ${PRE_COPOL_BASE_URL:-}
+      # Endereco publico do proprio backend. O Mercado Pago monta a
+      # notification_url da cobranca com este valor — se estiver errado, o
+      # pagamento acontece e a notificacao nunca chega.
+      BACKEND_PUBLIC_URL: ${BACKEND_PUBLIC_URL:-}
+      # Mercado Pago. Vale o mesmo aviso do RESEND acima: a variavel
+      # existir no .env da VPS nao basta, o container so enxerga o que
+      # esta nesta lista. Sem MP_ACCESS_TOKEN o cliente entra em modo
+      # simulado e NENHUMA cobranca real e' gerada.
+      MP_ACCESS_TOKEN: ${MP_ACCESS_TOKEN:-}
+      MP_PUBLIC_KEY: ${MP_PUBLIC_KEY:-}
+      MP_WEBHOOK_SECRET: ${MP_WEBHOOK_SECRET:-}
     volumes:
       - certificates_storage:/app/apps/backend/storage
     ports:

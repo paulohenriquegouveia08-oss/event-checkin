@@ -51,6 +51,32 @@ export async function inscriptionsRoutes(app: FastifyInstance) {
     return reply.status(200).send(ok(result));
   });
 
+  // Webhook do Mercado Pago (recebe notificação de pagamento).
+  //
+  // Sem schema do Zod no corpo de propósito: o Mercado Pago manda formatos
+  // diferentes conforme o evento, e recusar por formato faria o reenvio
+  // continuar para sempre. Quem valida de verdade é a assinatura, e depois
+  // a consulta do pagamento na API deles.
+  app.post("/inscriptions/mercadopago/webhook", async (request, reply) => {
+    const header = (nome: string) => {
+      const valor = request.headers[nome];
+      if (Array.isArray(valor)) return valor[0] ?? null;
+      return (valor as string | undefined) ?? null;
+    };
+
+    const query = (request.query ?? {}) as { "data.id"?: string; type?: string };
+
+    const resultado = await inscriptionsService.handleMercadoPagoWebhook(
+      { xSignature: header("x-signature"), xRequestId: header("x-request-id") },
+      { dataId: query["data.id"] ?? null, type: query.type ?? null },
+      (request.body ?? {}) as { type?: string; action?: string; data?: { id?: string | number } }
+    );
+
+    // Corpo sem o envelope ok(): o Mercado Pago lê o código HTTP, e o corpo
+    // aparece no painel de notificações deles — é onde a explicação ajuda.
+    return reply.status(resultado.httpStatus).send(resultado.body);
+  });
+
   // Admin — Relatório completo de inscritos (Nome, E-mail, Telefone, CPF, Lote, Status)
   app.get(
     "/events/:eventId/inscriptions/report",

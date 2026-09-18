@@ -55,7 +55,14 @@ export function buildApp() {
       // qualquer *.vercel.app evita ter que atualizar CORS_ORIGINS a cada
       // deploy novo do portal do participante.
       const isVercelPreview = !!origin && /^https:\/\/[a-z0-9-]+\.vercel\.app$/.test(origin);
-      if (!origin || ALLOWED_ORIGINS.length === 0 || ALLOWED_ORIGINS.includes(origin) || isVercelPreview) {
+      const isSslip = !!origin && /^https:\/\/[a-z0-9.-]+\.sslip\.io$/.test(origin);
+      if (
+        !origin ||
+        ALLOWED_ORIGINS.length === 0 ||
+        ALLOWED_ORIGINS.includes(origin) ||
+        isVercelPreview ||
+        isSslip
+      ) {
         callback(null, true);
       } else {
         callback(new Error("Not allowed by CORS"), false);

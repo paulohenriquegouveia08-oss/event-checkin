@@ -50,10 +50,30 @@ export interface PixPaymentResponse {
   expiresAt: string;
 }
 
+export interface CreateCardCheckoutParams {
+  /** Id da inscrição. Volta na notificação como external_reference. */
+  referenceId: string;
+  amount: number;
+  description: string;
+  expiresAt: Date;
+  payer: PixPayer;
+  /** Para onde o Mercado Pago devolve a pessoa depois de pagar. */
+  returnUrl: string;
+}
+
+export interface CardCheckoutResponse {
+  preferenceId: string;
+  /** Página de pagamento do Mercado Pago. */
+  checkoutUrl: string;
+  expiresAt: string;
+}
+
 export interface PagamentoConferido {
   aprovado: boolean;
   status: string;
   paymentId: string;
+  /** payment_type_id do Mercado Pago: credit_card, debit_card, bank_transfer... */
+  tipo: string;
   /** Em centavos, para comparar com o preço sem erro de ponto flutuante. */
   centavos: number;
   /** Id da inscrição que originou a cobrança. */
@@ -157,6 +177,101 @@ export class MercadoPagoClient {
   }
 
   /**
+   * Cria a preferência do Checkout Pro — o caminho do CARTÃO.
+   *
+   * Aqui o pagamento não é transparente como o Pix: a pessoa vai para uma
+   * página do Mercado Pago e volta. É de propósito — dado de cartão não
+   * passa pelo nosso site, e portanto não há o que guardar nem vazar.
+   *
+   * Pix e boleto ficam FORA da preferência. Ela só é criada para lote que
+   * não aceita Pix; oferecer Pix aqui desfaria a escolha do admin.
+   *
+   * VOLTAR AO SITE NÃO É PROVA DE PAGAMENTO: quem confirma a inscrição
+   * continua sendo o webhook de `payment`, que já valida assinatura e
+   * consulta o valor. As back_urls existem só para a pessoa não ficar
+   * perdida no fim.
+   */
+  async createCardCheckout(params: CreateCardCheckoutParams): Promise<CardCheckoutResponse> {
+    if (!this.configurado) {
+      // Modo simulado — desenvolvimento e testes.
+      return {
+        preferenceId: `mock-pref-${params.referenceId}`,
+        checkoutUrl: `https://www.mercadopago.com.br/checkout/mock/${params.referenceId}`,
+        expiresAt: params.expiresAt.toISOString(),
+      };
+    }
+
+    const corpo = {
+      items: [
+        {
+          id: params.referenceId,
+          title: params.description,
+          quantity: 1,
+          unit_price: Number(params.amount.toFixed(2)),
+          currency_id: "BRL",
+        },
+      ],
+      // ATENÇÃO: a preferência usa `name`/`surname`, enquanto /v1/payments
+      // usa `first_name`/`last_name`. Mandar o formato errado não dá erro —
+      // o Mercado Pago só ignora, e o checkout aparece sem os dados.
+      payer: {
+        name: params.payer.firstName,
+        surname: params.payer.lastName,
+        email: params.payer.email,
+        identification: {
+          type: "CPF",
+          number: params.payer.document.replace(/\D/g, ""),
+        },
+      },
+      external_reference: params.referenceId,
+      notification_url: `${env.BACKEND_PUBLIC_URL}/inscriptions/mercadopago/webhook`,
+      back_urls: {
+        success: params.returnUrl,
+        pending: params.returnUrl,
+        failure: params.returnUrl,
+      },
+      auto_return: "approved",
+      expires: true,
+      expiration_date_to: params.expiresAt.toISOString(),
+      payment_methods: {
+        excluded_payment_types: [{ id: "ticket" }, { id: "bank_transfer" }],
+      },
+    };
+
+    const resposta = await fetch(`${API}/checkout/preferences`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.MP_ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+        // Mesma inscrição tentando duas vezes recebe a MESMA preferência.
+        "X-Idempotency-Key": `pref-${params.referenceId}`,
+      },
+      body: JSON.stringify(corpo),
+    });
+
+    if (!resposta.ok) {
+      const detalhe = await resposta.text().catch(() => "");
+      throw new Error(`Falha na API Mercado Pago (${resposta.status}): ${detalhe.slice(0, 300)}`);
+    }
+
+    const d = (await resposta.json()) as {
+      id?: string | number;
+      init_point?: string;
+      expiration_date_to?: string;
+    };
+
+    if (!d.id || !d.init_point) {
+      throw new Error("Mercado Pago não devolveu a página de pagamento do cartão");
+    }
+
+    return {
+      preferenceId: String(d.id),
+      checkoutUrl: d.init_point,
+      expiresAt: d.expiration_date_to ?? params.expiresAt.toISOString(),
+    };
+  }
+
+  /**
    * Consulta o pagamento na API — a única fonte de verdade sobre valor e
    * situação.
    */
@@ -167,6 +282,7 @@ export class MercadoPagoClient {
         dados: {
           aprovado: true,
           status: "approved",
+          tipo: "bank_transfer",
           paymentId,
           centavos: 0,
           referenceId: paymentId.replace(/^mock-/, ""),
@@ -198,6 +314,7 @@ export class MercadoPagoClient {
     const d = (await resposta.json()) as {
       id?: number | string;
       status?: string;
+      payment_type_id?: string;
       transaction_amount?: number;
       external_reference?: string;
     };
@@ -216,6 +333,9 @@ export class MercadoPagoClient {
         // credencial antes de o dinheiro existir.
         aprovado: d.status === "approved",
         status: d.status ?? "unknown",
+        // Diz se o dinheiro veio de cartão ou de Pix. O relatório do admin
+        // separa por isso.
+        tipo: d.payment_type_id ?? "unknown",
         paymentId: String(d.id ?? paymentId),
         // Arredonda para centavo inteiro: o MP devolve decimal, e
         // 100.00 * 100 em ponto flutuante pode não dar exatamente 10000.

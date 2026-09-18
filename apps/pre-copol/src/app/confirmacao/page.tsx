@@ -108,6 +108,12 @@ function ConfirmationContent() {
   const codigoPix = statusData?.qrCodeContent ?? null;
   const temPixAutomatico = Boolean(codigoPix);
 
+  // Lote de cartao: o Mercado Pago devolve uma pagina de pagamento. Com Pix
+  // tambem vem um link (o ticket), por isso so vale quando nao ha QR Code.
+  const linkCartao = codigoPix ? null : statusData?.paymentUrl ?? null;
+  const temCartao = Boolean(linkCartao);
+  const temCobrancaAutomatica = Boolean(codigoPix) || Boolean(linkCartao);
+
   function handleCopyPix() {
     const valor = codigoPix ?? pixKey;
     if (!valor) return;
@@ -454,15 +460,17 @@ function ConfirmationContent() {
                       animation: "pulse 1.5s infinite",
                     }}
                   />
-                  AGUARDANDO PAGAMENTO VIA PIX
+                  {temCartao ? "AGUARDANDO PAGAMENTO" : "AGUARDANDO PAGAMENTO VIA PIX"}
                 </div>
                 <h1 style={{ margin: "14px 0 8px", fontSize: "clamp(24px, 4vw, 30px)", fontWeight: 800 }}>
-                  Quase lá! Realize o pagamento via PIX
+                  {temCartao ? "Quase lá! Conclua o pagamento" : "Quase lá! Realize o pagamento via PIX"}
                 </h1>
                 <p style={{ margin: 0, color: "var(--muted-foreground)", fontSize: 14 }}>
                   {temPixAutomatico
                     ? "Pague o Pix abaixo pelo app do seu banco. A confirmação é automática."
-                    : "Transfira o valor da inscrição para a chave PIX abaixo e envie o comprovante por e-mail."}
+                    : temCartao
+                      ? "Conclua o pagamento com cartão na página do Mercado Pago. A confirmação é automática."
+                      : "Transfira o valor da inscrição para a chave PIX abaixo e envie o comprovante por e-mail."}
                 </p>
               </div>
 
@@ -651,6 +659,38 @@ function ConfirmationContent() {
                       </p>
                     ) : null}
                   </div>
+                ) : temCartao ? (
+                  /* ---------- CARTAO (Checkout Pro) ---------- */
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "center" }}>
+                    <a
+                      href={linkCartao ?? "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-primary"
+                      style={{
+                        width: "100%",
+                        padding: 16,
+                        fontSize: 16,
+                        fontWeight: 700,
+                        textAlign: "center",
+                        textDecoration: "none",
+                        borderRadius: 8,
+                        background: "var(--primary)",
+                        color: "#000",
+                      }}
+                    >
+                      Pagar com cartão
+                    </a>
+                    <p style={{ margin: 0, fontSize: 13, color: "var(--muted-foreground)", textAlign: "center" }}>
+                      Você será levado à página segura do Mercado Pago e volta para cá ao terminar.
+                      {tempoRestante && segundosRestantes !== 0 ? (
+                        <>
+                          {" "}Este link expira em{" "}
+                          <strong style={{ color: "var(--gold)", fontFamily: "monospace" }}>{tempoRestante}</strong>.
+                        </>
+                      ) : null}
+                    </p>
+                  </div>
                 ) : (
                   /* Dados da Conta / Chave PIX */
                   <div style={{ display: "flex", flexDirection: "column", gap: 12, textAlign: "left" }}>
@@ -749,7 +789,7 @@ function ConfirmationContent() {
                   </div>
                 )}
 
-                {temPixAutomatico ? null : (
+                {temCobrancaAutomatica ? null : (
                   /* Seção de Envio de Comprovante */
                   <div
                     style={{
@@ -851,7 +891,7 @@ function ConfirmationContent() {
                     }}
                   />
                   <p style={{ margin: 0, fontSize: 12, color: "var(--muted-foreground)" }}>
-                    {temPixAutomatico
+                    {temCobrancaAutomatica
                       ? "Assim que o pagamento cair, esta tela confirma sua inscrição automaticamente."
                       : "Assim que a organização confirmar seu pagamento, esta tela será atualizada automaticamente em tempo real."}
                   </p>

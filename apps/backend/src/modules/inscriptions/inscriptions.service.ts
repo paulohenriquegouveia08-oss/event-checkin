@@ -168,12 +168,35 @@ export async function createInscription(
   const aceitaPix = lote ? lote.allowPix : true;
 
   try {
-    if (!aceitaPix) {
-      // Lote só de cartão: ainda não há checkout de cartão implementado.
-      // Não gerar cobrança nenhuma é melhor que gerar um Pix que o lote
-      // não aceita — a inscrição fica PENDING e aparece assim no painel.
+    if (!aceitaPix && lote?.allowCard && mercadoPagoClient.configurado) {
+      // Lote de cartão: Checkout Pro. A pessoa paga numa página do Mercado
+      // Pago e volta para cá; quem confirma é o webhook, igual ao Pix.
+      const checkout = await mercadoPagoClient.createCardCheckout({
+        referenceId: inscription.id,
+        amount,
+        description: `${event.name} — ${category}`,
+        expiresAt,
+        payer: { firstName, lastName, document: input.document, email: input.email },
+        returnUrl: `${env.PRE_COPOL_BASE_URL}/confirmacao?id=${inscription.id}`,
+      });
+
+      paymentUrl = checkout.checkoutUrl;
+
+      await inscriptionsRepository.updateInscriptionPayment(inscription.id, {
+        // `paymentId` fica vazio de propósito: o que existe agora é o id da
+        // PREFERÊNCIA, que não é o id do pagamento. Quem grava o id certo é
+        // a confirmação, com o número que vem na notificação.
+        paymentUrl,
+        paymentExpiresAt: new Date(checkout.expiresAt),
+        paymentProvider: "MERCADO_PAGO",
+        paymentMethod: "CARD",
+      });
+    } else if (!aceitaPix) {
+      // Lote sem Pix e sem cartão disponível (sem credencial do Mercado
+      // Pago). Não gerar cobrança é melhor que gerar um Pix que o lote não
+      // aceita — a inscrição fica PENDING e aparece assim no painel.
       console.warn(
-        `[InscriptionsService] Lote ${lote?.name ?? batchId} não aceita Pix e o cartão ainda não está implementado; inscrição ${inscription.id} ficou sem cobrança.`
+        `[InscriptionsService] Lote ${lote?.name ?? batchId} não aceita Pix e não há cartão disponível; inscrição ${inscription.id} ficou sem cobrança.`
       );
     } else if (mercadoPagoClient.configurado) {
       const pagamento = await mercadoPagoClient.createPixPayment({
@@ -480,9 +503,14 @@ export async function handleMercadoPagoWebhook(
   // não duplica participante por causa dessa trava.
   await confirmInscriptionPayment(inscription.id, pagamento.paymentId);
 
+  // A forma vem do PAGAMENTO, não de um chute. Com cartão no 2º lote,
+  // fixar PIX aqui mentiria no relatório do admin.
+  const pagoNoCartao = pagamento.tipo === "credit_card" || pagamento.tipo === "debit_card";
+  const formaPaga = pagoNoCartao ? "CARD" : inscription.paymentMethod ?? "PIX";
+
   await prisma.inscription.update({
     where: { id: inscription.id },
-    data: { paymentProvider: "MERCADO_PAGO", paymentMethod: "PIX" },
+    data: { paymentProvider: "MERCADO_PAGO", paymentMethod: formaPaga },
   });
 
   return { httpStatus: 200, body: { ok: true, status: "confirmed" } };

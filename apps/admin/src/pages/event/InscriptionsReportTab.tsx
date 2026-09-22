@@ -113,6 +113,8 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
   });
 
   // Métricas
+  const GATEWAY_FEE_RATE = 0.0099; // 0.99% de desconto por pagamento
+
   const totalCount = inscriptions.length;
   const confirmedCount = inscriptions.filter((i) => i.status === "CONFIRMED").length;
   const pendingCount = inscriptions.filter((i) => i.status === "PENDING").length;
@@ -120,22 +122,33 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
   const confirmedRevenue = inscriptions
     .filter((i) => i.status === "CONFIRMED")
     .reduce((acc, curr) => acc + curr.amount, 0);
+  const confirmedFee = confirmedRevenue * GATEWAY_FEE_RATE;
+  const confirmedNetRevenue = confirmedRevenue - confirmedFee;
+
   const pendingRevenue = inscriptions
     .filter((i) => i.status === "PENDING")
     .reduce((acc, curr) => acc + curr.amount, 0);
+  const pendingFee = pendingRevenue * GATEWAY_FEE_RATE;
+  const pendingNetRevenue = pendingRevenue - pendingFee;
 
   function handleExportCsv() {
-    const headers = ["Nome", "E-mail", "Telefone", "CPF", "Lote", "Valor", "Status", "Data de Inscrição"];
-    const rows = filtered.map((i) => [
-      `"${i.name.replace(/"/g, '""')}"`,
-      `"${i.email}"`,
-      `"${i.phone ?? ""}"`,
-      `"${i.document}"`,
-      `"${i.category}"`,
-      `"R$ ${i.amount.toFixed(2).replace(".", ",")}"`,
-      `"${i.status === "CONFIRMED" ? "Confirmado (Pago)" : i.status === "CANCELLED" ? "Cancelado" : "Aguardando Pagamento"}"`,
-      `"${new Date(i.createdAt).toLocaleString("pt-BR")}"`,
-    ]);
+    const headers = ["Nome", "E-mail", "Telefone", "CPF", "Lote", "Valor Bruto", "Taxa (0,99%)", "Valor Líquido", "Status", "Data de Inscrição"];
+    const rows = filtered.map((i) => {
+      const fee = i.amount * GATEWAY_FEE_RATE;
+      const net = i.amount - fee;
+      return [
+        `"${i.name.replace(/"/g, '""')}"`,
+        `"${i.email}"`,
+        `"${i.phone ?? ""}"`,
+        `"${i.document}"`,
+        `"${i.category}"`,
+        `"R$ ${i.amount.toFixed(2).replace(".", ",")}"`,
+        `"- R$ ${fee.toFixed(2).replace(".", ",")}"`,
+        `"R$ ${net.toFixed(2).replace(".", ",")}"`,
+        `"${i.status === "CONFIRMED" ? "Confirmado (Pago)" : i.status === "CANCELLED" ? "Cancelado" : "Aguardando Pagamento"}"`,
+        `"${new Date(i.createdAt).toLocaleString("pt-BR")}"`,
+      ];
+    });
 
     const csvContent = "\uFEFF" + [headers.join(";"), ...rows.map((r) => r.join(";"))].join("\r\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -170,7 +183,7 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
     doc.setTextColor(30, 30, 30);
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
-    doc.text(`Total Inscritos: ${totalCount} | Confirmados: ${confirmedCount} (R$ ${confirmedRevenue.toFixed(2).replace(".", ",")}) | Pendentes: ${pendingCount} (R$ ${pendingRevenue.toFixed(2).replace(".", ",")})`, margin, y);
+    doc.text(`Inscritos: ${totalCount} | Confirmados: ${confirmedCount} (Bruto: R$ ${confirmedRevenue.toFixed(2).replace(".", ",")} | Líquido -0,99%: R$ ${confirmedNetRevenue.toFixed(2).replace(".", ",")}) | Pendentes: ${pendingCount} (R$ ${pendingRevenue.toFixed(2).replace(".", ",")})`, margin, y);
     y += 8;
 
     // Tabela Header
@@ -314,19 +327,27 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
       )}
 
       {/* Cards de Métricas */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12 }}>
         <MetricCard label="Total de Inscritos" value={totalCount} />
         <MetricCard label="Pagamentos Confirmados" value={confirmedCount} highlight="success" />
         <MetricCard label="Aguardando Pagamento" value={pendingCount} highlight="warning" />
         <MetricCard label="Inscrições Canceladas" value={cancelledCount} highlight="danger" />
         <MetricCard
-          label="Receita Confirmada (Paga)"
+          label="Receita Confirmada (Bruta)"
           value={`R$ ${confirmedRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+          subvalue={`Taxa (-0,99%): - R$ ${confirmedFee.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+          highlight="primary"
+        />
+        <MetricCard
+          label="Receita Líquida Real"
+          value={`R$ ${confirmedNetRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+          subvalue="Após desconto de 0,99%"
           highlight="success"
         />
         <MetricCard
-          label="Receita Pendente"
+          label="Receita Pendente (Bruta)"
           value={`R$ ${pendingRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+          subvalue={`Líq. estimado: R$ ${pendingNetRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
           highlight="warning"
         />
       </div>
@@ -428,6 +449,11 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
                     <div style={{ fontWeight: 700, color: "var(--primary)", marginTop: 2, fontSize: 13 }}>
                       R$ {item.amount.toFixed(2).replace(".", ",")}
                     </div>
+                    {item.amount > 0 && (
+                      <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 1 }}>
+                        Líq: R$ {(item.amount * (1 - GATEWAY_FEE_RATE)).toFixed(2).replace(".", ",")} (-0,99%)
+                      </div>
+                    )}
                   </td>
                   <td style={{ whiteSpace: "nowrap" }}>
                     <div>
@@ -548,9 +574,16 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
                 </div>
                 <div className="spread">
                   <span className="muted">Valor:</span>
-                  <strong style={{ color: "var(--primary)", fontSize: 13 }}>
-                    R$ {item.amount.toFixed(2).replace(".", ",")}
-                  </strong>
+                  <div style={{ textAlign: "right" }}>
+                    <strong style={{ color: "var(--primary)", fontSize: 13 }}>
+                      R$ {item.amount.toFixed(2).replace(".", ",")}
+                    </strong>
+                    {item.amount > 0 && (
+                      <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                        Líq: R$ {(item.amount * (1 - GATEWAY_FEE_RATE)).toFixed(2).replace(".", ",")} (-0,99%)
+                      </div>
+                    )}
+                  </div>
                 </div>
                 {item.phone && (
                   <div className="spread">
@@ -666,10 +699,12 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
 function MetricCard({
   label,
   value,
+  subvalue,
   highlight,
 }: {
   label: string;
   value: string | number;
+  subvalue?: string;
   highlight?: "success" | "warning" | "danger" | "primary";
 }) {
   const colorMap = {
@@ -683,6 +718,9 @@ function MetricCard({
     <div className="card" style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 4 }}>
       <span className="muted" style={{ fontSize: 12 }}>{label}</span>
       <strong style={{ fontSize: 20, color: highlight ? colorMap[highlight] : "inherit" }}>{value}</strong>
+      {subvalue && (
+        <span className="muted" style={{ fontSize: 11, marginTop: 2 }}>{subvalue}</span>
+      )}
     </div>
   );
 }

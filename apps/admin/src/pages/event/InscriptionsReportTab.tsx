@@ -396,20 +396,29 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
 
       {/* Cards de Métricas */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12 }}>
-        <MetricCard label="Total de Inscritos" value={totalCount} />
+        <MetricCard label="Total de Inscritos" value={totalCount} onClick={() => setStatusFilter("ALL")} />
         <MetricCard
           label="Pagamentos Confirmados"
           value={confirmedCount}
           subvalue={`${pixConfirmedCount} Pix • ${cardConfirmedCount} Cartão${manualConfirmedCount > 0 ? ` • ${manualConfirmedCount} Manual` : ""}`}
           highlight="success"
+          onClick={() => setStatusFilter("CONFIRMED")}
         />
         <MetricCard
           label="Aguardando Pagamento"
           value={pendingCount}
           subvalue={`${pixPendingCount} Pix${cardPendingCount > 0 ? ` • ${cardPendingCount} Cartão` : ""}${duplicatePendingCount > 0 ? ` • ${duplicatePendingCount} duplicados` : ""}`}
           highlight="warning"
+          onClick={() => setStatusFilter("PENDING")}
         />
-        <MetricCard label="Inscrições Canceladas" value={cancelledCount} highlight="danger" />
+        <MetricCard
+          label="Inscrições Duplicadas"
+          value={duplicatePendingCount}
+          subvalue="Já confirmados no evento"
+          highlight="warning"
+          onClick={() => setStatusFilter("DUPLICATES")}
+        />
+        <MetricCard label="Inscrições Canceladas" value={cancelledCount} highlight="danger" onClick={() => setStatusFilter("CANCELLED")} />
         <MetricCard
           label="Receita Confirmada (Bruta)"
           value={`R$ ${confirmedRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
@@ -453,14 +462,9 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
           <FilterButton
             active={statusFilter === "DUPLICATES"}
             onClick={() => setStatusFilter("DUPLICATES")}
-            style={
-              statusFilter === "DUPLICATES"
-                ? { background: "#eab308", color: "#000", borderColor: "#ca8a04", fontWeight: 700 }
-                : { color: "#d97706", borderColor: "rgba(217, 119, 6, 0.4)", background: "rgba(217, 119, 6, 0.08)", fontWeight: 600 }
-            }
-            title="Filtrar inscrições pendentes de participantes que já realizaram pagamento e estão confirmados"
+            title="Inscrições pendentes de participantes que já estão confirmados no evento"
           >
-            ⚠️ Duplicados ({duplicatePendingCount})
+            Duplicados ({duplicatePendingCount})
           </FilterButton>
           <FilterButton active={statusFilter === "CANCELLED"} onClick={() => setStatusFilter("CANCELLED")}>
             Cancelados ({cancelledCount})
@@ -1050,11 +1054,13 @@ function MetricCard({
   value,
   subvalue,
   highlight,
+  onClick,
 }: {
   label: string;
   value: string | number;
   subvalue?: string;
   highlight?: "success" | "warning" | "danger" | "primary";
+  onClick?: () => void;
 }) {
   const colorMap = {
     success: "var(--success, #16a34a)",
@@ -1064,7 +1070,19 @@ function MetricCard({
   };
 
   return (
-    <div className="card" style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 4 }}>
+    <div
+      className="card"
+      onClick={onClick}
+      style={{
+        padding: "14px 18px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 4,
+        cursor: onClick ? "pointer" : "default",
+        userSelect: onClick ? "none" : "auto",
+      }}
+      title={onClick ? `Filtrar por ${label}` : undefined}
+    >
       <span className="muted" style={{ fontSize: 12 }}>{label}</span>
       <strong style={{ fontSize: 20, color: highlight ? colorMap[highlight] : "inherit" }}>{value}</strong>
       {subvalue && (

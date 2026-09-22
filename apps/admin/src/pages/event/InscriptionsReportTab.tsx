@@ -19,7 +19,7 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"ALL" | "CONFIRMED" | "PENDING" | "CANCELLED">("ALL");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "CONFIRMED" | "PENDING" | "DUPLICATES" | "CANCELLED">("ALL");
   const [methodFilter, setMethodFilter] = useState<"ALL" | "PIX" | "CARD">("ALL");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<api.InscriptionReportItem | null>(null);
@@ -99,9 +99,41 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
     }
   }
 
+  // Mapeamento de pessoas confirmadas para detecção de duplicados
+  const confirmedDocMap = new Map<string, api.InscriptionReportItem>();
+  const confirmedEmailMap = new Map<string, api.InscriptionReportItem>();
+
+  for (const ins of inscriptions) {
+    if (ins.status === "CONFIRMED") {
+      const cleanDoc = (ins.document || "").replace(/\D/g, "");
+      if (cleanDoc) confirmedDocMap.set(cleanDoc, ins);
+      const cleanEmail = (ins.email || "").trim().toLowerCase();
+      if (cleanEmail) confirmedEmailMap.set(cleanEmail, ins);
+    }
+  }
+
+  function getConfirmedDuplicate(item: api.InscriptionReportItem): api.InscriptionReportItem | null {
+    if (item.status !== "PENDING") return null;
+    const cleanDoc = (item.document || "").replace(/\D/g, "");
+    if (cleanDoc && confirmedDocMap.has(cleanDoc)) return confirmedDocMap.get(cleanDoc)!;
+    const cleanEmail = (item.email || "").trim().toLowerCase();
+    if (cleanEmail && confirmedEmailMap.has(cleanEmail)) return confirmedEmailMap.get(cleanEmail)!;
+    return null;
+  }
+
+  function isDuplicatePending(item: api.InscriptionReportItem): boolean {
+    return getConfirmedDuplicate(item) !== null;
+  }
+
+  const duplicatePendingCount = inscriptions.filter(isDuplicatePending).length;
+
   // Filtros
   const filtered = inscriptions.filter((item) => {
-    if (statusFilter !== "ALL" && item.status !== statusFilter) return false;
+    if (statusFilter === "DUPLICATES") {
+      if (!isDuplicatePending(item)) return false;
+    } else if (statusFilter !== "ALL" && item.status !== statusFilter) {
+      return false;
+    }
     if (methodFilter !== "ALL" && item.paymentMethod !== methodFilter) return false;
     if (!search.trim()) return true;
 
@@ -176,7 +208,7 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
         `"- R$ ${fee.toFixed(2).replace(".", ",")}"`,
         `"R$ ${net.toFixed(2).replace(".", ",")}"`,
         `"${meio}"`,
-        `"${i.status === "CONFIRMED" ? "Confirmado (Pago)" : i.status === "CANCELLED" ? "Cancelado" : "Aguardando Pagamento"}"`,
+        `"${i.status === "CONFIRMED" ? "Confirmado (Pago)" : i.status === "CANCELLED" ? "Cancelado" : isDuplicatePending(i) ? "Aguardando Pagamento (Duplicado - Já Confirmado)" : "Aguardando Pagamento"}"`,
         `"${new Date(i.createdAt).toLocaleString("pt-BR")}"`,
       ];
     });
@@ -257,7 +289,9 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
           ? `Pago (${metodoStr})`
           : item.status === "CANCELLED"
             ? "Cancelado"
-            : `Pendente (${metodoStr})`;
+            : isDuplicatePending(item)
+              ? `Pendente (Duplicado)`
+              : `Pendente (${metodoStr})`;
       doc.text(statusLabel, cols[6] + 2, y + 4);
 
       y += 6;
@@ -372,7 +406,7 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
         <MetricCard
           label="Aguardando Pagamento"
           value={pendingCount}
-          subvalue={`${pixPendingCount} Pix${cardPendingCount > 0 ? ` • ${cardPendingCount} Cartão` : ""}`}
+          subvalue={`${pixPendingCount} Pix${cardPendingCount > 0 ? ` • ${cardPendingCount} Cartão` : ""}${duplicatePendingCount > 0 ? ` • ${duplicatePendingCount} duplicados` : ""}`}
           highlight="warning"
         />
         <MetricCard label="Inscrições Canceladas" value={cancelledCount} highlight="danger" />
@@ -416,6 +450,18 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
           <FilterButton active={statusFilter === "PENDING"} onClick={() => setStatusFilter("PENDING")}>
             Pendentes ({pendingCount})
           </FilterButton>
+          <FilterButton
+            active={statusFilter === "DUPLICATES"}
+            onClick={() => setStatusFilter("DUPLICATES")}
+            style={
+              statusFilter === "DUPLICATES"
+                ? { background: "#eab308", color: "#000", borderColor: "#ca8a04", fontWeight: 700 }
+                : { color: "#d97706", borderColor: "rgba(217, 119, 6, 0.4)", background: "rgba(217, 119, 6, 0.08)", fontWeight: 600 }
+            }
+            title="Filtrar inscrições pendentes de participantes que já realizaram pagamento e estão confirmados"
+          >
+            ⚠️ Duplicados ({duplicatePendingCount})
+          </FilterButton>
           <FilterButton active={statusFilter === "CANCELLED"} onClick={() => setStatusFilter("CANCELLED")}>
             Cancelados ({cancelledCount})
           </FilterButton>
@@ -455,6 +501,79 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
         </div>
       </div>
 
+      {/* Banner Informativo de Inscrições Duplicadas */}
+      {statusFilter === "PENDING" && duplicatePendingCount > 0 && (
+        <div
+          style={{
+            background: "rgba(234, 179, 8, 0.08)",
+            border: "1px solid rgba(234, 179, 8, 0.3)",
+            borderRadius: 8,
+            padding: "10px 14px",
+            fontSize: 13,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#b45309" }}>
+            <span style={{ fontSize: 16 }}>⚠️</span>
+            <span>
+              Existem <strong>{duplicatePendingCount}</strong> inscrições pendentes de participantes que <strong>já estão confirmados</strong> no evento.
+            </span>
+          </div>
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => setStatusFilter("DUPLICATES")}
+            style={{
+              padding: "5px 10px",
+              fontSize: 12,
+              background: "#eab308",
+              color: "#000",
+              fontWeight: 700,
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            Ver Apenas Duplicados ({duplicatePendingCount})
+          </button>
+        </div>
+      )}
+
+      {statusFilter === "DUPLICATES" && (
+        <div
+          style={{
+            background: "rgba(234, 179, 8, 0.12)",
+            border: "1px solid rgba(234, 179, 8, 0.4)",
+            borderRadius: 8,
+            padding: "10px 14px",
+            fontSize: 13,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#b45309" }}>
+            <span style={{ fontSize: 16 }}>⚠️</span>
+            <span>
+              Filtrando <strong>{filtered.length}</strong> inscrições pendentes de participantes que <strong>já possuem inscrição confirmada</strong> no evento.
+            </span>
+          </div>
+          <button
+            type="button"
+            className="btn btn-sm btn-secondary"
+            onClick={() => setStatusFilter("PENDING")}
+            style={{ padding: "5px 10px", fontSize: 12 }}
+          >
+            Voltar para Todos os Pendentes ({pendingCount})
+          </button>
+        </div>
+      )}
+
       {/* Listagem de Inscritos */}
       {loading ? (
         <p className="muted">Carregando inscritos...</p>
@@ -479,7 +598,32 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
               {filtered.map((item) => (
                 <tr key={item.id}>
                   <td>
-                    <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text)" }}>{item.name}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <span style={{ fontWeight: 600, fontSize: 14, color: "var(--text)" }}>{item.name}</span>
+                      {isDuplicatePending(item) && (
+                        <span
+                          className="badge"
+                          style={{
+                            background: "rgba(234, 179, 8, 0.15)",
+                            color: "#b45309",
+                            borderColor: "rgba(234, 179, 8, 0.4)",
+                            fontSize: 10,
+                            fontWeight: 700,
+                            letterSpacing: 0.3,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                          title={
+                            getConfirmedDuplicate(item)
+                              ? `Este participante já está CONFIRMADO no lote "${getConfirmedDuplicate(item)?.category}" (#${getConfirmedDuplicate(item)?.id.substring(0, 8).toUpperCase()})`
+                              : "Este participante já possui uma inscrição confirmada/paga no evento"
+                          }
+                        >
+                          ⚠️ Duplicado (Já Confirmado)
+                        </span>
+                      )}
+                    </div>
                     <div
                       style={{
                         fontSize: 12,
@@ -519,6 +663,22 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
                         <span className="badge badge-danger">Cancelado</span>
                       ) : (
                         <span className="badge badge-warning">Pendente</span>
+                      )}
+
+                      {isDuplicatePending(item) && (
+                        <span
+                          className="badge"
+                          style={{
+                            background: "rgba(234, 179, 8, 0.12)",
+                            color: "#b45309",
+                            borderColor: "rgba(234, 179, 8, 0.35)",
+                            fontSize: 10,
+                            fontWeight: 700,
+                          }}
+                          title={`Já pago no lote ${getConfirmedDuplicate(item)?.category ?? "evento"}`}
+                        >
+                          Já Pago ({getConfirmedDuplicate(item)?.category ? truncate(getConfirmedDuplicate(item)!.category, 14) : "Confirmado"})
+                        </span>
                       )}
 
                       {item.paymentMethod === "PIX" && (
@@ -647,7 +807,28 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
             >
               <div className="spread" style={{ alignItems: "flex-start", gap: 8 }}>
                 <div>
-                  <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "var(--text)" }}>{item.name}</h4>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "var(--text)" }}>{item.name}</h4>
+                    {isDuplicatePending(item) && (
+                      <span
+                        className="badge"
+                        style={{
+                          background: "rgba(234, 179, 8, 0.15)",
+                          color: "#b45309",
+                          borderColor: "rgba(234, 179, 8, 0.4)",
+                          fontSize: 10,
+                          fontWeight: 700,
+                        }}
+                        title={
+                          getConfirmedDuplicate(item)
+                            ? `Já confirmado no lote ${getConfirmedDuplicate(item)?.category}`
+                            : "Participante já possui inscrição confirmada"
+                        }
+                      >
+                        ⚠️ Duplicado
+                      </span>
+                    )}
+                  </div>
                   <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{item.email}</div>
                 </div>
                 <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
@@ -690,6 +871,28 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
                   )}
                 </div>
               </div>
+
+              {isDuplicatePending(item) && (
+                <div
+                  style={{
+                    background: "rgba(234, 179, 8, 0.1)",
+                    border: "1px solid rgba(234, 179, 8, 0.35)",
+                    borderRadius: 6,
+                    padding: "8px 10px",
+                    fontSize: 12,
+                    color: "#b45309",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
+                  <span>⚠️</span>
+                  <span>
+                    <strong>Inscrição Duplicada:</strong> participante já possui inscrição confirmada no evento
+                    {getConfirmedDuplicate(item) ? ` (${getConfirmedDuplicate(item)?.category})` : ""}.
+                  </span>
+                </div>
+              )}
 
               <div
                 style={{
@@ -871,12 +1074,25 @@ function MetricCard({
   );
 }
 
-function FilterButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function FilterButton({
+  active,
+  onClick,
+  children,
+  style,
+  title,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  style?: React.CSSProperties;
+  title?: string;
+}) {
   return (
     <button
       className={`btn btn-sm ${active ? "" : "btn-secondary"}`}
       onClick={onClick}
-      style={{ fontSize: 12 }}
+      title={title}
+      style={{ fontSize: 12, ...style }}
     >
       {children}
     </button>

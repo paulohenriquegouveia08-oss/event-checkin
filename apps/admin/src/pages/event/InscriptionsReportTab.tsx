@@ -439,69 +439,130 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
         />
       </div>
 
-      {/* Barra de Filtros e Busca */}
-      <div className="spread" style={{ gap: 12, flexWrap: "wrap" }}>
-        <input
-          type="text"
-          placeholder="Buscar por nome, e-mail ou CPF..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ maxWidth: 360, flex: 1 }}
-        />
+      {/* Barra de Filtros e Busca Organizada */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 4 }}>
+        {/* Linha 1: Abas Principais de Status + Alternador de Visualização */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 10,
+            borderBottom: "1px solid var(--border)",
+            paddingBottom: 10,
+          }}
+        >
+          {/* Abas de Status */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            <FilterButton active={statusFilter === "ALL"} onClick={() => setStatusFilter("ALL")}>
+              Todos ({totalCount})
+            </FilterButton>
+            <FilterButton active={statusFilter === "CONFIRMED"} onClick={() => setStatusFilter("CONFIRMED")}>
+              Confirmados ({confirmedCount})
+            </FilterButton>
+            <FilterButton active={statusFilter === "PENDING"} onClick={() => setStatusFilter("PENDING")}>
+              Pendentes ({pendingCount})
+            </FilterButton>
+            <FilterButton
+              active={statusFilter === "DUPLICATES"}
+              onClick={() => setStatusFilter("DUPLICATES")}
+              title="Inscrições pendentes de participantes que já estão confirmados no evento"
+            >
+              Duplicados ({duplicatePendingCount})
+            </FilterButton>
+            <FilterButton active={statusFilter === "CANCELLED"} onClick={() => setStatusFilter("CANCELLED")}>
+              Cancelados ({cancelledCount})
+            </FilterButton>
+          </div>
 
-        <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
-          <FilterButton active={statusFilter === "ALL"} onClick={() => setStatusFilter("ALL")}>
-            Todos ({totalCount})
-          </FilterButton>
-          <FilterButton active={statusFilter === "CONFIRMED"} onClick={() => setStatusFilter("CONFIRMED")}>
-            Confirmados ({confirmedCount})
-          </FilterButton>
-          <FilterButton active={statusFilter === "PENDING"} onClick={() => setStatusFilter("PENDING")}>
-            Pendentes ({pendingCount})
-          </FilterButton>
-          <FilterButton
-            active={statusFilter === "DUPLICATES"}
-            onClick={() => setStatusFilter("DUPLICATES")}
-            title="Inscrições pendentes de participantes que já estão confirmados no evento"
-          >
-            Duplicados ({duplicatePendingCount})
-          </FilterButton>
-          <FilterButton active={statusFilter === "CANCELLED"} onClick={() => setStatusFilter("CANCELLED")}>
-            Cancelados ({cancelledCount})
-          </FilterButton>
+          {/* Alternador de Visualização (Tabela / Fichas) */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span className="muted" style={{ fontSize: 12 }}>Exibição:</span>
+            <div style={{ display: "inline-flex", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 6, padding: 2 }}>
+              <button
+                type="button"
+                className={`btn btn-sm ${viewMode === "table" ? "" : "btn-secondary"}`}
+                onClick={() => setViewMode("table")}
+                style={{ padding: "4px 10px", fontSize: 12, border: "none", borderRadius: 4 }}
+                title="Visualizar em Tabela Compacta sem rolagem lateral"
+              >
+                Tabela
+              </button>
+              <button
+                type="button"
+                className={`btn btn-sm ${viewMode === "cards" ? "" : "btn-secondary"}`}
+                onClick={() => setViewMode("cards")}
+                style={{ padding: "4px 10px", fontSize: 12, border: "none", borderRadius: 4 }}
+                title="Visualizar em Fichas / Cards"
+              >
+                Fichas
+              </button>
+            </div>
+          </div>
+        </div>
 
-          <div style={{ width: 1, height: 20, background: "var(--border)", margin: "0 4px" }} />
+        {/* Linha 2: Campo de Pesquisa Espaçoso + Filtro de Meios de Pagamento */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 12,
+          }}
+        >
+          {/* Campo de Pesquisa com largura confortável e botão de limpar */}
+          <div style={{ position: "relative", flex: "1 1 340px", maxWidth: 500 }}>
+            <input
+              type="text"
+              placeholder="🔍 Buscar por nome, e-mail ou CPF..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "8px 34px 8px 12px",
+                fontSize: 13,
+                boxSizing: "border-box",
+              }}
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                style={{
+                  position: "absolute",
+                  right: 8,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "transparent",
+                  border: "none",
+                  color: "var(--text-muted)",
+                  cursor: "pointer",
+                  fontSize: 14,
+                  padding: "4px 6px",
+                  lineHeight: 1,
+                }}
+                title="Limpar pesquisa"
+              >
+                ✕
+              </button>
+            )}
+          </div>
 
-          <FilterButton active={methodFilter === "ALL"} onClick={() => setMethodFilter("ALL")}>
-            Todos Meios
-          </FilterButton>
-          <FilterButton active={methodFilter === "PIX"} onClick={() => setMethodFilter("PIX")}>
-            Pix ({inscriptions.filter((i) => i.paymentMethod === "PIX").length})
-          </FilterButton>
-          <FilterButton active={methodFilter === "CARD"} onClick={() => setMethodFilter("CARD")}>
-            Cartão ({inscriptions.filter((i) => i.paymentMethod === "CARD").length})
-          </FilterButton>
-
-          <div style={{ width: 1, height: 20, background: "var(--border)", margin: "0 4px" }} />
-
-          <button
-            type="button"
-            className={`btn btn-sm ${viewMode === "table" ? "" : "btn-secondary"}`}
-            onClick={() => setViewMode("table")}
-            style={{ padding: "5px 10px", fontSize: 12, fontWeight: 600 }}
-            title="Visualizar em Tabela Compacta sem rolagem lateral"
-          >
-            Tabela
-          </button>
-          <button
-            type="button"
-            className={`btn btn-sm ${viewMode === "cards" ? "" : "btn-secondary"}`}
-            onClick={() => setViewMode("cards")}
-            style={{ padding: "5px 10px", fontSize: 12, fontWeight: 600 }}
-            title="Visualizar em Fichas / Cards"
-          >
-            Fichas
-          </button>
+          {/* Filtros por Meio de Pagamento */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            <span className="muted" style={{ fontSize: 12, marginRight: 2 }}>Pagamento:</span>
+            <FilterButton active={methodFilter === "ALL"} onClick={() => setMethodFilter("ALL")}>
+              Todos Meios
+            </FilterButton>
+            <FilterButton active={methodFilter === "PIX"} onClick={() => setMethodFilter("PIX")}>
+              📱 Pix ({inscriptions.filter((i) => i.paymentMethod === "PIX").length})
+            </FilterButton>
+            <FilterButton active={methodFilter === "CARD"} onClick={() => setMethodFilter("CARD")}>
+              💳 Cartão ({inscriptions.filter((i) => i.paymentMethod === "CARD").length})
+            </FilterButton>
+          </div>
         </div>
       </div>
 

@@ -198,6 +198,20 @@ const FALLBACK_EVENT: EventData = {
       return;
     }
 
+    const emailTrimmed = form.email.trim().toLowerCase();
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(emailTrimmed)) {
+      setError("E-mail inválido. Por favor, verifique se digitou seu e-mail corretamente (exemplo: usuario@email.com).");
+      return;
+    }
+
+    // Proteção contra erros de digitação comuns que o gateway bancário rejeita
+    const typoTldRegex = /\.(ckm|con|cpm|cmo|gmai\.com|hotmai\.com|outloo\.com)$/i;
+    if (typoTldRegex.test(emailTrimmed)) {
+      setError("O final do seu e-mail parece conter um erro de digitação (ex: .com). Por favor, revise antes de continuar.");
+      return;
+    }
+
     if (!isValidCPF(form.document)) {
       setError("CPF inválido. Por favor, informe um CPF verdadeiro com os 11 dígitos corretos.");
       return;
@@ -219,7 +233,10 @@ const FALLBACK_EVENT: EventData = {
         setSubmitting(false);
         return;
       }
-      const result = await createInscription(targetId, form);
+      const result = await createInscription(targetId, {
+        ...form,
+        email: emailTrimmed,
+      });
       router.push(`/confirmacao?id=${result.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao criar inscrição.");

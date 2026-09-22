@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildApp } from "../src/app.js";
 import { prisma } from "../src/database/prisma.js";
-import { createTestEvent, resetDatabase } from "./helpers.js";
+import { createTestAdmin, createTestEvent, resetDatabase } from "./helpers.js";
 import { mercadoPagoClient } from "../src/lib/mercadopago/mercadopago.client.js";
 import { ocupaVagaWhere } from "../src/modules/batches/batches.service.js";
 
@@ -74,6 +74,17 @@ function ligarMercadoPago() {
     paymentUrl: "https://www.mercadopago.com.br/pix/mp-pagamento-1",
     expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
   });
+}
+
+async function loginAsAdmin(): Promise<string> {
+  const email = `admin_${Date.now()}_${Math.random().toString(36).slice(2, 8)}@teste.com`;
+  const { user, password } = await createTestAdmin(email);
+  const response = await app.inject({
+    method: "POST",
+    url: "/auth/login",
+    payload: { email: user.email, password },
+  });
+  return response.json().data.token as string;
 }
 
 describe.sequential("Cobrança da inscrição", () => {
@@ -188,5 +199,44 @@ describe.sequential("Cobrança da inscrição", () => {
 
     const registro = await prisma.inscription.findUnique({ where: { id: dados.id } });
     expect(registro?.participantId).not.toBeNull();
+  });
+
+  it("falha na emissão do Pix pelo gateway desfaz a inscrição pendente e devolve erro amigável ao usuário", async () => {
+    vi.spyOn(mercadoPagoClient, "configurado", "get").mockReturnValue(true);
+    vi.spyOn(mercadoPagoClient, "createPixPayment").mockRejectedValue(
+      new Error("payer.email must be a valid email")
+    );
+    const evento = await eventoComLote({ preco: 100 });
+
+    const resposta = await inscrever(evento.id);
+    expect(resposta.statusCode).toBe(400);
+
+    const corpo = resposta.json();
+    expect(corpo.error.message).toContain("e-mail");
+
+    const totalInscricoes = await prisma.inscription.count({ where: { eventId: evento.id } });
+    expect(totalInscricoes).toBe(0);
+  });
+
+  it("bloqueia confirmação manual de inscrição paga quando o Mercado Pago está ativo", async () => {
+    ligarMercadoPago();
+    const evento = await eventoComLote({ preco: 150 });
+    const criada = await inscrever(evento.id);
+    expect(criada.statusCode).toBe(201);
+    const id = criada.json().data.id as string;
+
+    const token = await loginAsAdmin();
+    const confirmRes = await app.inject({
+      method: "POST",
+      url: `/events/${evento.id}/inscriptions/${id}/confirm`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+
+    expect(confirmRes.statusCode).toBe(400);
+    const corpo = confirmRes.json();
+    expect(corpo.error.message).toContain("Mercado Pago");
+
+    const registro = await prisma.inscription.findUnique({ where: { id } });
+    expect(registro?.status).toBe("PENDING");
   });
 });

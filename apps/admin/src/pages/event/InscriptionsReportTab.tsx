@@ -573,11 +573,11 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
                   </td>
                   <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
                     <div className="row" style={{ gap: 6, justifyContent: "flex-end", flexWrap: "nowrap" }}>
-                      {(item.status === "PENDING" || item.status === "CANCELLED") && (
+                      {item.amount === 0 && (item.status === "PENDING" || item.status === "CANCELLED") && (
                         <button
                           type="button"
                           className="btn btn-sm"
-                          title="Confirmar Inscrição"
+                          title="Confirmar Inscrição Gratuita"
                           disabled={actionLoading === item.id}
                           onClick={() => handleConfirm(item)}
                           style={{
@@ -759,7 +759,7 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
                   justifyContent: "flex-end",
                 }}
               >
-                {(item.status === "PENDING" || item.status === "CANCELLED") && (
+                {item.amount === 0 && (item.status === "PENDING" || item.status === "CANCELLED") && (
                   <button
                     type="button"
                     className="btn btn-sm"

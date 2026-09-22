@@ -13,7 +13,6 @@ import { SiteFooter } from "@/components/SiteFooter";
 import {
   CheckIcon,
   CopyIcon,
-  MailIcon,
   AlertTriangleIcon,
   XCircleIcon,
 } from "@/components/Icons";
@@ -98,13 +97,9 @@ function ConfirmationContent() {
     return () => clearInterval(relogio);
   }, []);
 
-  const pixKey = statusData?.pixKey || "terceirocopol@gmail.com";
-  const pixKeyType = statusData?.pixKeyType || "E-mail";
-  const pixReceiverName =
-    statusData?.pixReceiverName || "Ana Laura de Matos Xavier";
+  const pixReceiverName = statusData?.pixReceiverName || "Ana Laura de Matos Xavier";
 
-  // Sem copia-e-cola, o evento ainda esta no PIX manual (chave + comprovante
-  // por e-mail). A tela serve os dois casos.
+  // Pagamento oficial e automático via Mercado Pago
   const codigoPix = statusData?.qrCodeContent ?? null;
   const temPixAutomatico = Boolean(codigoPix);
 
@@ -121,10 +116,9 @@ function ConfirmationContent() {
   const temCobrancaAutomatica = Boolean(codigoPix) || Boolean(linkCartao);
 
   function handleCopyPix() {
-    const valor = codigoPix ?? pixKey;
-    if (!valor) return;
+    if (!codigoPix) return;
 
-    navigator.clipboard.writeText(valor).then(() => {
+    navigator.clipboard.writeText(codigoPix).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 3000);
     });
@@ -170,13 +164,6 @@ function ConfirmationContent() {
 
   const effectiveName = statusData.name || participantName || "";
   const effectiveDoc = participantDocument ? ` - CPF ${participantDocument}` : "";
-  const codeSnippet = (statusData.id || "").substring(0, 8).toUpperCase();
-
-  const emailSubject = `Comprovante de Pagamento - Inscrição #${codeSnippet} - ${effectiveName}${effectiveDoc}`;
-  const emailBody = `Olá Organização do 3º COPOL,\n\nSegue em anexo o comprovante de pagamento via PIX para confirmação da minha inscrição:\n\n• Nome Completo do Participante: ${effectiveName}\n• CPF do Participante: ${participantDocument || "(informar seu CPF aqui)"}\n• Código da Inscrição: ${statusData.id}\n• Categoria / Lote: ${statusData.category}\n• Valor da Inscrição: ${formattedAmount}\n• Conta utilizada no pagamento: ( ) Própria conta  ( ) Conta de terceiro (Nome do titular: ________________)\n\nO comprovante bancário está em anexo neste e-mail. Aguardo a confirmação da minha vaga!\n\nAtenciosamente,\n${effectiveName}`;
-  const mailtoHref = `mailto:terceirocopol@gmail.com?subject=${encodeURIComponent(
-    emailSubject
-  )}&body=${encodeURIComponent(emailBody)}`;
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
@@ -806,194 +793,48 @@ function ConfirmationContent() {
                     </p>
                   </div>
                 ) : (
-                  /* Dados da Conta / Chave PIX */
-                  <div style={{ display: "flex", flexDirection: "column", gap: 12, textAlign: "left" }}>
-                    <div
-                      style={{
-                        background: "var(--background)",
-                        padding: "14px 16px",
-                        borderRadius: 10,
-                        border: "1px solid var(--border)",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 10,
-                      }}
-                    >
-                      <div>
-                        <span
-                          style={{
-                            fontSize: 11,
-                            color: "var(--muted-foreground)",
-                            textTransform: "uppercase",
-                            letterSpacing: 0.5,
-                            display: "block",
-                          }}
-                        >
-                          Beneficiário / Titular
-                        </span>
-                        <strong style={{ fontSize: 14, color: "var(--foreground)" }}>
-                          {pixReceiverName}
-                        </strong>
-                      </div>
-
-                      <div style={{ borderTop: "1px solid var(--border)", paddingTop: 10 }}>
-                        <span
-                          style={{
-                            fontSize: 11,
-                            color: "var(--muted-foreground)",
-                            textTransform: "uppercase",
-                            letterSpacing: 0.5,
-                            display: "block",
-                          }}
-                        >
-                          Chave PIX ({pixKeyType})
-                        </span>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            gap: 8,
-                            marginTop: 4,
-                          }}
-                        >
-                          <span
-                            style={{
-                              fontSize: 16,
-                              fontWeight: 700,
-                              fontFamily: "monospace",
-                              color: "var(--gold)",
-                              wordBreak: "break-all",
-                            }}
-                          >
-                            {pixKey}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Botão Copiar Chave Pix */}
-                    <button
-                      type="button"
-                      onClick={handleCopyPix}
-                      className="btn-primary"
-                      style={{
-                        width: "100%",
-                        padding: 14,
-                        fontSize: 15,
-                        background: copied ? "var(--success)" : "var(--primary)",
-                        transition: "all 0.2s ease",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 8,
-                        cursor: "pointer",
-                      }}
-                    >
-                      {copied ? (
-                        <>
-                          <CheckIcon size={18} /> Chave PIX Copiada!
-                        </>
-                      ) : (
-                        <>
-                          <CopyIcon size={18} /> Copiar Chave Pix
-                        </>
-                      )}
-                    </button>
-                  </div>
-                )}
-
-                {temCobrancaAutomatica ? null : (
-                  /* Seção de Envio de Comprovante */
+                  /* Fallback de Segurança se a cobrança automática não carregou */
                   <div
                     style={{
-                      borderTop: "1px solid var(--border)",
-                      paddingTop: 18,
-                      textAlign: "left",
+                      background: "rgba(239, 68, 68, 0.08)",
+                      border: "1px solid rgba(239, 68, 68, 0.3)",
+                      borderRadius: 12,
+                      padding: "24px 20px",
+                      textAlign: "center",
                       display: "flex",
                       flexDirection: "column",
+                      alignItems: "center",
                       gap: 14,
-                      width: "100%",
                     }}
                   >
+                    <AlertTriangleIcon size={36} color="#ef4444" />
                     <div>
-                      <h4 style={{ margin: "0 0 6px", fontSize: 16, color: "var(--foreground)", fontWeight: 700 }}>
-                        Instruções para Envio do Comprovante
-                      </h4>
-                      <p style={{ margin: 0, fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.6 }}>
-                        Após realizar a transferência via PIX no seu banco, envie o comprovante para{" "}
-                        <strong style={{ color: "var(--foreground)" }}>terceirocopol@gmail.com</strong> para darmos baixa e confirmarmos sua vaga.
+                      <strong style={{ color: "#f87171", fontSize: 16, display: "block", marginBottom: 6 }}>
+                        Cobrança Automática Indisponível
+                      </strong>
+                      <p style={{ margin: 0, fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.5 }}>
+                        Não identificamos o QR Code oficial do Pix para esta inscrição.
+                        Para garantir sua vaga com segurança e baixa automática instantânea,
+                        por favor realize uma nova inscrição informando seus dados corretamente.
                       </p>
                     </div>
-
-                    {/* Card de Orientação Importante / Facilitação da Confirmação */}
-                    <div
-                      style={{
-                        background: "rgba(45, 212, 191, 0.08)",
-                        border: "1px solid rgba(45, 212, 191, 0.25)",
-                        borderRadius: 10,
-                        padding: "14px 16px",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 8,
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontSize: 16 }}>💡</span>
-                        <strong style={{ fontSize: 13, color: "var(--primary)", textTransform: "uppercase", letterSpacing: 0.5 }}>
-                          Para facilitar a confirmação do seu pagamento:
-                        </strong>
-                      </div>
-                      <p style={{ margin: 0, fontSize: 13, color: "var(--foreground)", lineHeight: 1.5 }}>
-                        No e-mail do comprovante, informe sempre o seu <strong>Nome Completo</strong> e <strong>CPF</strong> cadastrados na inscrição.
-                      </p>
-                      <div
-                        style={{
-                          fontSize: 12,
-                          color: "var(--muted-foreground)",
-                          background: "rgba(0, 0, 0, 0.25)",
-                          padding: "8px 12px",
-                          borderRadius: 6,
-                          lineHeight: 1.5,
-                          borderLeft: "3px solid var(--gold)",
-                        }}
-                      >
-                        <strong style={{ color: "var(--gold)" }}>⚠️ Pagou usando a conta de outra pessoa (mãe, pai ou terceiro)?</strong>
-                        <br />
-                        Como o comprovante sairá com o nome do titular da conta bancária, informar o <strong>seu Nome e CPF</strong> no e-mail é fundamental para que nossa equipe localize seu cadastro rapidamente e aprove sua inscrição sem atrasos!
-                      </div>
-                    </div>
-
-                    {/* Botão Enviar Comprovante por E-mail */}
-                    <a
-                      href={mailtoHref}
+                    <Link
+                      href="/inscricao"
                       className="btn-primary"
                       style={{
-                        width: "100%",
-                        padding: 14,
-                        fontSize: 15,
-                        fontWeight: 600,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 8,
+                        padding: "12px 24px",
+                        fontSize: 14,
+                        fontWeight: 700,
                         textDecoration: "none",
-                        background: "var(--primary)",
-                        color: "#000",
-                        borderRadius: 8,
-                        transition: "all 0.2s ease",
+                        marginTop: 4,
                       }}
                     >
-                      <MailIcon size={18} color="#000" />
-                      <span>Abrir E-mail Pré-Preenchido com Meus Dados</span>
-                    </a>
-                    <p style={{ margin: "-4px 0 0", fontSize: 12, color: "var(--muted-foreground)", textAlign: "center" }}>
-                      O botão acima abrirá seu e-mail com seu Nome, CPF e Código de Inscrição já preenchidos automaticamente.
-                    </p>
+                      Refazer Inscrição
+                    </Link>
                   </div>
                 )}
 
-                {/* Indicador de Polling em Tempo Real */}
+                {/* Indicador de Atualização em Tempo Real */}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 4 }}>
                   <span
                     style={{
@@ -1005,9 +846,7 @@ function ConfirmationContent() {
                     }}
                   />
                   <p style={{ margin: 0, fontSize: 12, color: "var(--muted-foreground)" }}>
-                    {temCobrancaAutomatica
-                      ? "Assim que o pagamento cair, esta tela confirma sua inscrição automaticamente."
-                      : "Assim que a organização confirmar seu pagamento, esta tela será atualizada automaticamente em tempo real."}
+                    Assim que o pagamento for confirmado pelo banco, esta tela atualiza automaticamente em tempo real.
                   </p>
                 </div>
               </div>

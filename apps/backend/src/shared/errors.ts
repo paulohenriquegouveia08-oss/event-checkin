@@ -44,3 +44,10 @@ export class ConflictError extends AppError {
     super(code, message, 409);
   }
 }
+
+export class BadRequestError extends AppError {
+  constructor(message = "Requisição inválida") {
+    super("BAD_REQUEST", message, 400);
+  }
+}
+

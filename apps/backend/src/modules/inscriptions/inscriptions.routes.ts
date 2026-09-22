@@ -2,7 +2,8 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { requirePermission } from "../../middleware/auth.js";
 import { ok } from "../../shared/response.js";
-import { NotFoundError } from "../../shared/errors.js";
+import { BadRequestError, NotFoundError } from "../../shared/errors.js";
+import { mercadoPagoClient } from "../../lib/mercadopago/mercadopago.client.js";
 import { recordAudit } from "../audit/audit.service.js";
 import * as inscriptionsService from "./inscriptions.service.js";
 import {
@@ -97,6 +98,11 @@ export async function inscriptionsRoutes(app: FastifyInstance) {
       const current = await inscriptionsService.getInscription(id);
       if (current.eventId !== eventId) {
         throw new NotFoundError("Inscrição não encontrada");
+      }
+      if (Number(current.amount) > 0 && mercadoPagoClient.configurado) {
+        throw new BadRequestError(
+          "Inscrições pagas vinculadas ao Mercado Pago não podem ser liberadas manualmente pelo painel. A confirmação ocorre exclusivamente de forma automática após a liquidação do Pix ou Cartão."
+        );
       }
       const inscription = await inscriptionsService.confirmInscriptionPayment(id);
       await recordAudit(request, "inscription.confirm", "Inscription", id, { eventId });

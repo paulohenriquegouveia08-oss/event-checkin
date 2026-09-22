@@ -1,4 +1,4 @@
-import { ForbiddenError, NotFoundError, UnauthorizedError, ValidationError } from "../../shared/errors.js";
+import { BadRequestError, ForbiddenError, NotFoundError, UnauthorizedError, ValidationError } from "../../shared/errors.js";
 import { generateQrToken } from "../../shared/tokens.js";
 import { env } from "../../config/env.js";
 import { prisma } from "../../database/prisma.js";
@@ -271,8 +271,29 @@ export async function createInscription(
     }
   } catch (err) {
     console.error("[InscriptionsService] Falha ao gerar cobrança:", err);
-    // Falha do gateway não derruba a inscrição: ela fica PENDING e pode
-    // ser cobrada de novo ou confirmada à mão pelo painel.
+    // Inscrição paga jamais deve ser salva em PENDING sem cobrança válida.
+    // Isso evita inscrições fantasmas e liberações manuais indevidas. Rollback imediato:
+    if (amount > 0) {
+      await prisma.inscription.delete({ where: { id: inscription.id } }).catch(() => {});
+      const rawMsg = err instanceof Error ? err.message : String(err);
+      if (rawMsg.toLowerCase().includes("email") || rawMsg.toLowerCase().includes("payer.email")) {
+        throw new BadRequestError(
+          "O e-mail informado não é válido para a emissão do pagamento Pix. Por favor, confira a digitação do seu e-mail e tente novamente."
+        );
+      }
+      if (
+        rawMsg.toLowerCase().includes("document") ||
+        rawMsg.toLowerCase().includes("identification") ||
+        rawMsg.toLowerCase().includes("cpf")
+      ) {
+        throw new BadRequestError(
+          "O CPF informado não é válido para a emissão do Pix. Por favor, confira o documento e tente novamente."
+        );
+      }
+      throw new BadRequestError(
+        "Não foi possível gerar a cobrança oficial no Mercado Pago. Por favor, revise seus dados e tente novamente."
+      );
+    }
   }
 
   return {

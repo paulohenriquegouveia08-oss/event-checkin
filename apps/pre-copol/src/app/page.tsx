@@ -68,6 +68,15 @@ const DEFAULT_SECTIONS: SiteSectionConfig[] = [
   { id: "faq", type: "faq", title: "Dúvidas Frequentes", enabled: true, order: 6 },
 ];
 
+function formatBatchClosingDate(dateStr: string): string {
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  } catch {
+    return dateStr;
+  }
+}
+
 const DEFAULT_COPOL_BATCHES: BatchItem[] = [
   {
     id: "cc96d201-03a4-455c-bac2-070ffa0fee85",
@@ -75,32 +84,32 @@ const DEFAULT_COPOL_BATCHES: BatchItem[] = [
     name: "1º Lote — Promocional",
     price: 100,
     maxQuantity: 60,
-    confirmedCount: 0,
-    status: "ACTIVE",
-    isActive: true,
+    confirmedCount: 60,
+    status: "CLOSED",
+    isActive: false,
     endDate: null,
   },
   {
     id: "b87d7a32-ec44-44ef-95dd-47a9c1174b99",
     batchNumber: 2,
     name: "2º Lote",
-    price: null,
-    maxQuantity: 80,
-    confirmedCount: 0,
-    status: "UPCOMING",
-    isActive: false,
-    endDate: null,
+    price: 150,
+    maxQuantity: null,
+    confirmedCount: 41,
+    status: "ACTIVE",
+    isActive: true,
+    endDate: "2026-09-23T23:59:59.999Z",
   },
   {
     id: "f33476bf-cefa-4b6b-aa7f-7f13ba5d1c5b",
     batchNumber: 3,
     name: "3º Lote",
     price: null,
-    maxQuantity: 100,
+    maxQuantity: null,
     confirmedCount: 0,
     status: "UPCOMING",
     isActive: false,
-    endDate: null,
+    endDate: "2026-10-23T23:59:59.999Z",
   },
   {
     id: "4903225b-cb7c-476e-8706-634f0eff7307",
@@ -111,7 +120,7 @@ const DEFAULT_COPOL_BATCHES: BatchItem[] = [
     confirmedCount: 0,
     status: "UPCOMING",
     isActive: false,
-    endDate: null,
+    endDate: "2026-11-06T23:59:59.999Z",
   },
 ];
 
@@ -785,9 +794,6 @@ export default function HomePage() {
 
                           // 1. LOTE ATIVO DISPONÍVEL
                           if (isCurrentlyActive) {
-                            const maxQ = b.maxQuantity || 60;
-                            const percent = Math.min(100, Math.round((b.confirmedCount / maxQ) * 100));
-
                             return (
                               <div
                                 key={b.id}
@@ -837,28 +843,36 @@ export default function HomePage() {
                                 <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
                                   <span style={{ fontSize: 18, fontWeight: 700, color: "var(--muted-foreground)" }}>R$</span>
                                   <span style={{ fontSize: 36, fontWeight: 800, color: "var(--foreground)", letterSpacing: "-0.02em" }}>
-                                    {b.price ? b.price.toFixed(2).replace(".", ",") : "100,00"}
+                                    {b.price ? b.price.toFixed(2).replace(".", ",") : "150,00"}
                                   </span>
                                 </div>
 
-                                {/* Barra de progresso de vagas */}
-                                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--muted-foreground)" }}>
-                                    <span>Vagas preenchidas</span>
-                                    <strong style={{ color: "var(--foreground)" }}>{b.confirmedCount} de {maxQ}</strong>
+                                {/* Destaque da Data Limite de Encerramento do Lote */}
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 6,
+                                    padding: "14px 16px",
+                                    borderRadius: 14,
+                                    background: "rgba(212, 168, 83, 0.1)",
+                                    border: "1px solid rgba(212, 168, 83, 0.35)",
+                                    textAlign: "center",
+                                  }}
+                                >
+                                  <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, color: "var(--gold)", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "1px" }}>
+                                    <ClockIcon size={14} color="var(--gold)" />
+                                    <span>Prazo Limite do Lote</span>
                                   </div>
-                                  <div className="capacity-track">
-                                    <div
-                                      className={`capacity-fill ${percent >= 90 ? "capacity-fill-full" : ""}`}
-                                      style={{ width: `${percent === 0 ? 0 : Math.max(8, percent)}%` }}
-                                    />
+                                  <div style={{ fontSize: "clamp(16px, 2.5vw, 18px)", fontWeight: 800, color: "var(--foreground)" }}>
+                                    {b.endDate ? `Encerra em ${formatBatchClosingDate(b.endDate)}` : "Inscrições por tempo limitado"}
                                   </div>
                                 </div>
 
-                                <p style={{ margin: 0, fontSize: 12, color: "var(--muted-foreground)", minHeight: 28 }}>
+                                <p style={{ margin: 0, fontSize: 12, color: "var(--muted-foreground)", minHeight: 24, textAlign: "center" }}>
                                   {b.endDate
-                                    ? `Válido até ${new Date(b.endDate).toLocaleDateString("pt-BR")}`
-                                    : "Vagas estritamente limitadas por este lote"}
+                                    ? `Inscrições com este valor válidas até ${formatBatchClosingDate(b.endDate)}.`
+                                    : "Aproveite para garantir sua vaga com valor especial."}
                                 </p>
 
                                 {mainEvent && registrationsOpen ? (
@@ -998,8 +1012,34 @@ export default function HomePage() {
                                 <SparkleIcon size={15} color="var(--gold)" className="sparkle-icon" />
                               </div>
 
+                              {b.endDate ? (
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    padding: "9px 13px",
+                                    borderRadius: 10,
+                                    background: "rgba(212, 168, 83, 0.05)",
+                                    border: "1px solid rgba(212, 168, 83, 0.15)",
+                                  }}
+                                >
+                                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                    <ClockIcon size={14} color="var(--gold)" />
+                                    <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>Fecha em:</span>
+                                  </div>
+                                  <strong style={{ fontSize: 13, color: "var(--gold)", fontWeight: 700 }}>
+                                    {formatBatchClosingDate(b.endDate)}
+                                  </strong>
+                                </div>
+                              ) : null}
+
                               <p style={{ margin: 0, fontSize: 12, color: "var(--muted-foreground)", lineHeight: 1.5, minHeight: 38 }}>
-                                Valor e vagas serão revelados no momento da liberação deste lote pela organização.
+                                {b.endDate
+                                  ? `Lote vigente até ${formatBatchClosingDate(b.endDate)}. Valor liberado na abertura.`
+                                  : b.maxQuantity
+                                  ? "Valor e vagas serão revelados no momento da liberação deste lote pela organização."
+                                  : "Valor será revelado no momento da liberação deste lote pela organização."}
                               </p>
 
                               <div

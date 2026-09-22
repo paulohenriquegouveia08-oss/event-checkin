@@ -117,8 +117,11 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
   const confirmedCount = inscriptions.filter((i) => i.status === "CONFIRMED").length;
   const pendingCount = inscriptions.filter((i) => i.status === "PENDING").length;
   const cancelledCount = inscriptions.filter((i) => i.status === "CANCELLED").length;
-  const totalRevenue = inscriptions
+  const confirmedRevenue = inscriptions
     .filter((i) => i.status === "CONFIRMED")
+    .reduce((acc, curr) => acc + curr.amount, 0);
+  const pendingRevenue = inscriptions
+    .filter((i) => i.status === "PENDING")
     .reduce((acc, curr) => acc + curr.amount, 0);
 
   function handleExportCsv() {
@@ -167,7 +170,7 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
     doc.setTextColor(30, 30, 30);
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
-    doc.text(`Total Inscritos: ${totalCount} | Confirmados (Pagos): ${confirmedCount} | Pendentes: ${pendingCount} | Receita Confirmada: R$ ${totalRevenue.toFixed(2).replace(".", ",")}`, margin, y);
+    doc.text(`Total Inscritos: ${totalCount} | Confirmados: ${confirmedCount} (R$ ${confirmedRevenue.toFixed(2).replace(".", ",")}) | Pendentes: ${pendingCount} (R$ ${pendingRevenue.toFixed(2).replace(".", ",")})`, margin, y);
     y += 8;
 
     // Tabela Header
@@ -317,9 +320,14 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
         <MetricCard label="Aguardando Pagamento" value={pendingCount} highlight="warning" />
         <MetricCard label="Inscrições Canceladas" value={cancelledCount} highlight="danger" />
         <MetricCard
-          label="Receita Confirmada"
-          value={`R$ ${totalRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-          highlight="primary"
+          label="Receita Confirmada (Paga)"
+          value={`R$ ${confirmedRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+          highlight="success"
+        />
+        <MetricCard
+          label="Receita Pendente"
+          value={`R$ ${pendingRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+          highlight="warning"
         />
       </div>
 

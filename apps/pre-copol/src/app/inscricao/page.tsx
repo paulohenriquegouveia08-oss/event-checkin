@@ -53,15 +53,15 @@ function InscriptionContent() {
 const FALLBACK_EVENT_ID = "f1b36d08-e85d-459b-8606-69119ab05a78";
 
 const FALLBACK_BATCH: BatchItem = {
-  id: "cc96d201-03a4-455c-bac2-070ffa0fee85",
-  batchNumber: 1,
-  name: "1º Lote — Promocional",
-  price: 100,
-  maxQuantity: 60,
-  confirmedCount: 0,
+  id: "b87d7a32-ec44-44ef-95dd-47a9c1174b99",
+  batchNumber: 2,
+  name: "2º Lote",
+  price: 150,
+  maxQuantity: null,
+  confirmedCount: 41,
   status: "ACTIVE",
   isActive: true,
-  endDate: null,
+  endDate: "2026-09-23T23:59:59.999Z",
 };
 
 const FALLBACK_EVENT: EventData = {
@@ -331,11 +331,15 @@ const FALLBACK_EVENT: EventData = {
               <h3 style={{ margin: "4px 0 0", fontSize: 19, fontWeight: 800, color: "var(--foreground)" }}>
                 {activeBatch?.name || "Inscrição Geral"}
               </h3>
-              {activeBatch?.maxQuantity && (
+              {activeBatch?.maxQuantity ? (
                 <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--muted-foreground)" }}>
                   {activeBatch.confirmedCount} de {activeBatch.maxQuantity} vagas preenchidas
                 </p>
-              )}
+              ) : activeBatch?.endDate ? (
+                <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--gold)", fontWeight: 600 }}>
+                  Inscrições válidas até {new Date(activeBatch.endDate).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
+                </p>
+              ) : null}
             </div>
             <div style={{ textAlign: "right" }}>
               <div style={{ fontSize: "clamp(24px, 5vw, 28px)", fontWeight: 800, color: "var(--gold)", lineHeight: 1 }}>

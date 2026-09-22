@@ -20,6 +20,7 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "CONFIRMED" | "PENDING" | "CANCELLED">("ALL");
+  const [methodFilter, setMethodFilter] = useState<"ALL" | "PIX" | "CARD">("ALL");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<api.InscriptionReportItem | null>(null);
   const [viewMode, setViewMode] = useState<"table" | "cards">("table");
@@ -101,6 +102,7 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
   // Filtros
   const filtered = inscriptions.filter((item) => {
     if (statusFilter !== "ALL" && item.status !== statusFilter) return false;
+    if (methodFilter !== "ALL" && item.paymentMethod !== methodFilter) return false;
     if (!search.trim()) return true;
 
     const term = search.toLowerCase();
@@ -119,6 +121,14 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
   const confirmedCount = inscriptions.filter((i) => i.status === "CONFIRMED").length;
   const pendingCount = inscriptions.filter((i) => i.status === "PENDING").length;
   const cancelledCount = inscriptions.filter((i) => i.status === "CANCELLED").length;
+
+  const pixConfirmedCount = inscriptions.filter((i) => i.status === "CONFIRMED" && i.paymentMethod === "PIX").length;
+  const cardConfirmedCount = inscriptions.filter((i) => i.status === "CONFIRMED" && i.paymentMethod === "CARD").length;
+  const manualConfirmedCount = inscriptions.filter((i) => i.status === "CONFIRMED" && !i.paymentMethod).length;
+
+  const pixPendingCount = inscriptions.filter((i) => i.status === "PENDING" && i.paymentMethod === "PIX").length;
+  const cardPendingCount = inscriptions.filter((i) => i.status === "PENDING" && i.paymentMethod === "CARD").length;
+
   const confirmedRevenue = inscriptions
     .filter((i) => i.status === "CONFIRMED")
     .reduce((acc, curr) => acc + curr.amount, 0);
@@ -132,10 +142,30 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
   const pendingNetRevenue = pendingRevenue - pendingFee;
 
   function handleExportCsv() {
-    const headers = ["Nome", "E-mail", "Telefone", "CPF", "Lote", "Valor Bruto", "Taxa (0,99%)", "Valor Líquido", "Status", "Data de Inscrição"];
+    const headers = [
+      "Nome",
+      "E-mail",
+      "Telefone",
+      "CPF",
+      "Lote",
+      "Valor Bruto",
+      "Taxa (0,99%)",
+      "Valor Líquido",
+      "Meio de Pagamento",
+      "Status",
+      "Data de Inscrição",
+    ];
     const rows = filtered.map((i) => {
       const fee = i.amount * GATEWAY_FEE_RATE;
       const net = i.amount - fee;
+      const meio =
+        i.paymentMethod === "CARD"
+          ? "Cartão de Crédito"
+          : i.paymentMethod === "PIX"
+            ? "PIX"
+            : i.amount === 0
+              ? "Gratuito / Isento"
+              : "Manual / Não informado";
       return [
         `"${i.name.replace(/"/g, '""')}"`,
         `"${i.email}"`,
@@ -145,6 +175,7 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
         `"R$ ${i.amount.toFixed(2).replace(".", ",")}"`,
         `"- R$ ${fee.toFixed(2).replace(".", ",")}"`,
         `"R$ ${net.toFixed(2).replace(".", ",")}"`,
+        `"${meio}"`,
         `"${i.status === "CONFIRMED" ? "Confirmado (Pago)" : i.status === "CANCELLED" ? "Cancelado" : "Aguardando Pagamento"}"`,
         `"${new Date(i.createdAt).toLocaleString("pt-BR")}"`,
       ];
@@ -220,11 +251,14 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
       doc.text(item.document, cols[3] + 2, y + 4);
       doc.text(truncate(item.category, 24), cols[4] + 2, y + 4);
       doc.text(`R$ ${item.amount.toFixed(2)}`, cols[5] + 2, y + 4);
-      doc.text(
-        item.status === "CONFIRMED" ? "Confirmado" : item.status === "CANCELLED" ? "Cancelado" : "Pendente",
-        cols[6] + 2,
-        y + 4
-      );
+      const metodoStr = item.paymentMethod === "CARD" ? "Cartão" : item.paymentMethod === "PIX" ? "Pix" : "Manual";
+      const statusLabel =
+        item.status === "CONFIRMED"
+          ? `Pago (${metodoStr})`
+          : item.status === "CANCELLED"
+            ? "Cancelado"
+            : `Pendente (${metodoStr})`;
+      doc.text(statusLabel, cols[6] + 2, y + 4);
 
       y += 6;
     }
@@ -329,8 +363,18 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
       {/* Cards de Métricas */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12 }}>
         <MetricCard label="Total de Inscritos" value={totalCount} />
-        <MetricCard label="Pagamentos Confirmados" value={confirmedCount} highlight="success" />
-        <MetricCard label="Aguardando Pagamento" value={pendingCount} highlight="warning" />
+        <MetricCard
+          label="Pagamentos Confirmados"
+          value={confirmedCount}
+          subvalue={`${pixConfirmedCount} Pix • ${cardConfirmedCount} Cartão${manualConfirmedCount > 0 ? ` • ${manualConfirmedCount} Manual` : ""}`}
+          highlight="success"
+        />
+        <MetricCard
+          label="Aguardando Pagamento"
+          value={pendingCount}
+          subvalue={`${pixPendingCount} Pix${cardPendingCount > 0 ? ` • ${cardPendingCount} Cartão` : ""}`}
+          highlight="warning"
+        />
         <MetricCard label="Inscrições Canceladas" value={cancelledCount} highlight="danger" />
         <MetricCard
           label="Receita Confirmada (Bruta)"
@@ -374,6 +418,18 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
           </FilterButton>
           <FilterButton active={statusFilter === "CANCELLED"} onClick={() => setStatusFilter("CANCELLED")}>
             Cancelados ({cancelledCount})
+          </FilterButton>
+
+          <div style={{ width: 1, height: 20, background: "var(--border)", margin: "0 4px" }} />
+
+          <FilterButton active={methodFilter === "ALL"} onClick={() => setMethodFilter("ALL")}>
+            Todos Meios
+          </FilterButton>
+          <FilterButton active={methodFilter === "PIX"} onClick={() => setMethodFilter("PIX")}>
+            Pix ({inscriptions.filter((i) => i.paymentMethod === "PIX").length})
+          </FilterButton>
+          <FilterButton active={methodFilter === "CARD"} onClick={() => setMethodFilter("CARD")}>
+            Cartão ({inscriptions.filter((i) => i.paymentMethod === "CARD").length})
           </FilterButton>
 
           <div style={{ width: 1, height: 20, background: "var(--border)", margin: "0 4px" }} />
@@ -456,13 +512,59 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
                     )}
                   </td>
                   <td style={{ whiteSpace: "nowrap" }}>
-                    <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                       {item.status === "CONFIRMED" ? (
                         <span className="badge badge-success">Confirmado</span>
                       ) : item.status === "CANCELLED" ? (
                         <span className="badge badge-danger">Cancelado</span>
                       ) : (
                         <span className="badge badge-warning">Pendente</span>
+                      )}
+
+                      {item.paymentMethod === "PIX" && (
+                        <span
+                          className="badge"
+                          style={{
+                            background: "rgba(14, 165, 233, 0.12)",
+                            color: "#0284c7",
+                            borderColor: "rgba(14, 165, 233, 0.25)",
+                            fontSize: 11,
+                            fontWeight: 600,
+                          }}
+                          title="Pagamento via Pix"
+                        >
+                          📱 Pix
+                        </span>
+                      )}
+
+                      {item.paymentMethod === "CARD" && (
+                        <span
+                          className="badge"
+                          style={{
+                            background: "rgba(168, 85, 247, 0.12)",
+                            color: "#9333ea",
+                            borderColor: "rgba(168, 85, 247, 0.25)",
+                            fontSize: 11,
+                            fontWeight: 600,
+                          }}
+                          title="Pagamento via Cartão"
+                        >
+                          💳 Cartão
+                        </span>
+                      )}
+
+                      {!item.paymentMethod && item.amount === 0 && (
+                        <span
+                          className="badge"
+                          style={{
+                            background: "rgba(100, 116, 139, 0.12)",
+                            color: "var(--text-muted)",
+                            fontSize: 11,
+                          }}
+                          title="Inscrição Gratuita"
+                        >
+                          Grátis
+                        </span>
                       )}
                     </div>
                     <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
@@ -548,13 +650,45 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
                   <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "var(--text)" }}>{item.name}</h4>
                   <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{item.email}</div>
                 </div>
-                {item.status === "CONFIRMED" ? (
-                  <span className="badge badge-success">Confirmado</span>
-                ) : item.status === "CANCELLED" ? (
-                  <span className="badge badge-danger">Cancelado</span>
-                ) : (
-                  <span className="badge badge-warning">Pendente</span>
-                )}
+                <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+                  {item.status === "CONFIRMED" ? (
+                    <span className="badge badge-success">Confirmado</span>
+                  ) : item.status === "CANCELLED" ? (
+                    <span className="badge badge-danger">Cancelado</span>
+                  ) : (
+                    <span className="badge badge-warning">Pendente</span>
+                  )}
+
+                  {item.paymentMethod === "PIX" && (
+                    <span
+                      className="badge"
+                      style={{
+                        background: "rgba(14, 165, 233, 0.12)",
+                        color: "#0284c7",
+                        borderColor: "rgba(14, 165, 233, 0.25)",
+                        fontSize: 11,
+                        fontWeight: 600,
+                      }}
+                    >
+                      📱 Pix
+                    </span>
+                  )}
+
+                  {item.paymentMethod === "CARD" && (
+                    <span
+                      className="badge"
+                      style={{
+                        background: "rgba(168, 85, 247, 0.12)",
+                        color: "#9333ea",
+                        borderColor: "rgba(168, 85, 247, 0.25)",
+                        fontSize: 11,
+                        fontWeight: 600,
+                      }}
+                    >
+                      💳 Cartão
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div
@@ -597,6 +731,18 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
                     <span style={{ fontFamily: "monospace" }}>{item.document}</span>
                   </div>
                 )}
+                <div className="spread">
+                  <span className="muted">Meio de Pagamento:</span>
+                  <span style={{ fontWeight: 600 }}>
+                    {item.paymentMethod === "CARD"
+                      ? "💳 Cartão de Crédito"
+                      : item.paymentMethod === "PIX"
+                        ? "📱 Pix"
+                        : item.amount === 0
+                          ? "Gratuito / Isento"
+                          : "Manual / Não informado"}
+                  </span>
+                </div>
                 <div className="spread">
                   <span className="muted">Data da Inscrição:</span>
                   <span>{new Date(item.createdAt).toLocaleDateString("pt-BR")}</span>

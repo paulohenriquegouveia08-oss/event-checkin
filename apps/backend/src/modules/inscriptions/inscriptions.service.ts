@@ -682,6 +682,8 @@ export async function getInscriptionsReport(eventId: string) {
     category: ins.batch?.name ?? ins.category,
     amount: Number(ins.amount),
     status: ins.status,
+    paymentMethod: ins.paymentMethod,
+    paymentProvider: ins.paymentProvider,
     paymentId: ins.paymentId,
     participantId: ins.participantId,
     createdAt: ins.createdAt.toISOString(),

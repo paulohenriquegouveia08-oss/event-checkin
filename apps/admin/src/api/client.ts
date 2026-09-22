@@ -1088,6 +1088,8 @@ export interface InscriptionReportItem {
   category: string;
   amount: number;
   status: "PENDING" | "CONFIRMED" | "CANCELLED";
+  paymentMethod?: "PIX" | "CARD" | null;
+  paymentProvider?: string | null;
   paymentId: string | null;
   participantId: string | null;
   createdAt: string;

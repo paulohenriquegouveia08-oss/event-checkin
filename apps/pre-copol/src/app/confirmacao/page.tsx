@@ -158,12 +158,15 @@ function ConfirmationContent() {
 
   const expiraEm = statusData.paymentExpiresAt ? new Date(statusData.paymentExpiresAt).getTime() : null;
   const segundosRestantes = expiraEm === null ? null : Math.max(0, Math.floor((expiraEm - agora) / 1000));
-  const minutos = segundosRestantes !== null ? Math.floor(segundosRestantes / 60) : 0;
+  const horas = segundosRestantes !== null ? Math.floor(segundosRestantes / 3600) : 0;
+  const minutos = segundosRestantes !== null ? Math.floor((segundosRestantes % 3600) / 60) : 0;
   const segundos = segundosRestantes !== null ? segundosRestantes % 60 : 0;
   const tempoRestante =
     segundosRestantes === null
       ? null
-      : `${String(minutos).padStart(2, "0")} : ${String(segundos).padStart(2, "0")}`;
+      : horas > 0
+        ? `${String(horas).padStart(2, "0")}h ${String(minutos).padStart(2, "0")}m ${String(segundos).padStart(2, "0")}s`
+        : `${String(minutos).padStart(2, "0")} : ${String(segundos).padStart(2, "0")}`;
 
   const effectiveName = statusData.name || participantName || "";
   const effectiveDoc = participantDocument ? ` - CPF ${participantDocument}` : "";
@@ -709,7 +712,7 @@ function ConfirmationContent() {
                                 color: "var(--gold)",
                                 fontFamily: "monospace",
                                 fontSize: 14,
-                                letterSpacing: "3px",
+                                letterSpacing: horas > 0 ? "1.5px" : "3px",
                                 background: "rgba(200, 162, 97, 0.12)",
                                 padding: "3px 10px",
                                 borderRadius: 6,
@@ -789,7 +792,7 @@ function ConfirmationContent() {
                               color: "var(--gold)",
                               fontFamily: "monospace",
                               fontSize: 14,
-                              letterSpacing: "3px",
+                              letterSpacing: horas > 0 ? "1.5px" : "3px",
                               background: "rgba(200, 162, 97, 0.12)",
                               padding: "2px 8px",
                               borderRadius: 6,

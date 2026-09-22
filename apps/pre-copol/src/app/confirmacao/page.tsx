@@ -387,9 +387,6 @@ function ConfirmationContent() {
                       height={180}
                       style={{ display: "block", borderRadius: 4 }}
                     />
-                    <span style={{ fontSize: 11, fontFamily: "monospace", color: "#666" }}>
-                      {statusData.qrToken.substring(0, 16)}...
-                    </span>
                   </div>
                 )}
 

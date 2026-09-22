@@ -11,6 +11,7 @@ import { resolveEmailSettings } from "../../lib/email/email-settings.js";
 import * as batchesService from "../batches/batches.service.js";
 import * as inscriptionsRepository from "./inscriptions.repository.js";
 import type { CreateInscriptionInput } from "./inscriptions.schema.js";
+import { adminCheckInBus } from "../admin/adminMonitor.events.js";
 
 export async function createInscription(
   eventId: string,
@@ -131,6 +132,23 @@ export async function createInscription(
   // é o que ninguém testa.
   if (amount === 0) {
     const confirmada = await confirmInscriptionPayment(inscription.id);
+    adminCheckInBus.publish(eventId, {
+      type: "new_inscription",
+      eventId,
+      inscription: {
+        id: confirmada.id,
+        name: confirmada.name,
+        email: confirmada.email,
+        phone: confirmada.phone,
+        document: confirmada.document,
+        category,
+        amount: 0,
+        status: "CONFIRMED",
+        paymentMethod: null,
+        createdAt: confirmada.createdAt.toISOString(),
+        gratuita: true,
+      },
+    });
     return {
       id: confirmada.id,
       eventId: confirmada.eventId,
@@ -296,6 +314,24 @@ export async function createInscription(
     }
   }
 
+  adminCheckInBus.publish(eventId, {
+    type: "new_inscription",
+    eventId,
+    inscription: {
+      id: inscription.id,
+      name: inscription.name,
+      email: inscription.email,
+      phone: inscription.phone,
+      document: inscription.document,
+      category: inscription.category,
+      amount: Number(inscription.amount),
+      status: "PENDING",
+      paymentMethod: paymentUrl || qrCodeContent ? "PIX" : null,
+      createdAt: inscription.createdAt.toISOString(),
+      gratuita: false,
+    },
+  });
+
   return {
     id: inscription.id,
     eventId: inscription.eventId,
@@ -429,6 +465,18 @@ export async function confirmInscriptionPayment(inscriptionId: string, authoriza
       })
       .catch((err) => console.error("[InscriptionsService] Falha ao enviar e-mail de comprovante:", err));
   }
+
+  adminCheckInBus.publish(result.inscription.eventId, {
+    type: "inscription_confirmed",
+    eventId: result.inscription.eventId,
+    inscriptionId: result.inscription.id,
+    name: result.inscription.name,
+    email: result.inscription.email,
+    category: result.inscription.category,
+    amount: Number(result.inscription.amount),
+    paymentMethod: result.inscription.paymentMethod,
+    confirmedAt: new Date().toISOString(),
+  });
 
   return result.inscription;
 }
@@ -727,7 +775,7 @@ export async function cancelInscription(eventId: string, id: string) {
     throw new NotFoundError("Inscrição não encontrada");
   }
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     if (inscription.participantId) {
       await tx.participant.updateMany({
         where: { id: inscription.participantId },
@@ -743,6 +791,15 @@ export async function cancelInscription(eventId: string, id: string) {
 
     return updated;
   });
+
+  adminCheckInBus.publish(eventId, {
+    type: "inscription_status_changed",
+    eventId,
+    inscriptionId: id,
+    status: "CANCELLED",
+  });
+
+  return result;
 }
 
 /**
@@ -773,6 +830,13 @@ export async function deleteInscription(eventId: string, id: string) {
     await tx.inscription.delete({
       where: { id },
     });
+  });
+
+  adminCheckInBus.publish(eventId, {
+    type: "inscription_status_changed",
+    eventId,
+    inscriptionId: id,
+    status: "CANCELLED",
   });
 
   return { success: true, deletedId: id };

@@ -182,3 +182,23 @@ tr:hover td {
   align-items: center;
   justify-content: space-between;
 }
+
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes toastCountdown {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}

@@ -168,7 +168,11 @@ export async function checkinsRoutes(app: FastifyInstance) {
     if (payload.type !== "admin") {
       return reply.status(403).send({ success: false, error: { code: "FORBIDDEN", message: "Acesso negado" } });
     }
-    if (!(await userHasPermission(payload.sub, "monitor.view"))) {
+    const hasAccess =
+      (await userHasPermission(payload.sub, "monitor.view")) ||
+      (await userHasPermission(payload.sub, "participants.view")) ||
+      (await userHasPermission(payload.sub, "events.view"));
+    if (!hasAccess) {
       return reply.status(403).send({ success: false, error: { code: "FORBIDDEN", message: "Acesso negado" } });
     }
 

@@ -117,15 +117,50 @@ export function playCheckInFeedback(status: CheckInFeedbackStatus) {
 
       gain.gain.setValueAtTime(0.001, now);
       gain.gain.exponentialRampToValueAtTime(0.25, now + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
 
       osc.connect(gain);
       gain.connect(ctx.destination);
 
       osc.start(now);
-      osc.stop(now + 0.28);
+      osc.stop(now + 0.35);
     }
-  } catch (err) {
-    console.warn("Falha ao emitir feedback sonoro:", err);
+  } catch {
+    // Silencioso se der erro no áudio
+  }
+}
+
+/**
+ * Emite um sino suave e agradável quando uma nova inscrição é recebida em tempo real.
+ */
+export function playNewInscriptionNotificationSound() {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    const notes = [
+      { freq: 659.25, start: 0, dur: 0.12 },   // E5
+      { freq: 987.77, start: 0.1, dur: 0.35 },  // B5
+    ];
+
+    for (const n of notes) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(n.freq, now + n.start);
+
+      gain.gain.setValueAtTime(0.001, now + n.start);
+      gain.gain.exponentialRampToValueAtTime(0.2, now + n.start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + n.start + n.dur);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now + n.start);
+      osc.stop(now + n.start + n.dur);
+    }
+  } catch {
+    // Ignora bloqueios de autoplay
   }
 }

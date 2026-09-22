@@ -14,7 +14,50 @@ export interface AdminCheckInEvent {
   errorMessage?: string;
 }
 
-type Listener = (event: AdminCheckInEvent) => void;
+export interface AdminNewInscriptionEvent {
+  type: "new_inscription";
+  eventId: string;
+  inscription: {
+    id: string;
+    name: string;
+    email: string;
+    phone?: string | null;
+    document: string;
+    category: string;
+    amount: number;
+    status: "PENDING" | "CONFIRMED";
+    paymentMethod?: string | null;
+    createdAt: string;
+    gratuita: boolean;
+  };
+}
+
+export interface AdminInscriptionConfirmedEvent {
+  type: "inscription_confirmed";
+  eventId: string;
+  inscriptionId: string;
+  name: string;
+  email: string;
+  category: string;
+  amount: number;
+  paymentMethod?: string | null;
+  confirmedAt: string;
+}
+
+export interface AdminInscriptionStatusEvent {
+  type: "inscription_status_changed";
+  eventId: string;
+  inscriptionId: string;
+  status: "PENDING" | "CONFIRMED" | "CANCELLED";
+}
+
+export type AdminRealtimeEvent =
+  | AdminCheckInEvent
+  | AdminNewInscriptionEvent
+  | AdminInscriptionConfirmedEvent
+  | AdminInscriptionStatusEvent;
+
+type Listener = (event: AdminRealtimeEvent) => void;
 
 class AdminCheckInEventBus {
   private listeners = new Map<string, Set<Listener>>();
@@ -33,7 +76,7 @@ class AdminCheckInEventBus {
     };
   }
 
-  publish(eventId: string, event: AdminCheckInEvent): void {
+  publish(eventId: string, event: AdminRealtimeEvent): void {
     const subs = this.listeners.get(eventId);
     if (subs) {
       subs.forEach((listener) => listener(event));

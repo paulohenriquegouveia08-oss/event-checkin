@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import * as api from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { RealtimeNotificationToasts, type RealtimeInscriptionNotification } from "../components/RealtimeNotificationToasts";
+import { playNewInscriptionNotificationSound } from "../utils/audioFeedback";
 import { ParticipantsTab } from "./event/ParticipantsTab";
 import { TerminalsTab } from "./event/TerminalsTab";
 import { StatisticsTab } from "./event/StatisticsTab";
@@ -79,6 +81,50 @@ export function EventDetailPage() {
   const [editEndDate, setEditEndDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [realtimeNotifications, setRealtimeNotifications] = useState<RealtimeInscriptionNotification[]>([]);
+
+  const dismissNotification = useCallback((id: string) => {
+    setRealtimeNotifications((prev) => prev.filter((n) => n.id !== id));
+  }, []);
+
+  useEffect(() => {
+    if (!eventId) return;
+    const token = api.getToken();
+    if (!token) return;
+
+    const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3900";
+    const url = `${API_URL}/events/${eventId}/monitor?token=${token}`;
+    const es = new EventSource(url);
+
+    es.onmessage = (msg) => {
+      try {
+        const data = JSON.parse(msg.data);
+        if (data.type === "new_inscription" && data.inscription) {
+          playNewInscriptionNotificationSound();
+          const newToast: RealtimeInscriptionNotification = {
+            id: `${data.inscription.id}-${Date.now()}`,
+            name: data.inscription.name,
+            email: data.inscription.email,
+            category: data.inscription.category,
+            amount: data.inscription.amount,
+            paymentMethod: data.inscription.paymentMethod,
+            createdAt: data.inscription.createdAt || new Date().toISOString(),
+            gratuita: data.inscription.gratuita,
+          };
+          setRealtimeNotifications((prev) => [newToast, ...prev.slice(0, 4)]);
+          window.dispatchEvent(new CustomEvent("event-realtime-update", { detail: data }));
+        } else if (data.type === "inscription_confirmed" || data.type === "inscription_status_changed") {
+          window.dispatchEvent(new CustomEvent("event-realtime-update", { detail: data }));
+        }
+      } catch {
+        // ignore parse errors
+      }
+    };
+
+    return () => {
+      es.close();
+    };
+  }, [eventId]);
 
   useEffect(() => {
     if (!eventId) return;
@@ -138,6 +184,7 @@ export function EventDetailPage() {
 
   return (
     <div className="stack">
+      <RealtimeNotificationToasts notifications={realtimeNotifications} onDismiss={dismissNotification} />
       <Link to="/eventos" className="muted" style={{ fontSize: 13 }}>
         ← Eventos
       </Link>

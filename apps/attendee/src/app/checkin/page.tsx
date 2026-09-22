@@ -418,11 +418,6 @@ export default function CheckInPage() {
             />
           </div>
 
-          <p className="text-xs text-[var(--muted-foreground)]">
-            Seu código:{" "}
-            <span className="mono">{participant.qrToken.slice(0, 12)}…</span>
-          </p>
-
           <button
             onClick={handleDownloadPdf}
             className="mt-4 inline-flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--background)] px-4 py-2 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]"

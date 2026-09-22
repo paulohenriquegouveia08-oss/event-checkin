@@ -26,19 +26,36 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
   const [viewMode, setViewMode] = useState<"table" | "cards">("table");
 
   useEffect(() => {
-    loadInscriptions();
+    loadInscriptions(true);
+
+    function handleRealtimeUpdate() {
+      loadInscriptions(false);
+    }
+
+    window.addEventListener("event-realtime-update", handleRealtimeUpdate);
+
+    // Polling suave de segurança a cada 15 segundos
+    const interval = setInterval(() => {
+      loadInscriptions(false);
+    }, 15000);
+
+    return () => {
+      window.removeEventListener("event-realtime-update", handleRealtimeUpdate);
+      clearInterval(interval);
+    };
   }, [eventId]);
 
-  async function loadInscriptions() {
-    setLoading(true);
-    setError(null);
+  async function loadInscriptions(showSpinner = false) {
+    if (showSpinner) setLoading(true);
     try {
       const data = await api.getInscriptionsReport(eventId);
       setInscriptions(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao carregar relatório de inscritos");
+      if (showSpinner) {
+        setError(err instanceof Error ? err.message : "Erro ao carregar relatório de inscritos");
+      }
     } finally {
-      setLoading(false);
+      if (showSpinner) setLoading(false);
     }
   }
 

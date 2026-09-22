@@ -47,6 +47,7 @@ export function LiveMonitorTab({ eventId }: { eventId: string }) {
       try {
         const data = JSON.parse(msg.data);
         if (data.type === "connected") return;
+        if (data.type !== "check_in") return;
         setEvents((prev) => [...prev.slice(-199), data]); // keep last 200
       } catch {
         // ignore parse errors (heartbeats etc)

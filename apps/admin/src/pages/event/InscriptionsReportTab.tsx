@@ -3,6 +3,7 @@ import jsPDF from "jspdf";
 import * as api from "../../api/client";
 import { CheckIcon, TrashIcon } from "../../components/Icons";
 import { ConfirmDeleteModal } from "../../components/ConfirmDeleteModal";
+import { formatPhone, formatDocument } from "../../utils/formatters";
 
 function BanIcon({ size = 13, color = "currentColor" }: { size?: number; color?: string }) {
   return (
@@ -13,7 +14,12 @@ function BanIcon({ size = 13, color = "currentColor" }: { size?: number; color?:
   );
 }
 
-export function InscriptionsReportTab({ eventId }: { eventId: string }) {
+interface InscriptionsReportTabProps {
+  eventId: string;
+  eventName?: string;
+}
+
+export function InscriptionsReportTab({ eventId, eventName }: InscriptionsReportTabProps) {
   const [inscriptions, setInscriptions] = useState<api.InscriptionReportItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -154,12 +160,22 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
     if (methodFilter !== "ALL" && item.paymentMethod !== methodFilter) return false;
     if (!search.trim()) return true;
 
-    const term = search.toLowerCase();
+    const term = search.toLowerCase().trim();
+    const cleanDigits = term.replace(/\D/g, "");
+    const docDigits = item.document ? item.document.replace(/\D/g, "") : "";
+    const phoneDigits = item.phone ? item.phone.replace(/\D/g, "") : "";
+    const maskedDoc = formatDocument(item.document).toLowerCase();
+    const maskedPhone = formatPhone(item.phone).toLowerCase();
+
     return (
       item.name.toLowerCase().includes(term) ||
       item.email.toLowerCase().includes(term) ||
-      item.document.includes(term) ||
-      (item.phone && item.phone.includes(term))
+      item.document.toLowerCase().includes(term) ||
+      maskedDoc.includes(term) ||
+      (cleanDigits.length > 0 && docDigits.includes(cleanDigits)) ||
+      (item.phone && item.phone.toLowerCase().includes(term)) ||
+      maskedPhone.includes(term) ||
+      (cleanDigits.length > 0 && phoneDigits.includes(cleanDigits))
     );
   });
 
@@ -218,8 +234,8 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
       return [
         `"${i.name.replace(/"/g, '""')}"`,
         `"${i.email}"`,
-        `"${i.phone ?? ""}"`,
-        `"${i.document}"`,
+        `"${i.phone ? formatPhone(i.phone) : ""}"`,
+        `"${i.document ? formatDocument(i.document) : ""}"`,
         `"${i.category}"`,
         `"R$ ${i.amount.toFixed(2).replace(".", ",")}"`,
         `"- R$ ${fee.toFixed(2).replace(".", ",")}"`,
@@ -230,17 +246,33 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
       ];
     });
 
+    const dateStr = new Date().toISOString().split("T")[0];
+    const safeSlug = (eventName || "evento")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+
     const csvContent = "\uFEFF" + [headers.join(";"), ...rows.map((r) => r.join(";"))].join("\r\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `relatorio-inscritos-${new Date().toISOString().split("T")[0]}.csv`;
+    link.download = `relatorio-inscritos-${safeSlug}-${dateStr}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   }
 
   function handleExportPdf() {
+    const dateStr = new Date().toISOString().split("T")[0];
+    const safeSlug = (eventName || "evento")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
     const pageW = doc.internal.pageSize.getWidth();
     const margin = 12;
@@ -252,7 +284,8 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text("RELATÓRIO OFICIAL DE INSCRITOS — COPOL", pageW / 2, 12, { align: "center" });
+    const eventTitle = (eventName || "EVENTO").toUpperCase();
+    doc.text(`RELATÓRIO OFICIAL DE INSCRITOS — ${eventTitle}`, pageW / 2, 12, { align: "center" });
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")} | Total de registros: ${filtered.length}`, pageW / 2, 19, { align: "center" });
@@ -296,8 +329,8 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
 
       doc.text(truncate(item.name, 38), cols[0] + 2, y + 4);
       doc.text(truncate(item.email, 34), cols[1] + 2, y + 4);
-      doc.text(item.phone ?? "—", cols[2] + 2, y + 4);
-      doc.text(item.document, cols[3] + 2, y + 4);
+      doc.text(formatPhone(item.phone), cols[2] + 2, y + 4);
+      doc.text(formatDocument(item.document), cols[3] + 2, y + 4);
       doc.text(truncate(item.category, 24), cols[4] + 2, y + 4);
       doc.text(`R$ ${item.amount.toFixed(2)}`, cols[5] + 2, y + 4);
       const metodoStr = item.paymentMethod === "CARD" ? "Cartão" : item.paymentMethod === "PIX" ? "Pix" : "Manual";
@@ -314,7 +347,7 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
       y += 6;
     }
 
-    doc.save(`relatorio-inscritos-${new Date().toISOString().split("T")[0]}.pdf`);
+    doc.save(`relatorio-inscritos-${safeSlug}-${dateStr}.pdf`);
   }
 
   return (
@@ -718,10 +751,10 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
                       }}
                     >
                       <span title="E-mail">✉️ {item.email}</span>
-                      {item.phone && <span title="Telefone">📞 {item.phone}</span>}
+                      {item.phone && <span title="Telefone">📞 {formatPhone(item.phone)}</span>}
                       {item.document && (
                         <span title="CPF" style={{ fontFamily: "monospace" }}>
-                          🪪 {item.document}
+                          🪪 {formatDocument(item.document)}
                         </span>
                       )}
                     </div>
@@ -1007,13 +1040,13 @@ export function InscriptionsReportTab({ eventId }: { eventId: string }) {
                 {item.phone && (
                   <div className="spread">
                     <span className="muted">Telefone:</span>
-                    <span>{item.phone}</span>
+                    <span>{formatPhone(item.phone)}</span>
                   </div>
                 )}
                 {item.document && (
                   <div className="spread">
                     <span className="muted">CPF:</span>
-                    <span style={{ fontFamily: "monospace" }}>{item.document}</span>
+                    <span style={{ fontFamily: "monospace" }}>{formatDocument(item.document)}</span>
                   </div>
                 )}
                 <div className="spread">

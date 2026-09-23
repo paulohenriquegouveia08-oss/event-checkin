@@ -108,7 +108,7 @@ export function ReportTab({ eventId }: { eventId: string }) {
       doc.setTextColor(120, 120, 120);
       doc.text(`Total: ${report.checkIns.length} presenca(s)`, margin, y);
       y += 5;
-      doc.text("Copol | LSPK Tecnology", pageW / 2, y, { align: "center" });
+      doc.text(`${report.eventName || "Evento"} | LSPK Tecnology`, pageW / 2, y, { align: "center" });
 
       doc.save(`relatorio-${report.eventName.replace(/\s+/g, "_")}.pdf`);
     } finally {

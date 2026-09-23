@@ -59,7 +59,12 @@ function formatarCpf(v: string): string {
 }
 
 function formatarTelefone(v: string): string {
-  const d = v.replace(/\D/g, "").slice(0, 11);
+  const clean = v.replace(/^\+55\s*/, "");
+  let d = clean.replace(/\D/g, "");
+  if ((d.length >= 12 || d.length === 13) && d.startsWith("55")) {
+    d = d.slice(2);
+  }
+  d = d.slice(0, 11);
   if (d.length <= 10) return d.replace(/(\d{2})(\d)/, "($1) $2").replace(/(\d{4})(\d)/, "$1-$2");
   return d.replace(/(\d{2})(\d)/, "($1) $2").replace(/(\d{5})(\d)/, "$1-$2");
 }

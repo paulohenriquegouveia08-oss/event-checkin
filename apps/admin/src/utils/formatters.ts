@@ -22,6 +22,14 @@ export function formatPhone(phone?: string | null): string {
   // Se contém o DDI do Brasil (55) com 12 ou 13 dígitos totais, remove o 55
   if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) {
     digits = digits.slice(2);
+  } else if (digits.length === 11 && digits.startsWith("55") && digits[2] !== "9") {
+    // Em celular no Brasil de 11 dígitos (DDD + 9 dígitos), o 3º caractere é SEMPRE '9'.
+    // Se começa com '55' mas o 3º caractere não é '9' (ex: 55439918032), trata-se do DDI 55
+    // seguido de DDD e dígitos truncados. Remove o '55' e formata com o DDD correto.
+    digits = digits.slice(2);
+    if (digits.length === 9) {
+      return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+    }
   }
 
   // Celular com DDD (11 dígitos): (43) 99999-9999

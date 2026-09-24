@@ -228,6 +228,17 @@ export async function submissionsRoutes(app: FastifyInstance) {
     }
   );
 
+  app.post(
+    "/events/:eventId/submissions/:submissionId/send-receipt",
+    { preHandler: requirePermission("submissions.manage") },
+    async (request) => {
+      const { eventId, submissionId } = submissionIdParams.parse(request.params);
+      await service.notificarEnvioDeTrabalho(submissionId, { reenvio: true });
+      await recordAudit(request, "submissions.send_receipt", "Submission", submissionId, { eventId });
+      return ok({ sent: true });
+    }
+  );
+
   // ── envio público (site do evento) ───────────────────────────────────
   //
   // Sem login: é o próprio autor, pelo site. O que protege é o módulo

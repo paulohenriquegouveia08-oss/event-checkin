@@ -71,6 +71,19 @@ export interface SendSubmissionDecisionParams {
   reason?: string | null;
 }
 
+export interface SendSubmissionReceiptParams {
+  to: string;
+  authorName: string;
+  submissionId: string;
+  submissionCode: string;
+  submissionTitle: string;
+  modalityName?: string | null;
+  topicName?: string | null;
+  fileName?: string | null;
+  authors: { name: string; email: string; isPresenter: boolean }[];
+  submittedAt?: Date | null;
+}
+
 /** Anexo maior que isto o Resend recusa (40 MB já em Base64). */
 const LIMITE_ANEXO_BYTES = Math.floor((40 * 1024 * 1024 * 3) / 4);
 
@@ -384,6 +397,119 @@ export class EmailService {
         tags: [{ name: "tipo", value: "comprovante-presenca" }, { name: "evento", value: tagSegura(evento.id) }],
       },
       chaveDeIdempotencia("proof", `${evento.id}:${params.participantId}`, opcoes.reenvio),
+    );
+  }
+
+  /** Comprovante de submissão de trabalho científico. */
+  async sendSubmissionReceipt(
+    evento: EventoParaEmail,
+    params: SendSubmissionReceiptParams,
+    opcoes: { reenvio?: boolean } = {},
+  ): Promise<ResultadoDoEnvio> {
+    const s = this.configuracao(evento);
+    const agora = (params.submittedAt ?? new Date()).toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const statusUrl = `${s.siteUrl}/trabalhos/pagamento/?id=${encodeURIComponent(params.submissionId)}`;
+
+    const autoresHtml =
+      params.authors && params.authors.length > 0
+        ? params.authors
+            .map(
+              (a) =>
+                `${escaparHtml(a.name)}${a.isPresenter ? ' <span style="color: #16A34A; font-weight: 600;">(apresentador)</span>' : ""}`
+            )
+            .join("<br>")
+        : "";
+
+    const corpo = `
+      <p style="font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
+        Olá, <strong>${escaparHtml(params.authorName)}</strong>!
+      </p>
+      <p style="font-size: 15px; line-height: 1.6; margin: 0 0 24px; color: #475569;">
+        Confirmamos o recebimento do seu trabalho científico para o evento <strong>${escaparHtml(evento.name)}</strong>. Ele foi registrado com sucesso e está na fila para avaliação da comissão científica.
+      </p>
+
+      <table role="presentation" width="100%" style="background-color: #F0FDF4; border: 2px solid #86EFAC; border-radius: 14px; padding: 20px; text-align: center; margin-bottom: 28px;">
+        <tr><td align="center">
+          <span style="background-color: #22C55E; color: #FFFFFF; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 999px; text-transform: uppercase; letter-spacing: 1px;">
+            PROTOCOLO DO TRABALHO
+          </span>
+          <h2 style="margin: 12px 0 4px; font-size: 26px; color: #166534; font-family: monospace; letter-spacing: 1px;">
+            ${escaparHtml(params.submissionCode)}
+          </h2>
+          <p style="margin: 0; font-size: 13px; color: #166534;">
+            Guarde este código para consultas e acompanhamento junto à organização.
+          </p>
+        </td></tr>
+      </table>
+
+      <table role="presentation" width="100%" style="background-color: #F8FAFC; border-radius: 12px; border: 1px solid #E2E8F0; padding: 18px; font-size: 14px; margin-bottom: 28px;">
+        <tr>
+          <td style="padding: 8px 0; color: #64748B; vertical-align: top; width: 120px;">Título:</td>
+          <td style="padding: 8px 0; font-weight: 700; color: #1E293B;">${escaparHtml(params.submissionTitle)}</td>
+        </tr>
+        ${params.modalityName ? `
+        <tr>
+          <td style="padding: 6px 0; color: #64748B;">Modalidade:</td>
+          <td style="padding: 6px 0; font-weight: 600; color: ${s.primaryColor};">${escaparHtml(params.modalityName)}</td>
+        </tr>` : ""}
+        ${params.topicName ? `
+        <tr>
+          <td style="padding: 6px 0; color: #64748B;">Área Temática:</td>
+          <td style="padding: 6px 0; font-weight: 600;">${escaparHtml(params.topicName)}</td>
+        </tr>` : ""}
+        ${params.fileName ? `
+        <tr>
+          <td style="padding: 6px 0; color: #64748B;">Arquivo:</td>
+          <td style="padding: 6px 0; font-weight: 600; font-family: monospace;">${escaparHtml(params.fileName)}</td>
+        </tr>` : ""}
+        <tr>
+          <td style="padding: 6px 0; color: #64748B;">Enviado em:</td>
+          <td style="padding: 6px 0; font-weight: 600;">${agora}</td>
+        </tr>
+        ${autoresHtml ? `
+        <tr>
+          <td style="padding: 8px 0; color: #64748B; vertical-align: top;">Autores:</td>
+          <td style="padding: 8px 0; font-size: 13px; color: #334155; line-height: 1.6;">${autoresHtml}</td>
+        </tr>` : ""}
+      </table>
+
+      <div style="border-left: 4px solid ${s.accentColor}; padding-left: 16px; margin-bottom: 28px;">
+        <h4 style="margin: 0 0 6px; font-size: 14px; color: ${s.primaryColor};">Próximos passos:</h4>
+        <ul style="margin: 0; padding-left: 18px; font-size: 13px; color: #475569; line-height: 1.6;">
+          <li>A comissão científica analisará a conformidade e o mérito acadêmico do trabalho;</li>
+          <li>Você receberá novas atualizações por e-mail conforme os pareceres forem emitidos;</li>
+          <li>Você pode acompanhar a situação do trabalho a qualquer momento pelo link abaixo.</li>
+        </ul>
+      </div>
+
+      ${botao(s, statusUrl, "Acompanhar situação do trabalho")}`;
+
+    return this.enviar(
+      s,
+      {
+        to: params.to,
+        subject: `Trabalho Recebido: ${params.submissionCode} — ${evento.name}`,
+        html: montarEmail({
+          settings: s,
+          eventName: evento.name,
+          eyebrow: "SUBMISSÃO RECEBIDA",
+          subtitle: "COMPROVANTE DE ENVIO DE TRABALHO",
+          body: corpo,
+        }),
+        tags: [
+          { name: "tipo", value: "confirmacao-submissao" },
+          { name: "evento", value: tagSegura(evento.id) },
+          { name: "trabalho", value: tagSegura(params.submissionCode) },
+        ],
+      },
+      chaveDeIdempotencia("sub_receipt", `${params.submissionId}:${params.to}`, opcoes.reenvio),
     );
   }
 }

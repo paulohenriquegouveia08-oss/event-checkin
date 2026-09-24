@@ -63,6 +63,7 @@ export const emailSettingsSchema = z.object({
   autoSendReceipt: z.boolean().optional(),
   autoSendCertificate: z.boolean().optional(),
   autoSendAttendanceProof: z.boolean().optional(),
+  autoSendSubmissionReceipt: z.boolean().optional(),
 });
 
 export type EmailSettings = z.infer<typeof emailSettingsSchema>;
@@ -78,6 +79,7 @@ export interface ResolvedEmailSettings {
   autoSendReceipt: boolean;
   autoSendCertificate: boolean;
   autoSendAttendanceProof: boolean;
+  autoSendSubmissionReceipt: boolean;
 }
 
 /**
@@ -117,6 +119,7 @@ export function resolveEmailSettings(stored: unknown): ResolvedEmailSettings {
     autoSendReceipt: c.autoSendReceipt ?? true,
     autoSendCertificate: c.autoSendCertificate ?? false,
     autoSendAttendanceProof: c.autoSendAttendanceProof ?? false,
+    autoSendSubmissionReceipt: c.autoSendSubmissionReceipt ?? true,
   };
 }
 

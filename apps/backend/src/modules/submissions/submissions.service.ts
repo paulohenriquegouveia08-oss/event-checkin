@@ -12,6 +12,7 @@ import {
 } from "../../lib/mercadopago/mercadopago.client.js";
 import { receberParte, retirarArquivo } from "./submissions.parts.js";
 import { emailService } from "../../lib/email/email.service.js";
+import { resolveEmailSettings } from "../../lib/email/email-settings.js";
 import type {
   CreateSubmissionInput,
   PublicCreateSubmissionInput,
@@ -441,10 +442,14 @@ export async function submitSubmission(eventId: string, submissionId: string) {
   const janela = janelaAberta(await getSettings(eventId));
   if (!janela.aberta) throw new ValidationError(janela.motivo!);
 
-  return prisma.submission.update({
+  const atualizado = await prisma.submission.update({
     where: { id: submissionId },
     data: { status: "SUBMITTED", submittedAt: new Date() },
   });
+
+  void notificarEnvioDeTrabalho(submissionId);
+
+  return atualizado;
 }
 
 /** Retirada pelo autor. Não apaga — os anais precisam do histórico. */
@@ -867,6 +872,8 @@ export async function createPublicSubmission(eventId: string, input: PublicCreat
     if (valor !== null) {
       const apresentador = criado.authors.find((a) => a.isPresenter) ?? criado.authors[0];
       await iniciarCobranca(criado, event.name, valor, apresentador);
+    } else {
+      void notificarEnvioDeTrabalho(criado.id);
     }
   } catch (err) {
     const arquivo = await prisma.submission.findUnique({
@@ -1004,10 +1011,92 @@ export async function confirmarPagamentoSubmissao(
 
   // Pago → vai para a comissão. Só sai de DRAFT: se o organizador já
   // tiver enviado ou retirado o trabalho à mão, a decisão dele fica.
-  await prisma.submission.updateMany({
+  const atualizado = await prisma.submission.updateMany({
     where: { id: s.id, status: "DRAFT" },
     data: { status: "SUBMITTED", submittedAt: agora },
   });
 
+  if (atualizado.count > 0) {
+    void notificarEnvioDeTrabalho(s.id);
+  }
+
   return { ok: true };
+}
+
+/**
+ * Notifica os autores do trabalho por e-mail via Resend confirmando o envio.
+ *
+ * É acionado assim que o trabalho passa para SUBMITTED:
+ * - No envio público direto (gratuito);
+ * - Na confirmação do pagamento da taxa (pago);
+ * - No envio manual de um rascunho pelo painel.
+ */
+export async function notificarEnvioDeTrabalho(
+  submissionId: string,
+  opcoes: { reenvio?: boolean } = {}
+) {
+  try {
+    const submission = await prisma.submission.findUnique({
+      where: { id: submissionId },
+      include: {
+        event: true,
+        modality: true,
+        topic: true,
+        authors: { orderBy: { position: "asc" } },
+      },
+    });
+
+    if (!submission) return;
+
+    const configEmail = resolveEmailSettings(submission.event.emailSettings);
+    if (!configEmail.autoSendSubmissionReceipt && !opcoes.reenvio) {
+      return;
+    }
+
+    const destinatarios = new Map<string, string>(); // email -> name
+    for (const a of submission.authors) {
+      const email = a.email.trim().toLowerCase();
+      if (email && !destinatarios.has(email)) {
+        destinatarios.set(email, a.name.trim());
+      }
+    }
+
+    if (destinatarios.size === 0) return;
+
+    for (const [destEmail, destNome] of destinatarios) {
+      const res = await emailService.sendSubmissionReceipt(
+        submission.event,
+        {
+          to: destEmail,
+          authorName: destNome,
+          submissionId: submission.id,
+          submissionCode: submission.code,
+          submissionTitle: submission.title,
+          modalityName: submission.modality?.name ?? null,
+          topicName: submission.topic?.name ?? null,
+          fileName: submission.fileName ?? null,
+          authors: submission.authors.map((a) => ({
+            name: a.name,
+            email: a.email,
+            isPresenter: a.isPresenter,
+          })),
+          submittedAt: submission.submittedAt ?? new Date(),
+        },
+        opcoes
+      );
+
+      if (!res.success) {
+        console.error(
+          `[Submissions] Falha ao enviar e-mail para ${destEmail} (trabalho ${submission.code}):`,
+          res.erro
+        );
+      } else {
+        console.log(
+          `[Submissions] E-mail de confirmação enviado para ${destEmail} (trabalho ${submission.code}, id ${res.id})`
+        );
+      }
+    }
+  } catch (err) {
+    console.error("[Submissions] Erro inesperado ao notificar envio de trabalho:", err);
+  }
 }

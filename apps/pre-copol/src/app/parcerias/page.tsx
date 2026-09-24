@@ -48,7 +48,7 @@ const LOGO_PARTNERS: LogoPartner[] = [
 export default function ParceriasPage() {
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      <SiteHeader eventTitle="COPOL" />
+      <SiteHeader eventTitle="Copol" />
 
       <main style={{ flex: 1, position: "relative" }}>
         <div className="wave-bg" style={{ opacity: 0.5 }} />

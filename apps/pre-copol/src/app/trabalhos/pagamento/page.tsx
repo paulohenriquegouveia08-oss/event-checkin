@@ -267,7 +267,7 @@ function Conteudo() {
 function Casca({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      <SiteHeader eventTitle="COPOL" />
+      <SiteHeader eventTitle="Copol" />
       <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
         {children}
       </main>

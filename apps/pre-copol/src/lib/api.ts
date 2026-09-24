@@ -247,3 +247,85 @@ export interface PublicCertificate {
 export function getPublicCertificate(code: string) {
   return request<PublicCertificate>(`/public/certificates/${code}`);
 }
+
+// --- Submissão de trabalhos ---
+
+export interface SubmissionPublicConfig {
+  eventId: string;
+  eventName: string;
+  aberta: boolean;
+  motivo: string | null;
+  closesAt: string | null;
+  maxFileSizeMb: number;
+  /** Null = sem taxa. */
+  feeAmount: number | null;
+  modalities: { id: string; name: string; description: string | null }[];
+  topics: { id: string; name: string }[];
+}
+
+export interface SubmissionPublicInput {
+  modalityId?: string | null;
+  topicId?: string | null;
+  title: string;
+  abstract: string;
+  keywords: string[];
+  authors: { name: string; email: string; institution?: string | null; isPresenter?: boolean }[];
+  fileName: string;
+  dataBase64: string;
+}
+
+export interface SubmissionPublicStatus {
+  id: string;
+  code: string;
+  title: string;
+  status: "DRAFT" | "SUBMITTED" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" | "WITHDRAWN";
+  paymentStatus: "NOT_REQUIRED" | "PENDING" | "PAID";
+  feeAmount: number | null;
+  paymentUrl: string | null;
+  qrCodeContent: string | null;
+  qrCodeBase64: string | null;
+  paymentExpiresAt: string | null;
+  paidAt: string | null;
+  fileName: string | null;
+}
+
+export function getSubmissionConfig(eventId: string) {
+  return request<SubmissionPublicConfig>(`/public/events/${eventId}/submissions/config`);
+}
+
+/**
+ * Envia o trabalho com o arquivo. Não usa `request()` porque precisa
+ * tratar o 413: o arquivo em base64 é a maior requisição do site, e um
+ * proxy que recusa pelo tamanho responde HTML, não o nosso JSON de erro.
+ */
+export async function createPublicSubmission(eventId: string, input: SubmissionPublicInput) {
+  const response = await fetch(`${API_URL}/public/events/${eventId}/submissions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (response.status === 413) {
+    throw new Error("O arquivo é grande demais para o envio. Reduza o tamanho (ex.: exporte o PDF com imagens comprimidas) e tente de novo.");
+  }
+  if (response.status === 429) {
+    throw new Error("Muitos envios seguidos deste endereço. Aguarde alguns minutos e tente de novo.");
+  }
+  const json = await response.json().catch(() => null);
+  if (!json?.success) {
+    const detalhe =
+      json?.error?.details?.fieldErrors &&
+      Object.values(json.error.details.fieldErrors as Record<string, string[]>).flat().filter(Boolean).join(" ");
+    throw new Error(detalhe || json?.error?.message || "Não foi possível enviar o trabalho.");
+  }
+  return json.data as SubmissionPublicStatus;
+}
+
+export function getSubmissionStatus(submissionId: string) {
+  return request<SubmissionPublicStatus>(`/public/submissions/${submissionId}`);
+}
+
+export function regenerateSubmissionPayment(submissionId: string) {
+  return request<SubmissionPublicStatus>(`/public/submissions/${submissionId}/payment`, {
+    method: "POST",
+  });
+}

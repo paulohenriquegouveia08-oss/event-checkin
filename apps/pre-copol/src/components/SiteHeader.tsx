@@ -11,6 +11,7 @@ const LINKS = [
   // espaco de que o nome do evento precisava para nao ser truncado.
   { href: "/", label: "Eventos", soNoAmplo: true },
   { href: "/programacao/", label: "Programação" },
+  { href: "/trabalhos/", label: "Trabalhos" },
   { href: "/parcerias/", label: "Parcerias" },
 ];
 

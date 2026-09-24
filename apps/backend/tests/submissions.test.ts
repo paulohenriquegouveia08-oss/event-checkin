@@ -3,7 +3,11 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { buildApp } from "../src/app.js";
 import { prisma } from "../src/database/prisma.js";
 import { createTestAdmin, createTestEvent, resetDatabase } from "./helpers.js";
-import { janelaAberta } from "../src/modules/submissions/submissions.service.js";
+import {
+  PREFIXO_REFERENCIA_TRABALHO,
+  confirmarPagamentoSubmissao,
+  janelaAberta,
+} from "../src/modules/submissions/submissions.service.js";
 
 const app = buildApp();
 
@@ -294,11 +298,15 @@ describe("permissão", () => {
   });
 });
 
-describe("arquivo do trabalho", () => {
-  /** PDF mínimo de verdade — começa com %PDF-, que é o que o servidor confere. */
-  const pdfValido = () =>
-    Buffer.from("%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<<>>\n%%EOF").toString("base64");
+/** PDF mínimo de verdade — começa com %PDF-, que é o que o servidor confere. */
+const pdfValido = () =>
+  Buffer.from("%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<<>>\n%%EOF").toString("base64");
 
+/** DOCX mínimo pelo que o servidor confere: ZIP (PK\x03\x04) com a pasta word/. */
+const docxValido = () =>
+  Buffer.from("PK\u0003\u0004....[Content_Types].xml....word/document.xml....").toString("base64");
+
+describe("arquivo do trabalho", () => {
   async function novoTrabalho() {
     return (await post(`/events/${eventId}/submissions`, trabalho())).json().data;
   }
@@ -314,16 +322,40 @@ describe("arquivo do trabalho", () => {
     expect(res.json().data.fileSizeBytes).toBeGreaterThan(0);
   });
 
-  it("recusa arquivo que não é PDF, mesmo com nome .pdf", async () => {
+  it("recusa arquivo que não é PDF nem DOCX, mesmo com nome .pdf", async () => {
     // A extensão vem do cliente e não prova nada — quem quiser mandar outra
-    // coisa só precisa renomear. O servidor lê os primeiros bytes.
+    // coisa só precisa renomear. O servidor lê os bytes.
     const s = await novoTrabalho();
     const res = await post(`/events/${eventId}/submissions/${s.id}/file`, {
       fileName: "disfarcado.pdf",
       dataBase64: Buffer.from("PK\u0003\u0004 isto aqui é um zip").toString("base64"),
     });
     expect(res.statusCode).toBeGreaterThanOrEqual(400);
-    expect(JSON.stringify(res.json())).toMatch(/n[ãa]o é um PDF/i);
+    expect(JSON.stringify(res.json())).toMatch(/PDF ou DOCX/i);
+  });
+
+  it("anexa um DOCX e baixa como documento do Word", async () => {
+    const s = await novoTrabalho();
+    const res = await post(`/events/${eventId}/submissions/${s.id}/file`, {
+      fileName: "meu-trabalho.docx",
+      dataBase64: docxValido(),
+    });
+    expect(res.statusCode).toBe(200);
+
+    const baixado = await get(`/events/${eventId}/submissions/${s.id}/file`);
+    expect(baixado.statusCode).toBe(200);
+    expect(baixado.headers["content-type"]).toMatch(/wordprocessingml/);
+    // DOCX o navegador não abre: vai como download.
+    expect(baixado.headers["content-disposition"]).toMatch(/^attachment/);
+  });
+
+  it("recusa planilha do Excel (ZIP do Office sem a pasta word/)", async () => {
+    const s = await novoTrabalho();
+    const res = await post(`/events/${eventId}/submissions/${s.id}/file`, {
+      fileName: "planilha.docx",
+      dataBase64: Buffer.from("PK\u0003\u0004....xl/workbook.xml....").toString("base64"),
+    });
+    expect(res.statusCode).toBeGreaterThanOrEqual(400);
   });
 
   it("recusa arquivo vazio", async () => {
@@ -396,5 +428,150 @@ describe("arquivo do trabalho", () => {
   it("baixar sem arquivo anexado responde 404", async () => {
     const s = await novoTrabalho();
     expect((await get(`/events/${eventId}/submissions/${s.id}/file`)).statusCode).toBe(404);
+  });
+});
+
+describe("envio público pelo site, com taxa no Mercado Pago", () => {
+  /** Sem token: é o próprio autor, pelo site do evento. */
+  const postPublico = (url: string, payload?: unknown) =>
+    app.inject({ method: "POST", url, payload: payload ?? {} });
+  const getPublico = (url: string) => app.inject({ method: "GET", url });
+
+  const envio = (over: Record<string, unknown> = {}) => ({
+    ...trabalho(),
+    fileName: "trabalho.pdf",
+    dataBase64: pdfValido(),
+    ...over,
+  });
+
+  async function ligarTaxa(valor = 10) {
+    await patch(`/events/${eventId}/submissions/settings`, {
+      authorFeeRequired: true,
+      authorFeeAmount: valor,
+    });
+  }
+
+  it("a configuração pública mostra catálogo, taxa e se está aberta", async () => {
+    await ligarTaxa();
+    const res = await getPublico(`/public/events/${eventId}/submissions/config`);
+    expect(res.statusCode).toBe(200);
+    const cfg = res.json().data;
+    expect(cfg.aberta).toBe(true);
+    expect(cfg.feeAmount).toBe(10);
+    expect(cfg.modalities).toHaveLength(1);
+    expect(cfg.topics).toHaveLength(1);
+  });
+
+  it("sem taxa, o trabalho entra direto na fila da comissão", async () => {
+    const res = await postPublico(`/public/events/${eventId}/submissions`, envio());
+    expect(res.statusCode).toBe(201);
+    expect(res.json().data.status).toBe("SUBMITTED");
+    expect(res.json().data.paymentStatus).toBe("NOT_REQUIRED");
+  });
+
+  it("com taxa, gera o Pix e segura o trabalho até pagar", async () => {
+    await ligarTaxa();
+    const res = await postPublico(
+      `/public/events/${eventId}/submissions`,
+      envio({ fileName: "trabalho.docx", dataBase64: docxValido() })
+    );
+    expect(res.statusCode).toBe(201);
+    const s = res.json().data;
+    expect(s.status).toBe("DRAFT");
+    expect(s.paymentStatus).toBe("PENDING");
+    expect(s.feeAmount).toBe(10);
+    expect(s.qrCodeContent).toBeTruthy();
+    expect(s.paymentUrl).toBeTruthy();
+  });
+
+  it("pagamento aprovado envia para a comissão, e reentrega não muda nada", async () => {
+    await ligarTaxa();
+    const s = (await postPublico(`/public/events/${eventId}/submissions`, envio())).json().data;
+
+    const pagamento = {
+      aprovado: true,
+      status: "approved",
+      paymentId: "123",
+      tipo: "bank_transfer",
+      centavos: 1000,
+      referenceId: `${PREFIXO_REFERENCIA_TRABALHO}${s.id}`,
+    };
+    expect((await confirmarPagamentoSubmissao(pagamento)).ok).toBe(true);
+
+    const depois = (await getPublico(`/public/submissions/${s.id}`)).json().data;
+    expect(depois.paymentStatus).toBe("PAID");
+    expect(depois.status).toBe("SUBMITTED");
+
+    // O Mercado Pago reenvia a notificação — a segunda não pode mudar nada.
+    const segunda = await confirmarPagamentoSubmissao(pagamento);
+    expect(segunda.ok).toBe(true);
+    expect(segunda.motivo).toBe("ja_pago");
+  });
+
+  it("a comissão aprova e recusa o trabalho pago pelo painel", async () => {
+    await ligarTaxa();
+    const a = (await postPublico(`/public/events/${eventId}/submissions`, envio())).json().data;
+    const b = (await postPublico(`/public/events/${eventId}/submissions`, envio())).json().data;
+    for (const s of [a, b]) {
+      await confirmarPagamentoSubmissao({
+        aprovado: true,
+        status: "approved",
+        paymentId: `p-${s.id}`,
+        tipo: "credit_card",
+        centavos: 1000,
+        referenceId: `${PREFIXO_REFERENCIA_TRABALHO}${s.id}`,
+      });
+    }
+
+    const aprovado = await post(`/events/${eventId}/submissions/${a.id}/decide`, { decision: "APPROVED" });
+    const recusado = await post(`/events/${eventId}/submissions/${b.id}/decide`, { decision: "REJECTED" });
+    expect(aprovado.json().data.status).toBe("APPROVED");
+    expect(recusado.json().data.status).toBe("REJECTED");
+
+    // Pago no cartão fica registrado como cartão — o relatório separa.
+    const lido = await prisma.submission.findUnique({ where: { id: a.id } });
+    expect(lido?.paymentMethod).toBe("CARD");
+  });
+
+  it("recusa arquivo que não é PDF nem DOCX e não deixa trabalho para trás", async () => {
+    const res = await postPublico(
+      `/public/events/${eventId}/submissions`,
+      envio({ fileName: "foto.pdf", dataBase64: Buffer.from("GIF89a....").toString("base64") })
+    );
+    expect(res.statusCode).toBeGreaterThanOrEqual(400);
+    expect(await prisma.submission.count({ where: { eventId } })).toBe(0);
+  });
+
+  it("evento sem catálogo aceita o trabalho sem modalidade nem área", async () => {
+    await prisma.submissionModality.deleteMany({ where: { eventId } });
+    await prisma.submissionTopic.deleteMany({ where: { eventId } });
+
+    const res = await postPublico(
+      `/public/events/${eventId}/submissions`,
+      envio({ modalityId: undefined, topicId: undefined })
+    );
+    expect(res.statusCode).toBe(201);
+  });
+
+  it("evento com catálogo exige a escolha", async () => {
+    const res = await postPublico(
+      `/public/events/${eventId}/submissions`,
+      envio({ modalityId: undefined })
+    );
+    expect(res.statusCode).toBeGreaterThanOrEqual(400);
+    expect(JSON.stringify(res.json())).toMatch(/modalidade/i);
+  });
+
+  it("recusa envio público com a chamada desligada", async () => {
+    await prisma.eventModule.deleteMany({ where: { eventId, module: "submission" } });
+    const res = await postPublico(`/public/events/${eventId}/submissions`, envio());
+    expect(res.statusCode).toBeGreaterThanOrEqual(400);
+  });
+
+  it("a consulta pública não expõe e-mail de autor", async () => {
+    const s = (await postPublico(`/public/events/${eventId}/submissions`, envio())).json().data;
+    const res = await getPublico(`/public/submissions/${s.id}`);
+    expect(res.statusCode).toBe(200);
+    expect(JSON.stringify(res.json())).not.toMatch(/ana@uni\.br/);
   });
 });

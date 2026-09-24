@@ -81,6 +81,13 @@ enum PaymentMethod {
   CARD
 }
 
+/// Taxa de submissão de um trabalho (ver Submission.paymentStatus).
+enum SubmissionPaymentStatus {
+  NOT_REQUIRED
+  PENDING
+  PAID
+}
+
 // Ver src/modules/certificates/certificate-eligibility.service.ts —
 // LOCKED e ELIGIBLE nunca têm fileKey; o PDF só é gerado (GENERATED) sob
 // demanda, no primeiro download, depois de elegível.
@@ -299,8 +306,10 @@ model SubmissionSettings {
   opensAt  DateTime?
   closesAt DateTime?
 
-  /// Se o autor paga taxa de submissão. Só registra a regra — não há
-  /// cobrança implementada, e nada é bloqueado por falta de pagamento.
+  /// Taxa por trabalho enviado pelo site. Com as duas preenchidas, o envio
+  /// público gera uma cobrança no Mercado Pago (mesmo Pix/cartão da
+  /// inscrição) e o trabalho só entra na fila da comissão depois do
+  /// pagamento aprovado — ver submissions.service.ts#iniciarCobranca.
   authorFeeRequired Boolean  @default(false)
   authorFeeAmount   Decimal? @db.Decimal(10, 2)
 
@@ -368,10 +377,14 @@ model Submission {
   /// deixaria os trabalhos sem classificação, ou os apagaria junto. As
   /// duas coisas são piores do que o organizador receber um erro dizendo
   /// que precisa mover os trabalhos antes.
-  modalityId String
-  modality   SubmissionModality @relation(fields: [modalityId], references: [id], onDelete: Restrict)
-  topicId    String
-  topic      SubmissionTopic    @relation(fields: [topicId], references: [id], onDelete: Restrict)
+  ///
+  /// Anuláveis: evento que não cadastrou modalidade/área nenhuma ainda
+  /// recebe trabalho pelo site. Quando o catálogo existe, o service exige
+  /// a escolha (ver createSubmission).
+  modalityId String?
+  modality   SubmissionModality? @relation(fields: [modalityId], references: [id], onDelete: Restrict)
+  topicId    String?
+  topic      SubmissionTopic?    @relation(fields: [topicId], references: [id], onDelete: Restrict)
 
   title    String
   abstract String   @db.Text
@@ -395,6 +408,26 @@ model Submission {
   /// bases acadêmicas — isso depende de fornecedor contratado.
   similarityScore     Float?
   similarityCheckedAt DateTime?
+
+  // ---- taxa de submissão -------------------------------------------
+  // Só se aplica a trabalho enviado pelo site com a taxa ligada em
+  // SubmissionSettings. Trabalho cadastrado pelo organizador no painel
+  // fica NOT_REQUIRED. O dinheiro passa pelo mesmo Mercado Pago da
+  // inscrição, com external_reference "sub:<id>" — é por esse prefixo que
+  // o webhook sabe que o pagamento é de trabalho e não de inscrição.
+  paymentStatus        SubmissionPaymentStatus @default(NOT_REQUIRED)
+  /// Valor cobrado, congelado no momento da cobrança: mudar a taxa depois
+  /// não pode mudar o que já foi cobrado de quem enviou antes.
+  feeAmount            Decimal?                @db.Decimal(10, 2)
+  paymentProvider      PaymentProvider?
+  paymentMethod        PaymentMethod?
+  paymentId            String?
+  /// Página de pagamento do Mercado Pago (cartão) ou do Pix.
+  paymentUrl           String?
+  paymentQrCodeContent String?                 @db.Text
+  paymentQrCodeBase64  String?                 @db.Text
+  paymentExpiresAt     DateTime?
+  paidAt               DateTime?
 
   authors SubmissionAuthor[]
 

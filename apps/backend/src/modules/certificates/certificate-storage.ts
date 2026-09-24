@@ -99,8 +99,12 @@ export function attendanceProofFileKey(eventId: string, participantId: string): 
  * metadado no banco, jamais no caminho. Nome de arquivo vindo de fora é a
  * porta de entrada clássica para escrever fora do diretório.
  */
-export function submissionFileKey(eventId: string, submissionId: string): string {
-  return `submissions/${eventId}/${submissionId}.pdf`;
+export function submissionFileKey(
+  eventId: string,
+  submissionId: string,
+  extensao: "pdf" | "docx" = "pdf",
+): string {
+  return `submissions/${eventId}/${submissionId}.${extensao}`;
 }
 
 export function signatureImageKey(filename: string): string {

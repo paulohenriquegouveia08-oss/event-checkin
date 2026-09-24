@@ -50,8 +50,10 @@ const authorSchema = z.object({
 });
 
 export const createSubmissionSchema = z.object({
-  modalityId: z.string().uuid(),
-  topicId: z.string().uuid(),
+  // Opcionais aqui porque o evento pode não ter catálogo nenhum. Quando
+  // tem, o service exige a escolha — ver createSubmission.
+  modalityId: z.string().uuid().nullable().optional(),
+  topicId: z.string().uuid().nullable().optional(),
   title: z.string().trim().min(5, "O título está curto demais").max(300),
   abstract: z.string().trim().min(50, "O resumo precisa de pelo menos 50 caracteres").max(10000),
   keywords: z.array(z.string().trim().min(2).max(50)).min(1).max(10),
@@ -81,24 +83,41 @@ export const listSubmissionsQuery = z.object({
 export type CreateSubmissionInput = z.infer<typeof createSubmissionSchema>;
 export type SubmissionSettingsInput = z.infer<typeof submissionSettingsSchema>;
 
+const fileNameSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(200)
+  // Só metadado: o caminho no disco é montado pelo servidor. Ainda assim
+  // recusa separador de diretório, para o nome não virar caminho se um
+  // dia alguém usá-lo para montar um.
+  .refine((v) => !v.includes("/") && !v.includes("\\") && !v.includes(".."), {
+    message: "Nome de arquivo inválido",
+  });
+
 /**
- * Upload do PDF do trabalho, em base64.
+ * Upload do arquivo do trabalho (PDF ou DOCX), em base64.
  *
  * Base64 e não multipart porque é assim que o resto do sistema já recebe
  * arquivo (ver a imagem de assinatura em certificates.routes.ts) — e uma
  * dependência a menos.
  */
 export const uploadFileSchema = z.object({
-  fileName: z
-    .string()
-    .trim()
-    .min(1)
-    .max(200)
-    // Só metadado: o caminho no disco é montado pelo servidor. Ainda assim
-    // recusa separador de diretório, para o nome não virar caminho se um
-    // dia alguém usá-lo para montar um.
-    .refine((v) => !v.includes("/") && !v.includes("\\") && !v.includes(".."), {
-      message: "Nome de arquivo inválido",
-    }),
+  fileName: fileNameSchema,
   dataBase64: z.string().min(1, "Arquivo vazio"),
 });
+
+/**
+ * Envio pelo site, pelo próprio autor: dados do trabalho e o arquivo numa
+ * requisição só. Separar em "cria rascunho" + "anexa" deixaria rascunhos
+ * órfãos sem dono no banco toda vez que alguém desistisse no meio — no
+ * painel isso não acontece porque quem cadastra é o organizador.
+ */
+export const publicCreateSubmissionSchema = createSubmissionSchema.extend({
+  fileName: fileNameSchema,
+  dataBase64: z.string().min(1, "Anexe o arquivo do trabalho"),
+});
+
+export const publicSubmissionIdParams = z.object({ submissionId: z.string().uuid() });
+
+export type PublicCreateSubmissionInput = z.infer<typeof publicCreateSubmissionSchema>;

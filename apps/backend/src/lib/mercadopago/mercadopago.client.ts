@@ -36,6 +36,10 @@ export interface CreatePixParams {
   description: string;
   expiresAt: Date;
   payer: PixPayer;
+  /** Padrão: referenceId. Só muda quando a MESMA referência precisa de
+   *  uma cobrança nova (Pix anterior expirou) — com a mesma chave, o
+   *  Mercado Pago devolveria a cobrança vencida. */
+  idempotencyKey?: string;
 }
 
 export interface PixPaymentResponse {
@@ -59,6 +63,8 @@ export interface CreateCardCheckoutParams {
   payer: PixPayer;
   /** Para onde o Mercado Pago devolve a pessoa depois de pagar. */
   returnUrl: string;
+  /** Ver CreatePixParams.idempotencyKey. */
+  idempotencyKey?: string;
 }
 
 export interface CardCheckoutResponse {
@@ -138,7 +144,7 @@ export class MercadoPagoClient {
       headers: {
         Authorization: `Bearer ${env.MP_ACCESS_TOKEN}`,
         "Content-Type": "application/json",
-        "X-Idempotency-Key": params.referenceId,
+        "X-Idempotency-Key": params.idempotencyKey ?? params.referenceId,
       },
       body: JSON.stringify(corpo),
     });
@@ -241,7 +247,7 @@ export class MercadoPagoClient {
         Authorization: `Bearer ${env.MP_ACCESS_TOKEN}`,
         "Content-Type": "application/json",
         // Mesma inscrição tentando duas vezes recebe a MESMA preferência.
-        "X-Idempotency-Key": `pref-${params.referenceId}`,
+        "X-Idempotency-Key": `pref-${params.idempotencyKey ?? params.referenceId}`,
       },
       body: JSON.stringify(corpo),
     });

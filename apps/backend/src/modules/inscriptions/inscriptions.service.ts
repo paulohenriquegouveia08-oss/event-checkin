@@ -12,6 +12,10 @@ import * as batchesService from "../batches/batches.service.js";
 import * as inscriptionsRepository from "./inscriptions.repository.js";
 import type { CreateInscriptionInput } from "./inscriptions.schema.js";
 import { adminCheckInBus } from "../admin/adminMonitor.events.js";
+import {
+  PREFIXO_REFERENCIA_TRABALHO,
+  confirmarPagamentoSubmissao,
+} from "../submissions/submissions.service.js";
 
 export async function createInscription(
   eventId: string,
@@ -558,6 +562,16 @@ export async function handleMercadoPagoWebhook(
     // "pending" e "in_process" são estados legítimos e ainda NÃO são
     // pagamento. Confirmar aqui daria credencial antes de o dinheiro existir.
     return { httpStatus: 200, body: { ok: true, ignorado: "nao_aprovado", status: pagamento.status } };
+  }
+
+  // Taxa de submissão de trabalho: mesma conta, mesmo webhook, referência
+  // com prefixo "sub:". Ver submissions.service.ts#iniciarCobranca.
+  if (pagamento.referenceId.startsWith(PREFIXO_REFERENCIA_TRABALHO)) {
+    const r = await confirmarPagamentoSubmissao(pagamento);
+    return {
+      httpStatus: 200,
+      body: r.ok ? { ok: true, status: "submission_paid", detalhe: r.motivo } : { ok: true, ignorado: r.motivo },
+    };
   }
 
   const inscription = await inscriptionsRepository.findInscriptionById(pagamento.referenceId);

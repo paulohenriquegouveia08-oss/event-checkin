@@ -12,6 +12,8 @@ import {
   decideSubmissionSchema,
   eventIdParams,
   listSubmissionsQuery,
+  publicCreateSubmissionSchema,
+  publicSubmissionIdParams,
   submissionIdParams,
   submissionSettingsSchema,
   uploadFileSchema,
@@ -172,12 +174,16 @@ export async function submissionsRoutes(app: FastifyInstance) {
     { preHandler: requirePermission("submissions.view") },
     async (request, reply) => {
       const { eventId, submissionId } = submissionIdParams.parse(request.params);
-      const { buffer, fileName } = await service.readFile(eventId, submissionId);
+      const { buffer, fileName, tipo, contentType } = await service.readFile(eventId, submissionId);
       return reply
-        .header("Content-Type", "application/pdf")
-        // `inline` para abrir no navegador — a comissão lê muitos trabalhos
-        // seguidos e baixar cada um seria trabalhoso à toa.
-        .header("Content-Disposition", `inline; filename="${encodeURIComponent(fileName)}"`)
+        .header("Content-Type", contentType)
+        // PDF `inline` para abrir no navegador — a comissão lê muitos
+        // trabalhos seguidos e baixar cada um seria trabalhoso à toa. DOCX
+        // o navegador não abre: vai como download, com o nome do autor.
+        .header(
+          "Content-Disposition",
+          `${tipo === "pdf" ? "inline" : "attachment"}; filename="${encodeURIComponent(fileName)}"`
+        )
         .send(buffer);
     }
   );
@@ -218,6 +224,53 @@ export async function submissionsRoutes(app: FastifyInstance) {
         reason,
       });
       return ok(s);
+    }
+  );
+
+  // ── envio público (site do evento) ───────────────────────────────────
+  //
+  // Sem login: é o próprio autor, pelo site. O que protege é o módulo
+  // precisar estar ligado, a janela aberta, o arquivo ser PDF/DOCX de
+  // verdade e o limite de envios por IP abaixo.
+
+  app.get("/public/events/:eventId/submissions/config", async (request) => {
+    const { eventId } = eventIdParams.parse(request.params);
+    return ok(await service.getPublicConfig(eventId));
+  });
+
+  app.post(
+    "/public/events/:eventId/submissions",
+    {
+      bodyLimit: 20 * 1024 * 1024,
+      config: {
+        // Arquivo de até 20 MB sem login: bem mais apertado que o limite
+        // geral. Dez envios em dez minutos é folga para quem erra e tenta
+        // de novo, e pouco para quem quer encher o disco.
+        rateLimit: {
+          max: process.env.NODE_ENV === "test" ? 10_000 : 10,
+          timeWindow: "10 minutes",
+        },
+      },
+    },
+    async (request, reply) => {
+      const { eventId } = eventIdParams.parse(request.params);
+      const input = publicCreateSubmissionSchema.parse(request.body);
+      const s = await service.createPublicSubmission(eventId, input);
+      return reply.status(201).send(ok(s));
+    }
+  );
+
+  app.get("/public/submissions/:submissionId", async (request) => {
+    const { submissionId } = publicSubmissionIdParams.parse(request.params);
+    return ok(await service.getPublicStatus(submissionId));
+  });
+
+  app.post(
+    "/public/submissions/:submissionId/payment",
+    { config: { rateLimit: { max: process.env.NODE_ENV === "test" ? 10_000 : 10, timeWindow: "10 minutes" } } },
+    async (request) => {
+      const { submissionId } = publicSubmissionIdParams.parse(request.params);
+      return ok(await service.regeneratePayment(submissionId));
     }
   );
 }

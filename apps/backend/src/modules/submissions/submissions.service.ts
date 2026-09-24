@@ -1,12 +1,18 @@
 import { prisma } from "../../database/prisma.js";
+import { env } from "../../config/env.js";
 import {
   certificateStorage,
   submissionFileKey,
 } from "../certificates/certificate-storage.js";
 import { ConflictError, NotFoundError, ValidationError } from "../../shared/errors.js";
 import { isModuleEnabled } from "../event-config/event-config.service.js";
+import {
+  mercadoPagoClient,
+  type PagamentoConferido,
+} from "../../lib/mercadopago/mercadopago.client.js";
 import type {
   CreateSubmissionInput,
+  PublicCreateSubmissionInput,
   SubmissionSettingsInput,
 } from "./submissions.schema.js";
 
@@ -243,6 +249,50 @@ async function gerarCodigo(eventId: string, eventName: string): Promise<string> 
   return `${prefixo}-${Date.now().toString(36).toUpperCase()}`;
 }
 
+/**
+ * Modalidade e área: obrigatórias SE o evento tem catálogo, proibidas se
+ * não tem.
+ *
+ * Evento que nunca cadastrou modalidade/área ainda recebe trabalho pelo
+ * site — antes, sem catálogo, ninguém conseguia enviar nada e a tela não
+ * dizia por quê. Com catálogo, a escolha volta a ser exigida, porque é
+ * ela que manda o trabalho para o parecerista certo.
+ *
+ * E o item escolhido precisa ser DESTE evento: sem essa checagem daria
+ * para classificar um trabalho com a modalidade de outro congresso
+ * passando o id na mão.
+ */
+async function validarCatalogo(
+  eventId: string,
+  modalityId: string | null,
+  topicId: string | null,
+): Promise<{ modalityId: string | null; topicId: string | null }> {
+  const [temModalidade, temArea] = await Promise.all([
+    prisma.submissionModality.count({ where: { eventId, active: true } }),
+    prisma.submissionTopic.count({ where: { eventId, active: true } }),
+  ]);
+
+  let modalidadeFinal: string | null = null;
+  if (temModalidade > 0) {
+    if (!modalityId) throw new ValidationError("Escolha a modalidade do trabalho");
+    const m = await prisma.submissionModality.findFirst({ where: { id: modalityId, eventId } });
+    if (!m) throw new ValidationError("Modalidade não encontrada neste evento");
+    if (!m.active) throw new ValidationError("Essa modalidade não está aceitando trabalhos");
+    modalidadeFinal = m.id;
+  }
+
+  let areaFinal: string | null = null;
+  if (temArea > 0) {
+    if (!topicId) throw new ValidationError("Escolha a área temática do trabalho");
+    const t = await prisma.submissionTopic.findFirst({ where: { id: topicId, eventId } });
+    if (!t) throw new ValidationError("Área temática não encontrada neste evento");
+    if (!t.active) throw new ValidationError("Essa área temática não está aceitando trabalhos");
+    areaFinal = t.id;
+  }
+
+  return { modalityId: modalidadeFinal, topicId: areaFinal };
+}
+
 export async function createSubmission(eventId: string, input: CreateSubmissionInput) {
   const event = await eventOrThrow(eventId);
   await requireModule(eventId);
@@ -251,19 +301,11 @@ export async function createSubmission(eventId: string, input: CreateSubmissionI
   const janela = janelaAberta(settings);
   if (!janela.aberta) throw new ValidationError(janela.motivo!);
 
-  // Modalidade e área precisam ser DESTE evento. Sem esta checagem daria
-  // para classificar um trabalho com a modalidade de outro congresso
-  // passando o id na mão.
-  const [modality, topic] = await Promise.all([
-    prisma.submissionModality.findFirst({
-      where: { id: input.modalityId, eventId },
-    }),
-    prisma.submissionTopic.findFirst({ where: { id: input.topicId, eventId } }),
-  ]);
-  if (!modality) throw new ValidationError("Modalidade não encontrada neste evento");
-  if (!topic) throw new ValidationError("Área temática não encontrada neste evento");
-  if (!modality.active) throw new ValidationError("Essa modalidade não está aceitando trabalhos");
-  if (!topic.active) throw new ValidationError("Essa área temática não está aceitando trabalhos");
+  const { modalityId, topicId } = await validarCatalogo(
+    eventId,
+    input.modalityId ?? null,
+    input.topicId ?? null,
+  );
 
   const apresentadores = input.authors.filter((a) => a.isPresenter);
   if (apresentadores.length > 1) {
@@ -276,8 +318,8 @@ export async function createSubmission(eventId: string, input: CreateSubmissionI
     data: {
       eventId,
       code,
-      modalityId: input.modalityId,
-      topicId: input.topicId,
+      modalityId,
+      topicId,
       title: input.title,
       abstract: input.abstract,
       keywords: input.keywords,
@@ -407,16 +449,77 @@ export async function decideSubmission(
 
 // ─── Arquivo do trabalho ────────────────────────────────────────────────
 
+type TipoArquivo = "pdf" | "docx";
+
+const CONTENT_TYPE: Record<TipoArquivo, string> = {
+  pdf: "application/pdf",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+};
+
 /**
- * Os primeiros bytes de todo PDF são `%PDF-`.
+ * O que o arquivo É, pelos bytes — não pelo nome.
  *
- * A extensão e o tipo declarado vêm do cliente e não provam nada — quem
- * quiser mandar outra coisa só precisa renomear. Ler o cabeçalho é o que
- * de fato responde "isto é um PDF?", e evita que a comissão baixe um
- * arquivo que não abre depois de a chamada já ter fechado.
+ * A extensão e o tipo declarado vêm do cliente e não provam nada: quem
+ * quiser mandar outra coisa só precisa renomear. Ler o conteúdo é o que
+ * de fato responde "isto abre?", e evita que a comissão baixe um arquivo
+ * que não abre depois de a chamada já ter fechado.
+ *
+ * - PDF começa com `%PDF-`.
+ * - DOCX é um ZIP (`PK\x03\x04`) com a pasta `word/` dentro. Planilha e
+ *   apresentação do Office também são ZIP, mas com `xl/` e `ppt/` — é o
+ *   `word/` que separa um documento de texto delas.
  */
-function pareceRealmentePdf(buffer: Buffer): boolean {
-  return buffer.subarray(0, 5).toString("latin1") === "%PDF-";
+function tipoDoArquivo(buffer: Buffer): TipoArquivo | null {
+  if (buffer.subarray(0, 5).toString("latin1") === "%PDF-") return "pdf";
+  const ehZip =
+    buffer.length > 4 &&
+    buffer[0] === 0x50 &&
+    buffer[1] === 0x4b &&
+    buffer[2] === 0x03 &&
+    buffer[3] === 0x04;
+  if (ehZip && buffer.includes("word/", 0, "latin1")) return "docx";
+  return null;
+}
+
+/**
+ * Valida e grava o arquivo de um trabalho. Compartilhado pelo painel
+ * (uploadFile) e pelo envio público (createPublicSubmission).
+ */
+async function gravarArquivo(
+  eventId: string,
+  submissionId: string,
+  fileKeyAtual: string | null,
+  dataBase64: string,
+  maxFileSizeMb: number,
+) {
+  const buffer = Buffer.from(dataBase64, "base64");
+  if (buffer.length === 0) throw new ValidationError("Arquivo vazio.");
+
+  const limite = maxFileSizeMb * 1024 * 1024;
+  if (buffer.length > limite) {
+    throw new ValidationError(
+      `Arquivo muito grande — o limite deste evento é ${maxFileSizeMb} MB.`
+    );
+  }
+
+  const tipo = tipoDoArquivo(buffer);
+  if (!tipo) {
+    throw new ValidationError(
+      "Envie o trabalho em PDF ou DOCX (Word). Arquivos .doc antigos precisam ser salvos como .docx ou PDF antes."
+    );
+  }
+
+  const key = submissionFileKey(eventId, submissionId, tipo);
+  await certificateStorage.save(key, buffer);
+
+  // Trocou um PDF por um DOCX (ou o contrário) ainda em rascunho: o
+  // arquivo anterior tem outra extensão, então não foi sobrescrito — apaga
+  // para não ficar lixo no disco com o trabalho de alguém.
+  if (fileKeyAtual && fileKeyAtual !== key) {
+    await certificateStorage.remove(fileKeyAtual).catch(() => {});
+  }
+
+  return { key, tamanho: buffer.length };
 }
 
 export async function uploadFile(
@@ -436,39 +539,361 @@ export async function uploadFile(
     );
   }
 
-  const janela = janelaAberta(await getSettings(eventId));
+  const settings = await getSettings(eventId);
+  const janela = janelaAberta(settings);
   if (!janela.aberta) throw new ValidationError(janela.motivo!);
 
-  const buffer = Buffer.from(dataBase64, "base64");
-  if (buffer.length === 0) throw new ValidationError("Arquivo vazio.");
-
-  const settings = await getSettings(eventId);
-  const limite = settings.maxFileSizeMb * 1024 * 1024;
-  if (buffer.length > limite) {
-    throw new ValidationError(
-      `Arquivo muito grande — o limite deste evento é ${settings.maxFileSizeMb} MB.`
-    );
-  }
-  if (!pareceRealmentePdf(buffer)) {
-    throw new ValidationError("Envie um PDF. O arquivo recebido não é um PDF.");
-  }
-
-  const key = submissionFileKey(eventId, submissionId);
-  await certificateStorage.save(key, buffer);
+  const { key, tamanho } = await gravarArquivo(
+    eventId,
+    submissionId,
+    s.fileKey,
+    dataBase64,
+    settings.maxFileSizeMb,
+  );
 
   return prisma.submission.update({
     where: { id: submissionId },
-    data: { fileKey: key, fileName, fileSizeBytes: buffer.length },
+    data: { fileKey: key, fileName, fileSizeBytes: tamanho },
     select: { id: true, fileName: true, fileSizeBytes: true },
   });
 }
 
-/** Bytes do PDF, para a comissão baixar e ler. */
+/** Bytes do arquivo (PDF ou DOCX), para a comissão baixar e ler. */
 export async function readFile(eventId: string, submissionId: string) {
   const s = await getSubmission(eventId, submissionId);
   if (!s.fileKey) throw new NotFoundError("Este trabalho não tem arquivo anexado");
+  const tipo: TipoArquivo = s.fileKey.endsWith(".docx") ? "docx" : "pdf";
   return {
     buffer: await certificateStorage.read(s.fileKey),
-    fileName: s.fileName ?? `${s.code}.pdf`,
+    fileName: s.fileName ?? `${s.code}.${tipo}`,
+    tipo,
+    contentType: CONTENT_TYPE[tipo],
   };
+}
+
+// ─── Envio público e taxa de submissão ──────────────────────────────────
+
+/** Pix vale 24 h, igual à inscrição. Venceu, o autor gera outro na página. */
+const VALIDADE_DO_PIX_MS = 24 * 60 * 60 * 1000;
+
+/** Prefixo do external_reference no Mercado Pago. Ver handleMercadoPagoWebhook. */
+export const PREFIXO_REFERENCIA_TRABALHO = "sub:";
+
+function taxaDoEvento(settings: {
+  authorFeeRequired: boolean;
+  authorFeeAmount: unknown;
+}): number | null {
+  if (!settings.authorFeeRequired) return null;
+  const valor = Number(settings.authorFeeAmount ?? 0);
+  return valor > 0 ? valor : null;
+}
+
+/**
+ * O que a página pública precisa para montar o formulário: se a chamada
+ * está aberta, o catálogo, o limite de tamanho e quanto custa.
+ */
+export async function getPublicConfig(eventId: string) {
+  const event = await eventOrThrow(eventId);
+  const moduloAtivo = await isModuleEnabled(eventId, "submission");
+  const settings = await getSettings(eventId);
+  const janela = moduloAtivo
+    ? janelaAberta(settings)
+    : { aberta: false, motivo: "A chamada de trabalhos deste evento não está aberta." };
+
+  const [modalities, topics] = await Promise.all([
+    prisma.submissionModality.findMany({
+      where: { eventId, active: true },
+      orderBy: [{ position: "asc" }, { name: "asc" }],
+      select: { id: true, name: true, description: true },
+    }),
+    prisma.submissionTopic.findMany({
+      where: { eventId, active: true },
+      orderBy: [{ position: "asc" }, { name: "asc" }],
+      select: { id: true, name: true },
+    }),
+  ]);
+
+  return {
+    eventId: event.id,
+    eventName: event.name,
+    aberta: janela.aberta,
+    motivo: janela.motivo ?? null,
+    closesAt: settings.closesAt,
+    maxFileSizeMb: settings.maxFileSizeMb,
+    feeAmount: taxaDoEvento(settings),
+    modalities,
+    topics,
+  };
+}
+
+/**
+ * Gera (ou regera) a cobrança da taxa no Mercado Pago — o MESMO Pix e o
+ * MESMO link de pagamento da inscrição.
+ *
+ * O Pix sai sempre; o link do Checkout Pro (cartão) sai junto, como
+ * alternativa, igual ao lote híbrido da inscrição. Quem confirma é o
+ * webhook de sempre, pelo prefixo `sub:` na referência.
+ */
+async function iniciarCobranca(
+  submission: { id: string; code: string; title: string },
+  eventName: string,
+  valor: number,
+  pagador: { name: string; email: string },
+  idempotencyKey?: string,
+) {
+  const referenceId = `${PREFIXO_REFERENCIA_TRABALHO}${submission.id}`;
+  const partes = pagador.name.trim().split(/\s+/);
+  const payer = {
+    firstName: partes[0] || "Autor",
+    lastName: partes.slice(1).join(" ") || "Trabalho",
+    // O envio de trabalho não pede CPF: o Pix não exige, e o checkout do
+    // cartão pede o documento na própria página do Mercado Pago.
+    document: "",
+    email: pagador.email,
+  };
+  const descricao = `${eventName} — Taxa de submissão ${submission.code}`;
+  const expiresAt = new Date(Date.now() + VALIDADE_DO_PIX_MS);
+
+  const pix = await mercadoPagoClient.createPixPayment({
+    referenceId,
+    amount: valor,
+    description: descricao,
+    expiresAt,
+    payer,
+    idempotencyKey,
+  });
+
+  let paymentUrl = pix.paymentUrl;
+  try {
+    const checkout = await mercadoPagoClient.createCardCheckout({
+      referenceId,
+      amount: valor,
+      description: descricao,
+      expiresAt,
+      payer,
+      returnUrl: `${env.PRE_COPOL_BASE_URL}/trabalhos/pagamento/?id=${submission.id}`,
+      idempotencyKey,
+    });
+    paymentUrl = checkout.checkoutUrl;
+  } catch (err) {
+    // O Pix já está de pé — sem o cartão, o autor ainda consegue pagar.
+    console.error("[Submissions] Falha ao gerar link de cartão:", err);
+  }
+
+  return prisma.submission.update({
+    where: { id: submission.id },
+    data: {
+      paymentStatus: "PENDING",
+      feeAmount: valor,
+      paymentProvider: "MERCADO_PAGO",
+      paymentMethod: "PIX",
+      paymentId: pix.paymentId,
+      paymentUrl,
+      paymentQrCodeContent: pix.qrCodeContent,
+      paymentQrCodeBase64: pix.qrCodeBase64,
+      // A validade que vale é a que o Mercado Pago devolveu.
+      paymentExpiresAt: new Date(pix.expiresAt),
+    },
+  });
+}
+
+/**
+ * Envio pelo próprio autor, pelo site do evento.
+ *
+ * Cria o trabalho, grava o arquivo e, se o evento cobra taxa, gera a
+ * cobrança — tudo de uma vez. O trabalho fica em DRAFT até o pagamento
+ * ser aprovado; aí o webhook o envia para a comissão. Sem taxa, já entra
+ * direto como SUBMITTED.
+ *
+ * Se a cobrança falhar, o trabalho é apagado: um rascunho com arquivo e
+ * sem forma de pagar é um beco sem saída para o autor e lixo para a
+ * comissão.
+ */
+export async function createPublicSubmission(eventId: string, input: PublicCreateSubmissionInput) {
+  const event = await eventOrThrow(eventId);
+  await requireModule(eventId);
+
+  const settings = await getSettings(eventId);
+  const janela = janelaAberta(settings);
+  if (!janela.aberta) throw new ValidationError(janela.motivo!);
+
+  const { fileName, dataBase64, ...dados } = input;
+
+  // Valida o arquivo ANTES de criar qualquer coisa: arquivo errado é o erro
+  // mais comum, e ele não pode deixar um trabalho vazio para trás.
+  const buffer = Buffer.from(dataBase64, "base64");
+  if (!tipoDoArquivo(buffer)) {
+    throw new ValidationError(
+      "Envie o trabalho em PDF ou DOCX (Word). Arquivos .doc antigos precisam ser salvos como .docx ou PDF antes."
+    );
+  }
+
+  const criado = await createSubmission(eventId, dados);
+
+  try {
+    const { key, tamanho } = await gravarArquivo(
+      eventId,
+      criado.id,
+      null,
+      dataBase64,
+      settings.maxFileSizeMb,
+    );
+
+    const valor = taxaDoEvento(settings);
+    await prisma.submission.update({
+      where: { id: criado.id },
+      data: {
+        fileKey: key,
+        fileName,
+        fileSizeBytes: tamanho,
+        ...(valor === null ? { status: "SUBMITTED", submittedAt: new Date() } : {}),
+      },
+    });
+
+    if (valor !== null) {
+      const apresentador = criado.authors.find((a) => a.isPresenter) ?? criado.authors[0];
+      await iniciarCobranca(criado, event.name, valor, apresentador);
+    }
+  } catch (err) {
+    const arquivo = await prisma.submission.findUnique({
+      where: { id: criado.id },
+      select: { fileKey: true },
+    });
+    if (arquivo?.fileKey) await certificateStorage.remove(arquivo.fileKey).catch(() => {});
+    await prisma.submission.delete({ where: { id: criado.id } }).catch(() => {});
+    if (err instanceof ValidationError) throw err;
+    console.error("[Submissions] Falha no envio público:", err);
+    throw new ValidationError(
+      "Não foi possível gerar a cobrança no Mercado Pago. Confira o e-mail do autor e tente de novo."
+    );
+  }
+
+  return getPublicStatus(criado.id);
+}
+
+/**
+ * Situação do trabalho para a página de pagamento — sem dados pessoais:
+ * o id é um uuid e quem o tem é quem acabou de enviar, mas a página não
+ * precisa de e-mail de ninguém para mostrar um QR Code.
+ *
+ * Se ainda está pendente, confere direto no Mercado Pago: o webhook é o
+ * caminho principal, mas se ele atrasar o autor não fica olhando para
+ * "aguardando" com o dinheiro já na conta.
+ */
+export async function getPublicStatus(submissionId: string) {
+  let s = await prisma.submission.findUnique({ where: { id: submissionId } });
+  if (!s) throw new NotFoundError("Trabalho não encontrado");
+
+  if (s.paymentStatus === "PENDING" && s.paymentId && mercadoPagoClient.configurado) {
+    try {
+      const conferencia = await mercadoPagoClient.conferirPagamento(s.paymentId);
+      if (conferencia.ok && conferencia.dados.aprovado) {
+        await confirmarPagamentoSubmissao(conferencia.dados);
+        s = (await prisma.submission.findUnique({ where: { id: submissionId } })) ?? s;
+      }
+    } catch {
+      // Falha momentânea de rede: a página tenta de novo no próximo ciclo.
+    }
+  }
+
+  return {
+    id: s.id,
+    code: s.code,
+    title: s.title,
+    status: s.status,
+    paymentStatus: s.paymentStatus,
+    feeAmount: s.feeAmount === null ? null : Number(s.feeAmount),
+    paymentUrl: s.paymentUrl,
+    qrCodeContent: s.paymentQrCodeContent,
+    qrCodeBase64: s.paymentQrCodeBase64,
+    paymentExpiresAt: s.paymentExpiresAt,
+    paidAt: s.paidAt,
+    fileName: s.fileName,
+  };
+}
+
+/** O Pix venceu sem pagamento: gera outro, com o mesmo valor congelado. */
+export async function regeneratePayment(submissionId: string) {
+  const s = await prisma.submission.findUnique({
+    where: { id: submissionId },
+    include: { event: true, authors: { orderBy: { position: "asc" } } },
+  });
+  if (!s) throw new NotFoundError("Trabalho não encontrado");
+  if (s.paymentStatus !== "PENDING") {
+    throw new ValidationError("Este trabalho não tem cobrança pendente.");
+  }
+  if (s.status === "WITHDRAWN") {
+    throw new ValidationError("Este trabalho foi retirado.");
+  }
+  if (s.paymentExpiresAt && s.paymentExpiresAt > new Date()) {
+    // Ainda vale: devolve a mesma. Gerar outra agora deixaria duas
+    // cobranças abertas para o mesmo trabalho.
+    return getPublicStatus(s.id);
+  }
+
+  const apresentador = s.authors.find((a) => a.isPresenter) ?? s.authors[0];
+  await iniciarCobranca(
+    s,
+    s.event.name,
+    Number(s.feeAmount ?? 0),
+    apresentador,
+    // Chave nova: com a antiga o Mercado Pago devolveria o Pix vencido.
+    `${PREFIXO_REFERENCIA_TRABALHO}${s.id}:${Date.now()}`,
+  );
+  return getPublicStatus(s.id);
+}
+
+/**
+ * Pagamento aprovado da taxa — chamado pelo webhook do Mercado Pago
+ * (inscriptions.service.ts#handleMercadoPagoWebhook) e pela conferência
+ * ativa em getPublicStatus.
+ *
+ * Idempotente: o Mercado Pago reenvia a notificação, e as reentregas se
+ * cruzam. Os dois `updateMany` com condição fazem a segunda chegada não
+ * mudar nada.
+ *
+ * O VALOR PAGO PRECISA COBRIR A TAXA, pelo mesmo motivo da inscrição:
+ * senão alguém cria um pagamento de R$ 0,01 com a nossa referência e o
+ * trabalho vai para a comissão sem pagar.
+ */
+export async function confirmarPagamentoSubmissao(
+  pagamento: PagamentoConferido,
+): Promise<{ ok: boolean; motivo?: string }> {
+  const submissionId = pagamento.referenceId.slice(PREFIXO_REFERENCIA_TRABALHO.length);
+  const s = await prisma.submission.findUnique({ where: { id: submissionId } }).catch(() => null);
+  if (!s) return { ok: false, motivo: "trabalho_inexistente" };
+  if (s.paymentStatus === "PAID") return { ok: true, motivo: "ja_pago" };
+
+  const esperado = Math.round(Number(s.feeAmount ?? 0) * 100);
+  // Em modo simulado (sem MP_ACCESS_TOKEN) a conferência devolve 0
+  // centavos — é o mesmo comportamento que a inscrição tem nesse modo.
+  if (mercadoPagoClient.configurado && pagamento.centavos < esperado) {
+    console.warn(
+      `[MercadoPago] taxa de trabalho abaixo do valor: pagou ${pagamento.centavos}, esperado ${esperado}, trabalho ${s.id}`
+    );
+    return { ok: false, motivo: "valor_insuficiente" };
+  }
+
+  const pagoNoCartao = pagamento.tipo === "credit_card" || pagamento.tipo === "debit_card";
+  const agora = new Date();
+
+  await prisma.submission.updateMany({
+    where: { id: s.id, paymentStatus: { not: "PAID" } },
+    data: {
+      paymentStatus: "PAID",
+      paidAt: agora,
+      paymentId: pagamento.paymentId,
+      paymentProvider: "MERCADO_PAGO",
+      paymentMethod: pagoNoCartao ? "CARD" : "PIX",
+    },
+  });
+
+  // Pago → vai para a comissão. Só sai de DRAFT: se o organizador já
+  // tiver enviado ou retirado o trabalho à mão, a decisão dele fica.
+  await prisma.submission.updateMany({
+    where: { id: s.id, status: "DRAFT" },
+    data: { status: "SUBMITTED", submittedAt: agora },
+  });
+
+  return { ok: true };
 }

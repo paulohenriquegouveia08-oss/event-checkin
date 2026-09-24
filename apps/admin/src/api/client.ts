@@ -811,6 +811,8 @@ export interface SubmissionAuthorRecord {
   isPresenter: boolean;
   position: number;
 }
+/** Taxa de submissão — ver Submission.paymentStatus no backend. */
+export type SubmissionPaymentStatus = "NOT_REQUIRED" | "PENDING" | "PAID";
 export interface SubmissionRecord {
   id: string;
   code: string;
@@ -822,9 +824,15 @@ export interface SubmissionRecord {
   fileSizeBytes: number | null;
   submittedAt: string | null;
   decidedAt: string | null;
-  modality: { id: string; name: string };
-  topic: { id: string; name: string };
+  // Nulos quando o evento não tem catálogo (trabalho enviado pelo site).
+  modality: { id: string; name: string } | null;
+  topic: { id: string; name: string } | null;
   authors: SubmissionAuthorRecord[];
+  paymentStatus: SubmissionPaymentStatus;
+  /** Decimal serializado pelo Prisma chega como string. */
+  feeAmount: string | number | null;
+  paymentMethod: "PIX" | "CARD" | null;
+  paidAt: string | null;
 }
 
 export function getSubmissionSettings(eventId: string) {

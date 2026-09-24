@@ -6,9 +6,17 @@ const STATUS_LABEL: Record<api.SubmissionStatus, string> = {
   SUBMITTED: "Enviado",
   UNDER_REVIEW: "Em avaliação",
   APPROVED: "Aprovado",
-  REJECTED: "Reprovado",
+  REJECTED: "Recusado",
   WITHDRAWN: "Retirado",
 };
+
+function formatarReais(valor: string | number | null): string {
+  return Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+/** PDF, DOCX — o que o servidor aceita (ele confere os bytes, não o nome). */
+const ACCEPT_ARQUIVO =
+  ".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 const STATUS_BADGE: Record<api.SubmissionStatus, string> = {
   DRAFT: "badge-muted",
@@ -127,7 +135,7 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
       setFPalavras("");
       setFAutorNome("");
       setFAutorEmail("");
-      setAviso("Trabalho cadastrado como rascunho. Anexe o PDF para poder enviar.");
+      setAviso("Trabalho cadastrado como rascunho. Anexe o arquivo (PDF ou DOCX) para poder enviar.");
       await carregar();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao cadastrar");
@@ -144,15 +152,23 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
     );
   }
 
-  async function abrirPdf(s: api.SubmissionRecord) {
+  async function abrirArquivo(s: api.SubmissionRecord) {
     try {
       const blob = await api.fetchSubmissionFile(eventId, s.id);
       const url = URL.createObjectURL(blob);
-      window.open(url, "_blank", "noopener");
-      // Libera a memória depois que o navegador já abriu a aba.
+      if (s.fileName?.toLowerCase().endsWith(".docx")) {
+        // DOCX o navegador não abre numa aba — baixa com o nome do autor.
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = s.fileName;
+        a.click();
+      } else {
+        window.open(url, "_blank", "noopener");
+      }
+      // Libera a memória depois que o navegador já abriu/baixou.
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Não consegui abrir o PDF");
+      setError(err instanceof Error ? err.message : "Não consegui abrir o arquivo");
     }
   }
 
@@ -163,9 +179,9 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
       {error && <p className="error-text">{error}</p>}
       {aviso && <p className="muted">{aviso}</p>}
 
-      {/* ── prazo ── */}
+      {/* ── prazo e taxa ── */}
       <section className="card">
-        <h3>Prazo da chamada</h3>
+        <h3>Prazo e taxa da chamada</h3>
         {settings && (
           <div className="stack">
             <div className="row">
@@ -190,11 +206,13 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
                 />
               </label>
               <label className="field">
-                Tamanho máximo do PDF (MB)
+                Tamanho máximo do arquivo (MB)
                 <input
                   type="number"
                   min={1}
-                  max={100}
+                  // Base64 infla ~34%: 14 MB de arquivo cabem nos 20 MB que a
+                  // rota de upload e o proxy aceitam.
+                  max={14}
                   value={settings.maxFileSizeMb}
                   onChange={(e) =>
                     setSettings({ ...settings, maxFileSizeMb: Number(e.target.value) })
@@ -204,8 +222,53 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
             </div>
             <p className="muted">
               Deixe em branco para não limitar: sem data de abertura a chamada já
-              está aberta; sem fechamento, não fecha sozinha.
+              está aberta; sem fechamento, não fecha sozinha. O autor envia em PDF
+              ou DOCX (Word).
             </p>
+
+            <div className="row" style={{ alignItems: "flex-end" }}>
+              <label className="row" style={{ gap: 8, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  style={{ width: "auto" }}
+                  checked={settings.authorFeeRequired}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      authorFeeRequired: e.target.checked,
+                      // Ligar sem valor não cobra nada — já sugere o valor da chamada.
+                      authorFeeAmount:
+                        e.target.checked && !Number(settings.authorFeeAmount)
+                          ? 11
+                          : settings.authorFeeAmount,
+                    })
+                  }
+                />
+                Cobrar taxa por trabalho enviado pelo site
+              </label>
+              {settings.authorFeeRequired && (
+                <label className="field" style={{ maxWidth: 180 }}>
+                  Valor (R$)
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={Number(settings.authorFeeAmount ?? 0)}
+                    onChange={(e) =>
+                      setSettings({ ...settings, authorFeeAmount: Number(e.target.value) })
+                    }
+                  />
+                </label>
+              )}
+            </div>
+            {settings.authorFeeRequired && (
+              <p className="muted">
+                Ao enviar o arquivo pelo site, o autor recebe o Pix (e o link de
+                cartão) do Mercado Pago — o mesmo da inscrição. O trabalho só entra
+                na fila da comissão depois do pagamento aprovado.
+              </p>
+            )}
+
             <button
               type="button"
               className="btn"
@@ -222,12 +285,16 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
                         ? new Date(settings.closesAt).toISOString()
                         : null,
                       maxFileSizeMb: settings.maxFileSizeMb,
+                      authorFeeRequired: settings.authorFeeRequired,
+                      authorFeeAmount: settings.authorFeeRequired
+                        ? Number(settings.authorFeeAmount ?? 0)
+                        : null,
                     }),
-                  "Prazo salvo."
+                  "Configuração salva."
                 )
               }
             >
-              Salvar prazo
+              Salvar configuração
             </button>
           </div>
         )}
@@ -238,8 +305,10 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
         <h3>Modalidades e áreas temáticas</h3>
         <p className="muted">
           A modalidade é o formato (Pôster, Oral). A área é o assunto
-          (Ortodontia, Saúde Coletiva). É preciso ter pelo menos uma de cada
-          antes de cadastrar um trabalho.
+          (Ortodontia, Saúde Coletiva). Cadastradas aqui, o autor precisa
+          escolher uma de cada ao enviar pelo site; sem nenhuma, o site aceita
+          o trabalho sem classificação. Para cadastrar pelo painel, é preciso
+          ter pelo menos uma de cada.
         </p>
 
         <div className="row">
@@ -483,26 +552,41 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
                   <div>
                     <strong>{s.title}</strong>
                     <div className="muted">
-                      <span className="monospace">{s.code}</span> · {s.modality.name} ·{" "}
-                      {s.topic.name} · {s.authors.map((a) => a.name).join(", ")}
+                      <span className="monospace">{s.code}</span>
+                      {s.modality ? ` · ${s.modality.name}` : ""}
+                      {s.topic ? ` · ${s.topic.name}` : ""} ·{" "}
+                      {s.authors.map((a) => a.name).join(", ")}
                     </div>
                   </div>
-                  <span className={`badge ${STATUS_BADGE[s.status]}`}>
-                    {STATUS_LABEL[s.status]}
-                  </span>
+                  <div className="row" style={{ gap: 6 }}>
+                    {s.paymentStatus === "PAID" && (
+                      <span className="badge badge-success">
+                        Taxa paga · {formatarReais(s.feeAmount)}
+                        {s.paymentMethod === "CARD" ? " (cartão)" : " (Pix)"}
+                      </span>
+                    )}
+                    {s.paymentStatus === "PENDING" && (
+                      <span className="badge badge-warning">
+                        Aguardando pagamento · {formatarReais(s.feeAmount)}
+                      </span>
+                    )}
+                    <span className={`badge ${STATUS_BADGE[s.status]}`}>
+                      {STATUS_LABEL[s.status]}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="row" style={{ marginTop: 12, flexWrap: "wrap" }}>
                   {s.fileName ? (
-                    <button type="button" className="btn btn-sm" onClick={() => abrirPdf(s)}>
-                      Abrir PDF
+                    <button type="button" className="btn btn-sm" onClick={() => abrirArquivo(s)}>
+                      {s.fileName.toLowerCase().endsWith(".docx") ? "Baixar DOCX" : "Abrir PDF"}
                     </button>
                   ) : (
                     <label className="btn btn-sm" style={{ cursor: "pointer" }}>
-                      Anexar PDF
+                      Anexar arquivo (PDF ou DOCX)
                       <input
                         type="file"
-                        accept="application/pdf"
+                        accept={ACCEPT_ARQUIVO}
                         style={{ display: "none" }}
                         onChange={(e) => {
                           const f = e.target.files?.[0];
@@ -518,16 +602,27 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
                       type="button"
                       className="btn btn-sm"
                       disabled={!s.fileName || ocupado === `sub-${s.id}`}
-                      title={!s.fileName ? "Anexe o PDF antes de enviar" : undefined}
-                      onClick={() =>
+                      title={!s.fileName ? "Anexe o arquivo antes de enviar" : undefined}
+                      onClick={() => {
+                        // Liberar sem a taxa é decisão consciente (pagou por
+                        // fora, isenção) — não pode sair num clique distraído.
+                        if (
+                          s.paymentStatus === "PENDING" &&
+                          !window.confirm(
+                            `${s.code} ainda não pagou a taxa de ${formatarReais(s.feeAmount)}. ` +
+                              "Enviar para a comissão mesmo assim?"
+                          )
+                        ) {
+                          return;
+                        }
                         acao(
                           `sub-${s.id}`,
                           () => api.submitSubmission(eventId, s.id),
                           `${s.code} enviado.`
-                        )
-                      }
+                        );
+                      }}
                     >
-                      Enviar
+                      {s.paymentStatus === "PENDING" ? "Liberar sem pagamento" : "Enviar"}
                     </button>
                   )}
 
@@ -555,11 +650,11 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
                           acao(
                             `re-${s.id}`,
                             () => api.decideSubmission(eventId, s.id, "REJECTED"),
-                            `${s.code} reprovado.`
+                            `${s.code} recusado.`
                           )
                         }
                       >
-                        Reprovar
+                        Recusar
                       </button>
                     </>
                   )}

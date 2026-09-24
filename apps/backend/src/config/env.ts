@@ -42,6 +42,13 @@ const envSchema = z.object({
   RESEND_API_KEY: z.string().optional().default(""),
   EMAIL_FROM: z.string().default("COPOL 2026 <contato@copol2026.com.br>"),
 
+  // Envio de e-mails via SMTP (Gmail, etc.)
+  SMTP_HOST: z.string().optional().default("smtp.gmail.com"),
+  SMTP_PORT: z.coerce.number().int().positive().default(465),
+  SMTP_SECURE: z.coerce.boolean().default(true),
+  SMTP_USER: z.string().optional().default(""),
+  SMTP_PASS: z.string().optional().default(""),
+
   // URLs públicas do sistema
   PRE_COPOL_BASE_URL: z.string().default("https://copol2026.com.br"),
   BACKEND_PUBLIC_URL: z.string().default("http://137.131.233.254:3000"),

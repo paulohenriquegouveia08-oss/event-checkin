@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Resend } from "resend";
+import nodemailer, { type Transporter, type SendMailOptions } from "nodemailer";
 import QRCode from "qrcode";
 import { env } from "../../config/env.js";
 import { botao, escaparHtml, montarEmail } from "./email-layout.js";
@@ -89,8 +90,21 @@ const LIMITE_ANEXO_BYTES = Math.floor((40 * 1024 * 1024 * 3) / 4);
 
 export class EmailService {
   private resend: Resend | null = null;
+  private smtpTransporter: Transporter | null = null;
 
   constructor() {
+    if (env.SMTP_USER && env.SMTP_PASS) {
+      this.smtpTransporter = nodemailer.createTransport({
+        host: env.SMTP_HOST || "smtp.gmail.com",
+        port: env.SMTP_PORT || 465,
+        secure: env.SMTP_SECURE,
+        auth: {
+          user: env.SMTP_USER,
+          pass: env.SMTP_PASS.replace(/\s+/g, ""),
+        },
+      });
+    }
+
     if (env.RESEND_API_KEY) {
       this.resend = new Resend(env.RESEND_API_KEY);
     }
@@ -127,35 +141,63 @@ export class EmailService {
     const anexos = payload.attachments ?? [];
     const total = anexos.reduce((soma, a) => soma + a.content.length, 0);
     if (total > LIMITE_ANEXO_BYTES) {
-      // Melhor recusar aqui, com o motivo, do que receber um erro do
-      // Resend que não diz qual e-mail estourou.
-      return { success: false, erro: `Anexos somam ${Math.round(total / 1024 / 1024)} MB; o limite do Resend é 40 MB.` };
+      // Melhor recusar aqui, com o motivo, do que receber um erro que
+      // não diz qual e-mail estourou.
+      return { success: false, erro: `Anexos somam ${Math.round(total / 1024 / 1024)} MB; o limite é 40 MB.` };
     }
 
-    if (!this.resend) {
-      console.log(`[EmailService:MOCK] "${payload.subject}" para ${payload.to} (sem RESEND_API_KEY)`);
-      return { success: true, mock: true, id: "mock" };
+    // 1. Envio prioritário via SMTP (Gmail, etc.) se configurado
+    if (this.smtpTransporter) {
+      try {
+        const fromAddress = s.fromName ? `"${s.fromName}" <${env.SMTP_USER}>` : env.SMTP_USER;
+        const mailOptions: SendMailOptions = {
+          from: fromAddress,
+          to: payload.to,
+          ...(s.replyTo ? { replyTo: s.replyTo } : {}),
+          subject: payload.subject,
+          html: payload.html,
+          attachments: anexos.map((a) => ({
+            filename: a.filename,
+            content: a.content,
+            cid: a.contentId,
+          })),
+        };
+
+        const info = await this.smtpTransporter.sendMail(mailOptions);
+        return { success: true, id: info.messageId };
+      } catch (err: unknown) {
+        const mensagemErro = err instanceof Error ? err.message : String(err);
+        console.error("[EmailService] Falha no envio via SMTP:", err);
+        return { success: false, erro: mensagemErro };
+      }
     }
 
-    const { data, error } = await this.resend.emails.send(
-      {
-        from: formatarRemetente(s),
-        to: payload.to,
-        ...(s.replyTo ? { replyTo: s.replyTo } : {}),
-        subject: payload.subject,
-        html: payload.html,
-        ...(anexos.length > 0 ? { attachments: anexos } : {}),
-        ...(payload.tags ? { tags: payload.tags } : {}),
-      },
-      { idempotencyKey },
-    );
+    // 2. Envio via Resend caso configurado
+    if (this.resend) {
+      const { data, error } = await this.resend.emails.send(
+        {
+          from: formatarRemetente(s),
+          to: payload.to,
+          ...(s.replyTo ? { replyTo: s.replyTo } : {}),
+          subject: payload.subject,
+          html: payload.html,
+          ...(anexos.length > 0 ? { attachments: anexos } : {}),
+          ...(payload.tags ? { tags: payload.tags } : {}),
+        },
+        { idempotencyKey },
+      );
 
-    if (error) {
-      console.error("[EmailService] Resend recusou o envio:", error);
-      return { success: false, erro: error.message };
+      if (error) {
+        console.error("[EmailService] Resend recusou o envio:", error);
+        return { success: false, erro: error.message };
+      }
+
+      return { success: true, id: data?.id };
     }
 
-    return { success: true, id: data?.id };
+    // 3. Fallback mock em ambiente sem credenciais
+    console.log(`[EmailService:MOCK] "${payload.subject}" para ${payload.to} (sem SMTP_USER nem RESEND_API_KEY)`);
+    return { success: true, mock: true, id: "mock" };
   }
 
   /** Comprovante de inscrição, com o QR Code de check-in. */

@@ -156,6 +156,14 @@ model User {
   role         Role      @relation(fields: [roleId], references: [id])
   isActive     Boolean   @default(true)
   lastLoginAt  DateTime?
+
+  /// Eventos que este usuário enxerga. Vazio = todos (o padrão, e como
+  /// todo usuário que já existe continua). Preenchido, o usuário só vê
+  /// esses eventos na lista e toda rota com :eventId de outro evento
+  /// responde 403 — ver loadAdminSession em middleware/auth.ts. O perfil
+  /// continua decidindo O QUE ele faz; isto decide EM QUAL evento.
+  allowedEventIds String[] @default([])
+
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 

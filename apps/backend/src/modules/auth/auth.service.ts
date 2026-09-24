@@ -37,5 +37,7 @@ export async function authenticateAdmin(email: string, password: string) {
     email: user.email,
     role: { id: user.role.id, key: user.role.key, name: user.role.name, isSystem: user.role.isSystem },
     permissions: permissionKeys,
+    // A UI usa para abrir direto no único evento de uma conta restrita.
+    allowedEventIds: user.allowedEventIds,
   };
 }

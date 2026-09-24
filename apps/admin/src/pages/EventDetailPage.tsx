@@ -33,12 +33,22 @@ type Tab =
   | "emails"
   | "config";
 
-const TABS: { key: Tab; label: string; permission: string }[] = [
-  { key: "credenciamento", label: "📷 Credenciamento", permission: "participants.view" },
+/**
+ * `gestao`: aba de OPERAÇÃO. Para conta restrita a eventos (conta de
+ * acompanhamento — ver User.allowedEventIds), só aparece com uma dessas
+ * permissões de gestão; para as demais contas, nada muda.
+ */
+const TABS: { key: Tab; label: string; permission: string; gestao?: string[] }[] = [
+  {
+    key: "credenciamento",
+    label: "📷 Credenciamento",
+    permission: "participants.view",
+    gestao: ["participants.edit"],
+  },
   { key: "participants", label: "Participantes", permission: "participants.view" },
   { key: "inscriptions", label: "Inscritos", permission: "participants.view" },
-  { key: "batches", label: "Lotes", permission: "events.view" },
-  { key: "schedule", label: "Programação", permission: "events.view" },
+  { key: "batches", label: "Lotes", permission: "events.view", gestao: ["events.edit"] },
+  { key: "schedule", label: "Programação", permission: "events.view", gestao: ["events.edit"] },
   { key: "terminals", label: "Terminais", permission: "terminals.view" },
   { key: "statistics", label: "Estatísticas", permission: "statistics.view" },
   { key: "monitor", label: "Monitor", permission: "monitor.view" },
@@ -48,7 +58,12 @@ const TABS: { key: Tab; label: string; permission: string }[] = [
   { key: "emails", label: "E-mails", permission: "events.edit" },
   // Última da fila: é onde se liga e desliga módulo, coisa que se faz uma
   // vez no começo e raramente depois.
-  { key: "config", label: "Configuração", permission: "events.view" },
+  {
+    key: "config",
+    label: "Configuração",
+    permission: "events.view",
+    gestao: ["events.edit", "events.configure"],
+  },
 ];
 
 // <input type="datetime-local"> trabalha em componentes de hora LOCAL do
@@ -68,9 +83,14 @@ function fromDatetimeLocal(value: string): string {
 
 export function EventDetailPage() {
   const { eventId } = useParams<{ eventId: string }>();
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
   const canEditEvent = hasPermission("events.edit");
-  const visibleTabs = TABS.filter((t) => hasPermission(t.permission));
+  const contaDeAcompanhamento = (user?.allowedEventIds?.length ?? 0) > 0;
+  const visibleTabs = TABS.filter(
+    (t) =>
+      hasPermission(t.permission) &&
+      (!contaDeAcompanhamento || !t.gestao || t.gestao.some((p) => hasPermission(p)))
+  );
   const [event, setEvent] = useState<api.EventRecord | null>(null);
   const [tab, setTab] = useState<Tab | null>(null);
   const [error, setError] = useState<string | null>(null);

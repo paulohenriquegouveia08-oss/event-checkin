@@ -14,13 +14,19 @@ export function findUserByEmail(email: string) {
   return prisma.user.findUnique({ where: { email } });
 }
 
-export function createUser(data: { name: string; email: string; passwordHash: string; roleId: string }) {
+export function createUser(data: {
+  name: string;
+  email: string;
+  passwordHash: string;
+  roleId: string;
+  allowedEventIds?: string[];
+}) {
   return prisma.user.create({ data, include: withRole });
 }
 
 export function updateUser(
   userId: string,
-  data: Partial<{ name: string; email: string; roleId: string; passwordHash: string }>
+  data: Partial<{ name: string; email: string; roleId: string; passwordHash: string; allowedEventIds: string[] }>
 ) {
   return prisma.user.update({ where: { id: userId }, data, include: withRole });
 }

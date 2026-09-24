@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import * as api from "../../api/client";
+import { useAuth } from "../../auth/AuthContext";
 
 const STATUS_LABEL: Record<api.SubmissionStatus, string> = {
   DRAFT: "Rascunho",
@@ -43,6 +44,11 @@ function lerBase64(file: File): Promise<string> {
 }
 
 export function SubmissionsTab({ eventId }: { eventId: string }) {
+  // Configurar a chamada e mexer nos trabalhos exigem permissões próprias
+  // no backend; conta só de leitura vê a lista e abre os arquivos.
+  const { hasPermission } = useAuth();
+  const canConfigure = hasPermission("submissions.configure");
+  const canManage = hasPermission("submissions.manage");
   const [settings, setSettings] = useState<api.SubmissionSettings | null>(null);
   const [modalities, setModalities] = useState<api.CatalogItem[]>([]);
   const [topics, setTopics] = useState<api.CatalogItem[]>([]);
@@ -180,6 +186,7 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
       {aviso && <p className="muted">{aviso}</p>}
 
       {/* ── prazo e taxa ── */}
+      {canConfigure && (
       <section className="card">
         <h3>Prazo e taxa da chamada</h3>
         {settings && (
@@ -299,8 +306,10 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
           </div>
         )}
       </section>
+      )}
 
       {/* ── catálogo ── */}
+      {canConfigure && (
       <section className="card">
         <h3>Modalidades e áreas temáticas</h3>
         <p className="muted">
@@ -415,8 +424,10 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
           </div>
         </div>
       </section>
+      )}
 
       {/* ── novo trabalho ── */}
+      {canManage && (
       <section className="card">
         <h3>Cadastrar trabalho</h3>
         {!podeCadastrar ? (
@@ -512,6 +523,7 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
           </form>
         )}
       </section>
+      )}
 
       {/* ── lista ── */}
       <section className="card">
@@ -581,7 +593,7 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
                     <button type="button" className="btn btn-sm" onClick={() => abrirArquivo(s)}>
                       {s.fileName.toLowerCase().endsWith(".docx") ? "Baixar DOCX" : "Abrir PDF"}
                     </button>
-                  ) : (
+                  ) : canManage ? (
                     <label className="btn btn-sm" style={{ cursor: "pointer" }}>
                       Anexar arquivo (PDF ou DOCX)
                       <input
@@ -595,9 +607,11 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
                         }}
                       />
                     </label>
+                  ) : (
+                    <span className="muted">Sem arquivo</span>
                   )}
 
-                  {s.status === "DRAFT" && (
+                  {canManage && s.status === "DRAFT" && (
                     <button
                       type="button"
                       className="btn btn-sm"
@@ -626,7 +640,7 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
                     </button>
                   )}
 
-                  {(s.status === "SUBMITTED" || s.status === "UNDER_REVIEW") && (
+                  {canManage && (s.status === "SUBMITTED" || s.status === "UNDER_REVIEW") && (
                     <>
                       <button
                         type="button"
@@ -659,7 +673,7 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
                     </>
                   )}
 
-                  {s.status !== "WITHDRAWN" && s.status !== "APPROVED" && (
+                  {canManage && s.status !== "WITHDRAWN" && s.status !== "APPROVED" && (
                     <button
                       type="button"
                       className="btn btn-danger btn-sm"

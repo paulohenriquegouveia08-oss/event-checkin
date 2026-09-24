@@ -14,6 +14,7 @@ function serializeUser(user: NonNullable<Awaited<ReturnType<typeof usersReposito
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
     role: { id: user.role.id, key: user.role.key, name: user.role.name, isSystem: user.role.isSystem },
+    allowedEventIds: user.allowedEventIds,
   };
 }
 
@@ -63,6 +64,7 @@ export async function createUser(input: CreateUserInput) {
     email: input.email,
     passwordHash,
     roleId: input.roleId,
+    allowedEventIds: input.allowedEventIds ?? [],
   });
   return serializeUser(user);
 }
@@ -82,6 +84,7 @@ export async function updateUser(userId: string, input: UpdateUserInput) {
     email: input.email,
     roleId: input.roleId,
     passwordHash,
+    allowedEventIds: input.allowedEventIds,
   });
   return serializeUser(updated);
 }

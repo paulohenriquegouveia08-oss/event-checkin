@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { requireAnyPermission, requirePermission, requireTerminal, userHasPermission } from "../../middleware/auth.js";
+import { requireAnyPermission, requirePermission, requireTerminal, userCanAccessEvent, userHasPermission } from "../../middleware/auth.js";
 import { ForbiddenError, NotFoundError } from "../../shared/errors.js";
 import { ok } from "../../shared/response.js";
 import * as checkinsService from "./checkins.service.js";
@@ -83,6 +83,20 @@ export async function checkinsRoutes(app: FastifyInstance) {
     { preHandler: requireAnyPermission("participants.edit", "participants.view") },
     async (request, reply) => {
       const { eventId } = checkinEventParamsSchema.parse(request.params);
+
+      // Conta restrita a eventos é conta de ACOMPANHAMENTO (ex.: organizador
+      // externo que só vê inscritos/participantes/trabalhos): registrar
+      // presença exige participants.edit explícito. Contas sem restrição
+      // seguem a regra acima, de propósito — é a da equipe da porta.
+      const admin = request.admin!;
+      if (
+        admin.allowedEventIds.length > 0 &&
+        !admin.isSystem &&
+        !admin.permissions.has("participants.edit")
+      ) {
+        throw new ForbiddenError("Sua conta é só de acompanhamento — não registra presença.");
+      }
+
       const { qrToken: rawQrToken } = createCheckInSchema.parse(request.body);
       const qrToken = cleanQrToken(rawQrToken);
 
@@ -169,9 +183,10 @@ export async function checkinsRoutes(app: FastifyInstance) {
       return reply.status(403).send({ success: false, error: { code: "FORBIDDEN", message: "Acesso negado" } });
     }
     const hasAccess =
-      (await userHasPermission(payload.sub, "monitor.view")) ||
-      (await userHasPermission(payload.sub, "participants.view")) ||
-      (await userHasPermission(payload.sub, "events.view"));
+      ((await userHasPermission(payload.sub, "monitor.view")) ||
+        (await userHasPermission(payload.sub, "participants.view")) ||
+        (await userHasPermission(payload.sub, "events.view"))) &&
+      (await userCanAccessEvent(payload.sub, eventId));
     if (!hasAccess) {
       return reply.status(403).send({ success: false, error: { code: "FORBIDDEN", message: "Acesso negado" } });
     }

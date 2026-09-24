@@ -22,6 +22,7 @@ export async function authRoutes(app: FastifyInstance) {
         email: user.email,
         role: user.role,
         permissions: user.permissions,
+        allowedEventIds: user.allowedEventIds,
       },
     });
   });

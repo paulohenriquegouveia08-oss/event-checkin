@@ -41,6 +41,8 @@ declare module "fastify" {
       roleId: string;
       isSystem: boolean;
       permissions: Set<string>;
+      /** Vazio = todos os eventos. Ver User.allowedEventIds. */
+      allowedEventIds: string[];
     };
     terminal?: { terminalId: string; eventId: string; name: string };
     attendee?: { participantId: string; eventId: string };
@@ -82,7 +84,42 @@ export async function loadAdminSession(request: FastifyRequest) {
     roleId: user.role.id,
     isSystem: user.role.isSystem,
     permissions,
+    allowedEventIds: user.allowedEventIds,
   };
+
+  // Usuário restrito a eventos: qualquer rota com :eventId de OUTRO evento
+  // para aqui, antes de chegar ao handler. É o único ponto por onde toda
+  // rota de admin passa — checar em cada handler seria esquecer um.
+  //
+  // Rotas cujo alvo vem por outro id (ex.: /batches/:id) não passam por
+  // esta checagem: são todas de edição, e conta restrita é pensada para
+  // acompanhamento (perfil só de leitura). Dar edição a uma conta restrita
+  // exige estender isto antes.
+  const eventId = (request.params as Record<string, unknown> | undefined)?.eventId;
+  if (
+    user.allowedEventIds.length > 0 &&
+    typeof eventId === "string" &&
+    !user.allowedEventIds.includes(eventId)
+  ) {
+    throw new ForbiddenError("Sua conta não tem acesso a este evento");
+  }
+}
+
+/** Mesma regra de eventos permitidos de loadAdminSession, para rotas que
+ * validam o token por fora do preHandler (SSE de monitor). */
+export async function userCanAccessEvent(userId: string, eventId: string): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { allowedEventIds: true },
+  });
+  if (!user) return false;
+  return user.allowedEventIds.length === 0 || user.allowedEventIds.includes(eventId);
+}
+
+/** Filtra uma lista de eventos pelo que o usuário da sessão pode ver. */
+export function filterAllowedEvents<T extends { id: string }>(request: FastifyRequest, events: T[]): T[] {
+  const allowed = request.admin?.allowedEventIds ?? [];
+  return allowed.length === 0 ? events : events.filter((e) => allowed.includes(e.id));
 }
 
 /** Mesma checagem de requirePermission(), mas utilizável fora do ciclo de

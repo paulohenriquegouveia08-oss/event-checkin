@@ -21,6 +21,11 @@ const CERT_BADGE_CLASS: Record<api.CertificateRowStatus, string> = {
 export function ParticipantsTab({ eventId }: { eventId: string }) {
   const { hasPermission } = useAuth();
   const canIssue = hasPermission("certificates.issue");
+  // Botão que o perfil não pode usar não aparece — antes aparecia e dava
+  // erro de permissão ao clicar (conta só de leitura, por exemplo).
+  const canCreate = hasPermission("participants.create");
+  const canEdit = hasPermission("participants.edit");
+  const canDelete = hasPermission("participants.delete");
   const canViewCertificates = hasPermission("certificates.view");
 
   const [participants, setParticipants] = useState<api.ParticipantRecord[] | null>(null);
@@ -139,14 +144,16 @@ export function ParticipantsTab({ eventId }: { eventId: string }) {
         <p className="muted" style={{ margin: 0 }}>
           {participants ? `${participants.length} participante(s)` : "Carregando..."}
         </p>
-        <div className="row">
-          <button className="btn btn-secondary" onClick={() => setShowImport(true)}>
-            Importar CSV
-          </button>
-          <button className="btn" onClick={() => setShowForm((v) => !v)}>
-            {showForm ? "Cancelar" : "+ Novo participante"}
-          </button>
-        </div>
+        {canCreate ? (
+          <div className="row">
+            <button className="btn btn-secondary" onClick={() => setShowImport(true)}>
+              Importar CSV
+            </button>
+            <button className="btn" onClick={() => setShowForm((v) => !v)}>
+              {showForm ? "Cancelar" : "+ Novo participante"}
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {showForm ? (
@@ -203,18 +210,24 @@ export function ParticipantsTab({ eventId }: { eventId: string }) {
                   </td>
                   <td>
                     <div className="row">
-                      <button className="btn btn-secondary btn-sm" onClick={() => handleRotateToken(p)}>
-                        Gerar novo QR
-                      </button>
-                      <button
-                        className={`btn btn-sm ${p.status === "ACTIVE" ? "btn-danger" : ""}`}
-                        onClick={() => handleToggleStatus(p)}
-                      >
-                        {p.status === "ACTIVE" ? "Revogar" : "Reativar"}
-                      </button>
-                      <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p)}>
-                        Excluir
-                      </button>
+                      {canEdit ? (
+                        <>
+                          <button className="btn btn-secondary btn-sm" onClick={() => handleRotateToken(p)}>
+                            Gerar novo QR
+                          </button>
+                          <button
+                            className={`btn btn-sm ${p.status === "ACTIVE" ? "btn-danger" : ""}`}
+                            onClick={() => handleToggleStatus(p)}
+                          >
+                            {p.status === "ACTIVE" ? "Revogar" : "Reativar"}
+                          </button>
+                        </>
+                      ) : null}
+                      {canDelete ? (
+                        <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p)}>
+                          Excluir
+                        </button>
+                      ) : null}
                     </div>
                   </td>
                 </tr>

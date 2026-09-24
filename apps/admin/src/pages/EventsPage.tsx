@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import * as api from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 
@@ -13,7 +13,7 @@ const STATUS_BADGE: Record<api.EventRecord["status"], string> = {
 };
 
 export function EventsPage() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
   const canCreate = hasPermission("events.create");
   const [events, setEvents] = useState<api.EventRecord[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -27,6 +27,11 @@ export function EventsPage() {
   }
 
   useEffect(reload, []);
+
+  // Conta restrita a um único evento (ex.: organizador que só acompanha o
+  // próprio congresso): a lista teria uma linha só — abre direto nele.
+  const unicoEvento = user?.allowedEventIds?.length === 1 ? user.allowedEventIds[0] : null;
+  if (unicoEvento) return <Navigate to={`/eventos/${unicoEvento}`} replace />;
 
   return (
     <div className="stack">

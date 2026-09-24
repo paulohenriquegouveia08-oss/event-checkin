@@ -4,6 +4,7 @@ import * as api from "../../api/client";
 import { CheckIcon, TrashIcon } from "../../components/Icons";
 import { ConfirmDeleteModal } from "../../components/ConfirmDeleteModal";
 import { formatPhone, formatDocument } from "../../utils/formatters";
+import { useAuth } from "../../auth/AuthContext";
 
 function BanIcon({ size = 13, color = "currentColor" }: { size?: number; color?: string }) {
   return (
@@ -20,6 +21,10 @@ interface InscriptionsReportTabProps {
 }
 
 export function InscriptionsReportTab({ eventId, eventName }: InscriptionsReportTabProps) {
+  // Confirmar/cancelar/excluir/sortear exigem participants.edit no backend;
+  // conta só de leitura não vê esses botões (antes via e dava 403).
+  const { hasPermission } = useAuth();
+  const canEdit = hasPermission("participants.edit");
   const [inscriptions, setInscriptions] = useState<api.InscriptionReportItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -362,14 +367,16 @@ export function InscriptionsReportTab({ eventId, eventName }: InscriptionsReport
         </div>
 
         <div className="row" style={{ gap: 10 }}>
-          <button
-            className="btn btn-secondary btn-sm"
-            onClick={handleSortearEquipes}
-            disabled={sorteando}
-            title="Forma equipes aleatórias com quem se inscreveu sozinho pedindo sorteio. Não afeta eventos sem inscrição em equipe."
-          >
-            {sorteando ? "Sorteando..." : "Sortear equipes"}
-          </button>
+          {canEdit && (
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={handleSortearEquipes}
+              disabled={sorteando}
+              title="Forma equipes aleatórias com quem se inscreveu sozinho pedindo sorteio. Não afeta eventos sem inscrição em equipe."
+            >
+              {sorteando ? "Sorteando..." : "Sortear equipes"}
+            </button>
+          )}
           <button className="btn btn-secondary btn-sm" onClick={handleExportCsv} disabled={filtered.length === 0}>
             Exportar CSV
           </button>
@@ -847,6 +854,7 @@ export function InscriptionsReportTab({ eventId, eventName }: InscriptionsReport
                     </div>
                   </td>
                   <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                    {canEdit ? (
                     <div className="row" style={{ gap: 6, justifyContent: "flex-end", flexWrap: "nowrap" }}>
                       {item.amount === 0 && (item.status === "PENDING" || item.status === "CANCELLED") && (
                         <button
@@ -906,6 +914,9 @@ export function InscriptionsReportTab({ eventId, eventName }: InscriptionsReport
                         {actionLoading === item.id ? "..." : "Excluir"}
                       </button>
                     </div>
+                    ) : (
+                      <span className="muted">—</span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -1067,6 +1078,7 @@ export function InscriptionsReportTab({ eventId, eventName }: InscriptionsReport
                 </div>
               </div>
 
+              {canEdit && (
               <div
                 className="row"
                 style={{
@@ -1136,6 +1148,7 @@ export function InscriptionsReportTab({ eventId, eventName }: InscriptionsReport
                   {actionLoading === item.id ? "..." : "Excluir"}
                 </button>
               </div>
+              )}
             </div>
           ))}
         </div>

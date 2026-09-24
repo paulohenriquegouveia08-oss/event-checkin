@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { requirePermission } from "../../middleware/auth.js";
+import { filterAllowedEvents, requirePermission } from "../../middleware/auth.js";
 import { ok } from "../../shared/response.js";
 import { recordAudit } from "../audit/audit.service.js";
 import * as eventsService from "./events.service.js";
@@ -16,9 +16,10 @@ export async function eventsRoutes(app: FastifyInstance) {
     return reply.status(201).send(ok(event));
   });
 
-  app.get("/events", { preHandler: requirePermission("events.view") }, async () => {
+  app.get("/events", { preHandler: requirePermission("events.view") }, async (request) => {
     const events = await eventsService.listEvents();
-    return ok(events);
+    // Conta restrita a eventos só vê os seus — ver User.allowedEventIds.
+    return ok(filterAllowedEvents(request, events));
   });
 
   // Public — list active events (for pre-copol site)

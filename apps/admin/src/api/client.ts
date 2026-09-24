@@ -88,6 +88,9 @@ export interface AdminUser {
   role: AdminRoleRef;
   // "ALL" pro perfil protegido (ADMINISTRADOR); lista de keys pros demais.
   permissions: "ALL" | string[];
+  /** Vazio/ausente = todos os eventos. Sessões salvas antes deste campo
+   *  não o têm — por isso opcional. */
+  allowedEventIds?: string[];
 }
 export function login(email: string, password: string) {
   return request<{ token: string; user: AdminUser }>("/auth/login", {
@@ -144,16 +147,24 @@ export interface UserRecord {
   createdAt: string;
   updatedAt: string;
   role: AdminRoleRef;
+  /** Vazio = todos os eventos. */
+  allowedEventIds: string[];
 }
 export function listUsers() {
   return request<UserRecord[]>("/users");
 }
-export function createUser(input: { name: string; email: string; password: string; roleId: string }) {
+export function createUser(input: {
+  name: string;
+  email: string;
+  password: string;
+  roleId: string;
+  allowedEventIds?: string[];
+}) {
   return request<UserRecord>("/users", { method: "POST", body: input });
 }
 export function updateUser(
   userId: string,
-  input: Partial<{ name: string; email: string; roleId: string; password: string }>
+  input: Partial<{ name: string; email: string; roleId: string; password: string; allowedEventIds: string[] }>
 ) {
   return request<UserRecord>(`/users/${userId}`, { method: "PATCH", body: input });
 }

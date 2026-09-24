@@ -6,6 +6,7 @@ export function UsersPage() {
   const { user: currentUser, hasPermission } = useAuth();
   const [users, setUsers] = useState<api.UserRecord[] | null>(null);
   const [roles, setRoles] = useState<api.RoleRecord[]>([]);
+  const [events, setEvents] = useState<api.EventRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<api.UserRecord | null>(null);
@@ -17,6 +18,7 @@ export function UsersPage() {
       .then(setUsers)
       .catch((err) => setError(err instanceof Error ? err.message : "Falha ao carregar usuários"));
     api.listRoles().then(setRoles).catch(() => {});
+    api.listEvents().then(setEvents).catch(() => {});
   }
 
   useEffect(reload, []);
@@ -73,6 +75,7 @@ export function UsersPage() {
       {showForm ? (
         <UserForm
           roles={roles}
+          events={events}
           onSaved={() => {
             setShowForm(false);
             reload();
@@ -84,6 +87,7 @@ export function UsersPage() {
       {editing ? (
         <UserForm
           roles={roles}
+          events={events}
           user={editing}
           onSaved={() => {
             setEditing(null);
@@ -106,6 +110,7 @@ export function UsersPage() {
                   <th>Nome</th>
                   <th>E-mail</th>
                   <th>Perfil</th>
+                  <th>Eventos</th>
                   <th>Status</th>
                   <th>Último login</th>
                   <th></th>
@@ -120,6 +125,13 @@ export function UsersPage() {
                     </td>
                     <td className="muted">{u.email}</td>
                     <td>{u.role.name}</td>
+                    <td className="muted">
+                      {u.allowedEventIds.length === 0
+                        ? "Todos"
+                        : u.allowedEventIds
+                            .map((id) => events.find((ev) => ev.id === id)?.name ?? "Evento removido")
+                            .join(", ")}
+                    </td>
                     <td>
                       <span className={`badge ${u.isActive ? "badge-success" : "badge-muted"}`}>
                         {u.isActive ? "Ativo" : "Desativado"}
@@ -170,11 +182,13 @@ export function UsersPage() {
 
 function UserForm({
   roles,
+  events,
   user,
   onSaved,
   onCancel,
 }: {
   roles: api.RoleRecord[];
+  events: api.EventRecord[];
   user?: api.UserRecord;
   onSaved: () => void;
   onCancel: () => void;
@@ -183,13 +197,21 @@ function UserForm({
   const [email, setEmail] = useState(user?.email ?? "");
   const [password, setPassword] = useState("");
   const [roleId, setRoleId] = useState(user?.role.id ?? roles[0]?.id ?? "");
+  // Vazio = todos os eventos (ver User.allowedEventIds no backend).
+  const [allowedEventIds, setAllowedEventIds] = useState<string[]>(user?.allowedEventIds ?? []);
+  const [restrito, setRestrito] = useState((user?.allowedEventIds.length ?? 0) > 0);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    if (restrito && allowedEventIds.length === 0) {
+      setError("Escolha ao menos um evento, ou desmarque a restrição.");
+      return;
+    }
     setSaving(true);
+    const eventos = restrito ? allowedEventIds : [];
     try {
       if (user) {
         await api.updateUser(user.id, {
@@ -197,6 +219,7 @@ function UserForm({
           email,
           roleId: roleId || undefined,
           password: password || undefined,
+          allowedEventIds: eventos,
         });
       } else {
         if (!roleId) {
@@ -204,7 +227,7 @@ function UserForm({
           setSaving(false);
           return;
         }
-        await api.createUser({ name, email, password, roleId });
+        await api.createUser({ name, email, password, roleId, allowedEventIds: eventos });
       }
       onSaved();
     } catch (err) {
@@ -253,6 +276,42 @@ function UserForm({
           <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
             Nenhum perfil cadastrado ainda — crie um em "Perfis" antes de criar usuários.
           </p>
+        ) : null}
+      </div>
+      <div className="field">
+        <label style={{ display: "flex", gap: 8, alignItems: "center", cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            style={{ width: "auto" }}
+            checked={restrito}
+            onChange={(e) => setRestrito(e.target.checked)}
+          />
+          Restringir a eventos específicos
+        </label>
+        <p className="muted" style={{ fontSize: 12, margin: "4px 0 0" }}>
+          O perfil decide o que a pessoa faz; aqui você decide em quais eventos. Sem restrição, vê todos.
+        </p>
+        {restrito ? (
+          <div className="stack" style={{ gap: 6, marginTop: 8, maxHeight: 220, overflowY: "auto" }}>
+            {events.map((ev) => (
+              <label key={ev.id} style={{ display: "flex", gap: 8, alignItems: "center", cursor: "pointer", margin: 0 }}>
+                <input
+                  type="checkbox"
+                  style={{ width: "auto" }}
+                  checked={allowedEventIds.includes(ev.id)}
+                  onChange={(e) =>
+                    setAllowedEventIds((ids) =>
+                      e.target.checked ? [...ids, ev.id] : ids.filter((id) => id !== ev.id)
+                    )
+                  }
+                />
+                <span style={{ color: "var(--text)" }}>{ev.name}</span>
+                <span className="muted" style={{ fontSize: 12 }}>
+                  {new Date(ev.startDate).toLocaleDateString("pt-BR")}
+                </span>
+              </label>
+            ))}
+          </div>
         ) : null}
       </div>
       {error ? <p className="error-text">{error}</p> : null}

@@ -5,6 +5,8 @@ export const createUserSchema = z.object({
   email: z.string().trim().email("E-mail inválido"),
   password: z.string().min(8, "A senha precisa ter no mínimo 8 caracteres").max(200),
   roleId: z.string().uuid("Selecione um perfil"),
+  /** Vazio/ausente = todos os eventos. Ver User.allowedEventIds. */
+  allowedEventIds: z.array(z.string().uuid()).max(200).optional(),
 });
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 
@@ -13,6 +15,7 @@ export const updateUserSchema = z.object({
   email: z.string().trim().email("E-mail inválido").optional(),
   roleId: z.string().uuid().optional(),
   password: z.string().min(8, "A senha precisa ter no mínimo 8 caracteres").max(200).optional(),
+  allowedEventIds: z.array(z.string().uuid()).max(200).optional(),
 });
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 

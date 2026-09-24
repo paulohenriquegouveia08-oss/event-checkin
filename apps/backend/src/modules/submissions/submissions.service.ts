@@ -10,9 +10,11 @@ import {
   mercadoPagoClient,
   type PagamentoConferido,
 } from "../../lib/mercadopago/mercadopago.client.js";
+import { receberParte, retirarArquivo } from "./submissions.parts.js";
 import type {
   CreateSubmissionInput,
   PublicCreateSubmissionInput,
+  PublicUploadPartInput,
   SubmissionSettingsInput,
 } from "./submissions.schema.js";
 
@@ -449,11 +451,15 @@ export async function decideSubmission(
 
 // ─── Arquivo do trabalho ────────────────────────────────────────────────
 
-type TipoArquivo = "pdf" | "docx";
+type TipoArquivo = "pdf" | "docx" | "pptx";
+
+const FORMATO_INVALIDO =
+  "Envie o trabalho em PDF, DOCX (Word) ou PPTX (PowerPoint). Arquivos .doc e .ppt antigos precisam ser salvos como .docx, .pptx ou PDF antes.";
 
 const CONTENT_TYPE: Record<TipoArquivo, string> = {
   pdf: "application/pdf",
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 };
 
 /**
@@ -465,9 +471,9 @@ const CONTENT_TYPE: Record<TipoArquivo, string> = {
  * que não abre depois de a chamada já ter fechado.
  *
  * - PDF começa com `%PDF-`.
- * - DOCX é um ZIP (`PK\x03\x04`) com a pasta `word/` dentro. Planilha e
- *   apresentação do Office também são ZIP, mas com `xl/` e `ppt/` — é o
- *   `word/` que separa um documento de texto delas.
+ * - DOCX é um ZIP (`PK\x03\x04`) com a pasta `word/` dentro; PPTX é o
+ *   mesmo ZIP com `ppt/`. Planilha do Office também é ZIP, mas com `xl/` —
+ *   e fica de fora.
  */
 function tipoDoArquivo(buffer: Buffer): TipoArquivo | null {
   if (buffer.subarray(0, 5).toString("latin1") === "%PDF-") return "pdf";
@@ -478,6 +484,7 @@ function tipoDoArquivo(buffer: Buffer): TipoArquivo | null {
     buffer[2] === 0x03 &&
     buffer[3] === 0x04;
   if (ehZip && buffer.includes("word/", 0, "latin1")) return "docx";
+  if (ehZip && buffer.includes("ppt/", 0, "latin1")) return "pptx";
   return null;
 }
 
@@ -489,10 +496,9 @@ async function gravarArquivo(
   eventId: string,
   submissionId: string,
   fileKeyAtual: string | null,
-  dataBase64: string,
+  buffer: Buffer,
   maxFileSizeMb: number,
 ) {
-  const buffer = Buffer.from(dataBase64, "base64");
   if (buffer.length === 0) throw new ValidationError("Arquivo vazio.");
 
   const limite = maxFileSizeMb * 1024 * 1024;
@@ -504,9 +510,7 @@ async function gravarArquivo(
 
   const tipo = tipoDoArquivo(buffer);
   if (!tipo) {
-    throw new ValidationError(
-      "Envie o trabalho em PDF ou DOCX (Word). Arquivos .doc antigos precisam ser salvos como .docx ou PDF antes."
-    );
+    throw new ValidationError(FORMATO_INVALIDO);
   }
 
   const key = submissionFileKey(eventId, submissionId, tipo);
@@ -547,7 +551,7 @@ export async function uploadFile(
     eventId,
     submissionId,
     s.fileKey,
-    dataBase64,
+    Buffer.from(dataBase64, "base64"),
     settings.maxFileSizeMb,
   );
 
@@ -558,11 +562,12 @@ export async function uploadFile(
   });
 }
 
-/** Bytes do arquivo (PDF ou DOCX), para a comissão baixar e ler. */
+/** Bytes do arquivo (PDF, DOCX ou PPTX), para a comissão baixar e ler. */
 export async function readFile(eventId: string, submissionId: string) {
   const s = await getSubmission(eventId, submissionId);
   if (!s.fileKey) throw new NotFoundError("Este trabalho não tem arquivo anexado");
-  const tipo: TipoArquivo = s.fileKey.endsWith(".docx") ? "docx" : "pdf";
+  const extensao = s.fileKey.slice(s.fileKey.lastIndexOf(".") + 1);
+  const tipo: TipoArquivo = extensao === "docx" || extensao === "pptx" ? extensao : "pdf";
   return {
     buffer: await certificateStorage.read(s.fileKey),
     fileName: s.fileName ?? `${s.code}.${tipo}`,
@@ -709,6 +714,29 @@ async function iniciarCobranca(
  * sem forma de pagar é um beco sem saída para o autor e lixo para a
  * comissão.
  */
+/**
+ * Uma parte do arquivo, antes do envio do formulário — ver
+ * submissions.parts.ts. Confere módulo e janela já aqui para o autor não
+ * subir 10 MB e só então descobrir que a chamada fechou.
+ */
+export async function receivePublicFilePart(eventId: string, input: PublicUploadPartInput) {
+  await eventOrThrow(eventId);
+  await requireModule(eventId);
+  const settings = await getSettings(eventId);
+  const janela = janelaAberta(settings);
+  if (!janela.aberta) throw new ValidationError(janela.motivo!);
+
+  return receberParte({
+    eventId,
+    uploadId: input.uploadId,
+    index: input.index,
+    total: input.total,
+    dados: Buffer.from(input.dataBase64, "base64"),
+    limiteBytes: settings.maxFileSizeMb * 1024 * 1024,
+    limiteMb: settings.maxFileSizeMb,
+  });
+}
+
 export async function createPublicSubmission(eventId: string, input: PublicCreateSubmissionInput) {
   const event = await eventOrThrow(eventId);
   await requireModule(eventId);
@@ -717,15 +745,15 @@ export async function createPublicSubmission(eventId: string, input: PublicCreat
   const janela = janelaAberta(settings);
   if (!janela.aberta) throw new ValidationError(janela.motivo!);
 
-  const { fileName, dataBase64, ...dados } = input;
+  const { fileName, dataBase64, uploadId, ...dados } = input;
 
   // Valida o arquivo ANTES de criar qualquer coisa: arquivo errado é o erro
   // mais comum, e ele não pode deixar um trabalho vazio para trás.
-  const buffer = Buffer.from(dataBase64, "base64");
+  const buffer = uploadId
+    ? retirarArquivo(eventId, uploadId)
+    : Buffer.from(dataBase64 ?? "", "base64");
   if (!tipoDoArquivo(buffer)) {
-    throw new ValidationError(
-      "Envie o trabalho em PDF ou DOCX (Word). Arquivos .doc antigos precisam ser salvos como .docx ou PDF antes."
-    );
+    throw new ValidationError(FORMATO_INVALIDO);
   }
 
   const criado = await createSubmission(eventId, dados);
@@ -735,7 +763,7 @@ export async function createPublicSubmission(eventId: string, input: PublicCreat
       eventId,
       criado.id,
       null,
-      dataBase64,
+      buffer,
       settings.maxFileSizeMb,
     );
 

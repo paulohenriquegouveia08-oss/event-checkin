@@ -1,4 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { randomUUID } from "node:crypto";
 
 import { buildApp } from "../src/app.js";
 import { prisma } from "../src/database/prisma.js";
@@ -306,6 +307,10 @@ const pdfValido = () =>
 const docxValido = () =>
   Buffer.from("PK\u0003\u0004....[Content_Types].xml....word/document.xml....").toString("base64");
 
+/** PPTX mínimo pelo que o servidor confere: ZIP (PK\x03\x04) com a pasta ppt/. */
+const pptxValido = () =>
+  Buffer.from("PK\u0003\u0004....[Content_Types].xml....ppt/presentation.xml....").toString("base64");
+
 describe("arquivo do trabalho", () => {
   async function novoTrabalho() {
     return (await post(`/events/${eventId}/submissions`, trabalho())).json().data;
@@ -331,7 +336,7 @@ describe("arquivo do trabalho", () => {
       dataBase64: Buffer.from("PK\u0003\u0004 isto aqui é um zip").toString("base64"),
     });
     expect(res.statusCode).toBeGreaterThanOrEqual(400);
-    expect(JSON.stringify(res.json())).toMatch(/PDF ou DOCX/i);
+    expect(JSON.stringify(res.json())).toMatch(/PDF, DOCX/i);
   });
 
   it("anexa um DOCX e baixa como documento do Word", async () => {
@@ -346,6 +351,19 @@ describe("arquivo do trabalho", () => {
     expect(baixado.statusCode).toBe(200);
     expect(baixado.headers["content-type"]).toMatch(/wordprocessingml/);
     // DOCX o navegador não abre: vai como download.
+    expect(baixado.headers["content-disposition"]).toMatch(/^attachment/);
+  });
+
+  it("anexa um PPTX e baixa como apresentação do PowerPoint", async () => {
+    const s = await novoTrabalho();
+    const res = await post(`/events/${eventId}/submissions/${s.id}/file`, {
+      fileName: "apresentacao.pptx",
+      dataBase64: pptxValido(),
+    });
+    expect(res.statusCode).toBe(200);
+
+    const baixado = await get(`/events/${eventId}/submissions/${s.id}/file`);
+    expect(baixado.headers["content-type"]).toMatch(/presentationml/);
     expect(baixado.headers["content-disposition"]).toMatch(/^attachment/);
   });
 
@@ -540,6 +558,68 @@ describe("envio público pelo site, com taxa no Mercado Pago", () => {
     );
     expect(res.statusCode).toBeGreaterThanOrEqual(400);
     expect(await prisma.submission.count({ where: { eventId } })).toBe(0);
+  });
+
+  /** Manda o arquivo em partes, como o site faz com arquivo grande. */
+  async function enviarEmPartes(base64: string, tamanho = 8) {
+    const uploadId = randomUUID();
+    const total = Math.ceil(base64.length / tamanho);
+    for (let index = 0; index < total; index++) {
+      const res = await postPublico(`/public/events/${eventId}/submissions/parts`, {
+        uploadId,
+        index,
+        total,
+        dataBase64: base64.slice(index * tamanho, (index + 1) * tamanho),
+      });
+      expect(res.statusCode).toBe(200);
+    }
+    return uploadId;
+  }
+
+  it("arquivo em partes chega inteiro", async () => {
+    // O proxy HTTPS na frente da API recusa corpo acima de 1 MB: arquivo
+    // grande vai em partes e o envio só aponta para elas.
+    const original = pdfValido();
+    const uploadId = await enviarEmPartes(original);
+    const { dataBase64: _, ...semArquivo } = envio();
+
+    const res = await postPublico(`/public/events/${eventId}/submissions`, {
+      ...semArquivo,
+      uploadId,
+    });
+    expect(res.statusCode).toBe(201);
+
+    const s = res.json().data;
+    const baixado = await get(`/events/${eventId}/submissions/${s.id}/file`);
+    expect(baixado.rawPayload.toString("base64")).toBe(original);
+  });
+
+  it("partes incompletas não viram trabalho", async () => {
+    const uploadId = randomUUID();
+    await postPublico(`/public/events/${eventId}/submissions/parts`, {
+      uploadId,
+      index: 0,
+      total: 2,
+      dataBase64: pdfValido().slice(0, 8),
+    });
+    const { dataBase64: _, ...semArquivo } = envio();
+
+    const res = await postPublico(`/public/events/${eventId}/submissions`, {
+      ...semArquivo,
+      uploadId,
+    });
+    expect(res.statusCode).toBe(422);
+    expect(await prisma.submission.count({ where: { eventId } })).toBe(0);
+  });
+
+  it("parte fora de ordem é recusada", async () => {
+    const res = await postPublico(`/public/events/${eventId}/submissions/parts`, {
+      uploadId: randomUUID(),
+      index: 1,
+      total: 2,
+      dataBase64: pdfValido().slice(0, 8),
+    });
+    expect(res.statusCode).toBe(422);
   });
 
   it("evento sem catálogo aceita o trabalho sem modalidade nem área", async () => {

@@ -96,7 +96,7 @@ const fileNameSchema = z
   });
 
 /**
- * Upload do arquivo do trabalho (PDF ou DOCX), em base64.
+ * Upload do arquivo do trabalho (PDF, DOCX ou PPTX), em base64.
  *
  * Base64 e não multipart porque é assim que o resto do sistema já recebe
  * arquivo (ver a imagem de assinatura em certificates.routes.ts) — e uma
@@ -112,12 +112,35 @@ export const uploadFileSchema = z.object({
  * requisição só. Separar em "cria rascunho" + "anexa" deixaria rascunhos
  * órfãos sem dono no banco toda vez que alguém desistisse no meio — no
  * painel isso não acontece porque quem cadastra é o organizador.
+ *
+ * O arquivo vem inteiro em `dataBase64` ou, se é grande, já foi mandado em
+ * partes e vem só o `uploadId` delas (ver submissions.parts.ts).
  */
-export const publicCreateSubmissionSchema = createSubmissionSchema.extend({
-  fileName: fileNameSchema,
-  dataBase64: z.string().min(1, "Anexe o arquivo do trabalho"),
-});
+export const publicCreateSubmissionSchema = createSubmissionSchema
+  .extend({
+    fileName: fileNameSchema,
+    dataBase64: z.string().min(1).optional(),
+    uploadId: z.string().uuid().optional(),
+  })
+  .refine((v) => Boolean(v.dataBase64) !== Boolean(v.uploadId), {
+    message: "Anexe o arquivo do trabalho",
+    path: ["dataBase64"],
+  });
+
+/**
+ * Uma parte do arquivo. ~700 mil caracteres de base64 por parte no site;
+ * o teto aqui é o corpo que o proxy da frente deixa passar.
+ */
+export const publicUploadPartSchema = z
+  .object({
+    uploadId: z.string().uuid(),
+    index: z.number().int().min(0),
+    total: z.number().int().min(1).max(200),
+    dataBase64: z.string().min(1).max(1_000_000),
+  })
+  .refine((v) => v.index < v.total, { message: "Parte inválida", path: ["index"] });
 
 export const publicSubmissionIdParams = z.object({ submissionId: z.string().uuid() });
 
 export type PublicCreateSubmissionInput = z.infer<typeof publicCreateSubmissionSchema>;
+export type PublicUploadPartInput = z.infer<typeof publicUploadPartSchema>;

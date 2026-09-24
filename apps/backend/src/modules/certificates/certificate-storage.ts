@@ -102,7 +102,7 @@ export function attendanceProofFileKey(eventId: string, participantId: string): 
 export function submissionFileKey(
   eventId: string,
   submissionId: string,
-  extensao: "pdf" | "docx" = "pdf",
+  extensao: "pdf" | "docx" | "pptx" = "pdf",
 ): string {
   return `submissions/${eventId}/${submissionId}.${extensao}`;
 }

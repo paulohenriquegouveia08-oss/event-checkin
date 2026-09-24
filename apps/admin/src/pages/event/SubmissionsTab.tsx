@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import * as api from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 
@@ -24,9 +24,14 @@ function toDatetimeLocal(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-/** PDF, DOCX — o que o servidor aceita (ele confere os bytes, não o nome). */
+/** PDF, DOCX, PPTX — o que o servidor aceita (ele confere os bytes, não o nome). */
 const ACCEPT_ARQUIVO =
-  ".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  ".pdf,.docx,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation";
+
+/** "docx", "pptx"... — só o PDF o navegador abre numa aba; o resto baixa. */
+function extensao(fileName: string): string {
+  return fileName.slice(fileName.lastIndexOf(".") + 1).toLowerCase();
+}
 
 const STATUS_BADGE: Record<api.SubmissionStatus, string> = {
   DRAFT: "badge-muted",
@@ -59,8 +64,6 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
   const canConfigure = hasPermission("submissions.configure");
   const canManage = hasPermission("submissions.manage");
   const [settings, setSettings] = useState<api.SubmissionSettings | null>(null);
-  const [modalities, setModalities] = useState<api.CatalogItem[]>([]);
-  const [topics, setTopics] = useState<api.CatalogItem[]>([]);
   const [lista, setLista] = useState<api.SubmissionRecord[]>([]);
   const [total, setTotal] = useState(0);
 
@@ -69,36 +72,20 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
   const [carregando, setCarregando] = useState(true);
   const [ocupado, setOcupado] = useState<string | null>(null);
 
-  const [novaModalidade, setNovaModalidade] = useState("");
-  const [novaArea, setNovaArea] = useState("");
   const [busca, setBusca] = useState("");
   const [filtroStatus, setFiltroStatus] = useState("");
-  const [criando, setCriando] = useState(false);
-
-  // Formulário de novo trabalho
-  const [fTitulo, setFTitulo] = useState("");
-  const [fResumo, setFResumo] = useState("");
-  const [fPalavras, setFPalavras] = useState("");
-  const [fModalidade, setFModalidade] = useState("");
-  const [fArea, setFArea] = useState("");
-  const [fAutorNome, setFAutorNome] = useState("");
-  const [fAutorEmail, setFAutorEmail] = useState("");
 
   async function carregar() {
     setCarregando(true);
     try {
-      const [s, m, t, l] = await Promise.all([
+      const [s, l] = await Promise.all([
         api.getSubmissionSettings(eventId),
-        api.listModalities(eventId),
-        api.listTopics(eventId),
         api.listSubmissions(eventId, {
           search: busca || undefined,
           status: filtroStatus || undefined,
         }),
       ]);
       setSettings(s);
-      setModalities(m);
-      setTopics(t);
       setLista(l.items);
       setTotal(l.total);
       setError(null);
@@ -129,36 +116,6 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
     }
   }
 
-  async function criarTrabalho(e: FormEvent) {
-    e.preventDefault();
-    setCriando(true);
-    setError(null);
-    try {
-      await api.createSubmission(eventId, {
-        modalityId: fModalidade,
-        topicId: fArea,
-        title: fTitulo,
-        abstract: fResumo,
-        keywords: fPalavras
-          .split(",")
-          .map((k) => k.trim())
-          .filter(Boolean),
-        authors: [{ name: fAutorNome, email: fAutorEmail }],
-      });
-      setFTitulo("");
-      setFResumo("");
-      setFPalavras("");
-      setFAutorNome("");
-      setFAutorEmail("");
-      setAviso("Trabalho cadastrado como rascunho. Anexe o arquivo (PDF ou DOCX) para poder enviar.");
-      await carregar();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao cadastrar");
-    } finally {
-      setCriando(false);
-    }
-  }
-
   async function anexar(s: api.SubmissionRecord, file: File) {
     await acao(
       `file-${s.id}`,
@@ -171,8 +128,8 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
     try {
       const blob = await api.fetchSubmissionFile(eventId, s.id);
       const url = URL.createObjectURL(blob);
-      if (s.fileName?.toLowerCase().endsWith(".docx")) {
-        // DOCX o navegador não abre numa aba — baixa com o nome do autor.
+      if (s.fileName && extensao(s.fileName) !== "pdf") {
+        // DOCX e PPTX o navegador não abre numa aba — baixa com o nome do autor.
         const a = document.createElement("a");
         a.href = url;
         a.download = s.fileName;
@@ -186,8 +143,6 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
       setError(err instanceof Error ? err.message : "Não consegui abrir o arquivo");
     }
   }
-
-  const podeCadastrar = modalities.length > 0 && topics.length > 0;
 
   return (
     <div className="stack">
@@ -238,8 +193,8 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
             </div>
             <p className="muted">
               Deixe em branco para não limitar: sem data de abertura a chamada já
-              está aberta; sem fechamento, não fecha sozinha. O autor envia em PDF
-              ou DOCX (Word).
+              está aberta; sem fechamento, não fecha sozinha. O autor envia em PDF,
+              DOCX (Word) ou PPTX (PowerPoint).
             </p>
 
             <div className="row" style={{ alignItems: "flex-end" }}>
@@ -317,223 +272,6 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
       </section>
       )}
 
-      {/* ── catálogo ── */}
-      {canConfigure && (
-      <section className="card">
-        <h3>Modalidades e áreas temáticas</h3>
-        <p className="muted">
-          A modalidade é o formato (Pôster, Oral). A área é o assunto
-          (Ortodontia, Saúde Coletiva). Cadastradas aqui, o autor precisa
-          escolher uma de cada ao enviar pelo site; sem nenhuma, o site aceita
-          o trabalho sem classificação. Para cadastrar pelo painel, é preciso
-          ter pelo menos uma de cada.
-        </p>
-
-        <div className="row">
-          <div className="stack" style={{ flex: 1 }}>
-            <strong>Modalidades</strong>
-            {modalities.length === 0 && <p className="muted">Nenhuma ainda.</p>}
-            {modalities.map((m) => (
-              <div key={m.id} className="spread">
-                <span>
-                  {m.name}{" "}
-                  <span className="muted">
-                    ({m.submissionCount}{" "}
-                    {m.submissionCount === 1 ? "trabalho" : "trabalhos"})
-                  </span>
-                </span>
-                <button
-                  type="button"
-                  className="btn btn-danger btn-sm"
-                  disabled={ocupado === `m-${m.id}`}
-                  onClick={() =>
-                    acao(`m-${m.id}`, () => api.deleteModality(eventId, m.id), "Modalidade removida.")
-                  }
-                >
-                  Excluir
-                </button>
-              </div>
-            ))}
-            <div className="row">
-              <input
-                type="text"
-                value={novaModalidade}
-                placeholder="Ex.: Pôster"
-                onChange={(e) => setNovaModalidade(e.target.value)}
-              />
-              <button
-                type="button"
-                className="btn btn-sm"
-                disabled={!novaModalidade.trim() || ocupado === "nova-m"}
-                onClick={() =>
-                  acao(
-                    "nova-m",
-                    async () => {
-                      await api.createModality(eventId, novaModalidade.trim());
-                      setNovaModalidade("");
-                    },
-                    "Modalidade criada."
-                  )
-                }
-              >
-                Adicionar
-              </button>
-            </div>
-          </div>
-
-          <div className="stack" style={{ flex: 1 }}>
-            <strong>Áreas temáticas</strong>
-            {topics.length === 0 && <p className="muted">Nenhuma ainda.</p>}
-            {topics.map((t) => (
-              <div key={t.id} className="spread">
-                <span>
-                  {t.name}{" "}
-                  <span className="muted">
-                    ({t.submissionCount}{" "}
-                    {t.submissionCount === 1 ? "trabalho" : "trabalhos"})
-                  </span>
-                </span>
-                <button
-                  type="button"
-                  className="btn btn-danger btn-sm"
-                  disabled={ocupado === `t-${t.id}`}
-                  onClick={() =>
-                    acao(`t-${t.id}`, () => api.deleteTopic(eventId, t.id), "Área removida.")
-                  }
-                >
-                  Excluir
-                </button>
-              </div>
-            ))}
-            <div className="row">
-              <input
-                type="text"
-                value={novaArea}
-                placeholder="Ex.: Saúde Coletiva"
-                onChange={(e) => setNovaArea(e.target.value)}
-              />
-              <button
-                type="button"
-                className="btn btn-sm"
-                disabled={!novaArea.trim() || ocupado === "nova-t"}
-                onClick={() =>
-                  acao(
-                    "nova-t",
-                    async () => {
-                      await api.createTopic(eventId, novaArea.trim());
-                      setNovaArea("");
-                    },
-                    "Área criada."
-                  )
-                }
-              >
-                Adicionar
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-      )}
-
-      {/* ── novo trabalho ── */}
-      {canManage && (
-      <section className="card">
-        <h3>Cadastrar trabalho</h3>
-        {!podeCadastrar ? (
-          <p className="muted">
-            Cadastre pelo menos uma modalidade e uma área temática acima antes de
-            lançar um trabalho.
-          </p>
-        ) : (
-          <form onSubmit={criarTrabalho} className="stack">
-            <label className="field">
-              Título
-              <input
-                type="text"
-                value={fTitulo}
-                required
-                minLength={5}
-                onChange={(e) => setFTitulo(e.target.value)}
-              />
-            </label>
-            <label className="field">
-              Resumo
-              <textarea
-                rows={4}
-                value={fResumo}
-                required
-                minLength={50}
-                onChange={(e) => setFResumo(e.target.value)}
-              />
-              <small className="muted">Pelo menos 50 caracteres.</small>
-            </label>
-            <div className="row">
-              <label className="field">
-                Modalidade
-                <select
-                  value={fModalidade}
-                  required
-                  onChange={(e) => setFModalidade(e.target.value)}
-                >
-                  <option value="">Selecione…</option>
-                  {modalities.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="field">
-                Área temática
-                <select value={fArea} required onChange={(e) => setFArea(e.target.value)}>
-                  <option value="">Selecione…</option>
-                  {topics.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <label className="field">
-              Palavras-chave
-              <input
-                type="text"
-                value={fPalavras}
-                required
-                placeholder="cárie, saúde coletiva"
-                onChange={(e) => setFPalavras(e.target.value)}
-              />
-              <small className="muted">Separe por vírgula.</small>
-            </label>
-            <div className="row">
-              <label className="field">
-                Autor
-                <input
-                  type="text"
-                  value={fAutorNome}
-                  required
-                  onChange={(e) => setFAutorNome(e.target.value)}
-                />
-              </label>
-              <label className="field">
-                E-mail do autor
-                <input
-                  type="email"
-                  value={fAutorEmail}
-                  required
-                  onChange={(e) => setFAutorEmail(e.target.value)}
-                />
-              </label>
-            </div>
-            <button type="submit" className="btn" disabled={criando}>
-              {criando ? "Cadastrando…" : "Cadastrar trabalho"}
-            </button>
-          </form>
-        )}
-      </section>
-      )}
-
       {/* ── lista ── */}
       <section className="card">
         <h3>
@@ -600,11 +338,11 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
                 <div className="row" style={{ marginTop: 12, flexWrap: "wrap" }}>
                   {s.fileName ? (
                     <button type="button" className="btn btn-sm" onClick={() => abrirArquivo(s)}>
-                      {s.fileName.toLowerCase().endsWith(".docx") ? "Baixar DOCX" : "Abrir PDF"}
+                      {extensao(s.fileName) === "pdf" ? "Abrir PDF" : `Baixar ${extensao(s.fileName).toUpperCase()}`}
                     </button>
                   ) : canManage ? (
                     <label className="btn btn-sm" style={{ cursor: "pointer" }}>
-                      Anexar arquivo (PDF ou DOCX)
+                      Anexar arquivo (PDF, DOCX ou PPTX)
                       <input
                         type="file"
                         accept={ACCEPT_ARQUIVO}

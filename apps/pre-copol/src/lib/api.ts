@@ -294,16 +294,34 @@ export function getSubmissionConfig(eventId: string) {
 }
 
 /**
- * Envia o trabalho com o arquivo. Não usa `request()` porque precisa
- * tratar o 413: o arquivo em base64 é a maior requisição do site, e um
- * proxy que recusa pelo tamanho responde HTML, não o nosso JSON de erro.
+ * Tamanho de cada parte do arquivo, em caracteres de base64.
+ *
+ * O proxy HTTPS na frente da API recusa corpo acima de 1 MB — e o 413 dele
+ * vem sem CORS, então o navegador só mostra "Failed to fetch". Arquivo
+ * maior que isto vai em partes antes do formulário. Múltiplo de 4: cada
+ * pedaço de base64 decodifica sozinho.
  */
-export async function createPublicSubmission(eventId: string, input: SubmissionPublicInput) {
-  const response = await fetch(`${API_URL}/public/events/${eventId}/submissions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
+const PARTE_BASE64 = 700_000;
+
+/** A requisição nem chegou ao servidor — só nesse caso vale tentar de novo. */
+class FalhaDeRede extends Error {}
+
+/**
+ * POST de JSON no envio de trabalho. Não usa `request()` porque precisa
+ * tratar o 413 e o 429 — a resposta deles vem do proxy, não é o nosso
+ * JSON de erro — e dar uma mensagem útil quando a rede cai no meio.
+ */
+async function postarEnvio<T>(caminho: string, corpo: unknown): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${caminho}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(corpo),
+    });
+  } catch {
+    throw new FalhaDeRede("A conexão caiu durante o envio. Confira a internet e tente de novo.");
+  }
   if (response.status === 413) {
     throw new Error("O arquivo é grande demais para o envio. Reduza o tamanho (ex.: exporte o PDF com imagens comprimidas) e tente de novo.");
   }
@@ -317,7 +335,50 @@ export async function createPublicSubmission(eventId: string, input: SubmissionP
       Object.values(json.error.details.fieldErrors as Record<string, string[]>).flat().filter(Boolean).join(" ");
     throw new Error(detalhe || json?.error?.message || "Não foi possível enviar o trabalho.");
   }
-  return json.data as SubmissionPublicStatus;
+  return json.data as T;
+}
+
+/**
+ * Envia o trabalho com o arquivo. Arquivo pequeno vai junto no formulário;
+ * grande vai antes, em partes, e o formulário leva só o `uploadId`.
+ * `aoProgredir` recebe de 0 a 1, para a tela mostrar o andamento.
+ */
+export async function createPublicSubmission(
+  eventId: string,
+  input: SubmissionPublicInput,
+  aoProgredir?: (fracao: number) => void,
+) {
+  const { dataBase64, ...dados } = input;
+  let arquivo: { dataBase64: string } | { uploadId: string } = { dataBase64 };
+
+  if (dataBase64.length > PARTE_BASE64) {
+    const uploadId = crypto.randomUUID();
+    const total = Math.ceil(dataBase64.length / PARTE_BASE64);
+    for (let index = 0; index < total; index++) {
+      const parte = {
+        uploadId,
+        index,
+        total,
+        dataBase64: dataBase64.slice(index * PARTE_BASE64, (index + 1) * PARTE_BASE64),
+      };
+      const caminho = `/public/events/${eventId}/submissions/parts`;
+      // Uma nova tentativa por parte: no celular a rede oscila, e reenviar
+      // a mesma parte não duplica nada no servidor.
+      await postarEnvio(caminho, parte).catch((err) => {
+        if (err instanceof FalhaDeRede) return postarEnvio(caminho, parte);
+        throw err;
+      });
+      aoProgredir?.((index + 1) / (total + 1));
+    }
+    arquivo = { uploadId };
+  }
+
+  const resultado = await postarEnvio<SubmissionPublicStatus>(
+    `/public/events/${eventId}/submissions`,
+    { ...dados, ...arquivo },
+  );
+  aoProgredir?.(1);
+  return resultado;
 }
 
 export function getSubmissionStatus(submissionId: string) {

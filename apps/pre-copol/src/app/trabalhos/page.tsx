@@ -26,7 +26,7 @@ import { AlertTriangleIcon } from "@/components/Icons";
 // quem avalia.
 const COPOL_EVENT_ID = "f1b36d08-e85d-459b-8606-69119ab05a78";
 
-const EXTENSOES_ACEITAS = [".pdf", ".docx"];
+const EXTENSOES_ACEITAS = [".pdf", ".docx", ".pptx"];
 
 interface Autor {
   name: string;
@@ -90,6 +90,7 @@ export default function TrabalhosPage() {
   const [arquivo, setArquivo] = useState<File | null>(null);
 
   const [enviando, setEnviando] = useState(false);
+  const [progresso, setProgresso] = useState<number | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
   useEffect(() => {
@@ -122,7 +123,7 @@ export default function TrabalhosPage() {
     }
     const nome = f.name.toLowerCase();
     if (!EXTENSOES_ACEITAS.some((ext) => nome.endsWith(ext))) {
-      setErro("Envie o trabalho em PDF ou DOCX (Word). Arquivos .doc antigos precisam ser salvos como .docx ou PDF.");
+      setErro("Envie o trabalho em PDF, DOCX (Word) ou PPTX (PowerPoint). Arquivos .doc e .ppt antigos precisam ser salvos como .docx, .pptx ou PDF.");
       setArquivo(null);
       return;
     }
@@ -152,11 +153,12 @@ export default function TrabalhosPage() {
       return;
     }
     if (!arquivo) {
-      setErro("Anexe o arquivo do trabalho (PDF ou DOCX).");
+      setErro("Anexe o arquivo do trabalho (PDF, DOCX ou PPTX).");
       return;
     }
 
     setEnviando(true);
+    setProgresso(null);
     try {
       const resultado = await createPublicSubmission(config.eventId, {
         modalityId: config.modalities.length > 0 ? modalidade : null,
@@ -172,7 +174,7 @@ export default function TrabalhosPage() {
         })),
         fileName: arquivo.name,
         dataBase64: await lerBase64(arquivo),
-      });
+      }, setProgresso);
       router.push(`/trabalhos/pagamento/?id=${encodeURIComponent(resultado.id)}`);
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Não foi possível enviar o trabalho.");
@@ -188,7 +190,7 @@ export default function TrabalhosPage() {
           <h1 style={{ margin: "0 0 8px", fontSize: 30 }}>Submissão de Trabalhos</h1>
           <p style={{ margin: "0 0 24px", color: "var(--muted-foreground)", lineHeight: 1.6 }}>
             Envie seu trabalho para avaliação da comissão científica. O arquivo pode ser em{" "}
-            <strong>PDF</strong> ou <strong>DOCX</strong> (Word)
+            <strong>PDF</strong>, <strong>DOCX</strong> (Word) ou <strong>PPTX</strong> (PowerPoint)
             {config ? `, com até ${config.maxFileSizeMb} MB` : ""}.
           </p>
 
@@ -357,10 +359,10 @@ export default function TrabalhosPage() {
               </fieldset>
 
               <label style={labelStyle}>
-                Arquivo do trabalho (PDF ou DOCX) *
+                Arquivo do trabalho (PDF, DOCX ou PPTX) *
                 <input
                   type="file"
-                  accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  accept=".pdf,.docx,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation"
                   onChange={(e) => escolherArquivo(e.target.files?.[0] ?? null)}
                   style={{ ...inputStyle, padding: 10 }}
                 />
@@ -389,7 +391,9 @@ export default function TrabalhosPage() {
 
               <button type="submit" className="btn-primary" disabled={enviando} style={{ padding: 14, fontSize: 16 }}>
                 {enviando
-                  ? "Enviando…"
+                  ? progresso !== null && progresso < 1
+                    ? `Enviando arquivo… ${Math.round(progresso * 100)}%`
+                    : "Enviando…"
                   : config.feeAmount !== null
                     ? `Enviar trabalho e pagar ${formatarReais(config.feeAmount)}`
                     : "Enviar trabalho"}

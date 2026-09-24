@@ -14,6 +14,7 @@ import {
   listSubmissionsQuery,
   publicCreateSubmissionSchema,
   publicSubmissionIdParams,
+  publicUploadPartSchema,
   submissionIdParams,
   submissionSettingsSchema,
   uploadFileSchema,
@@ -179,7 +180,7 @@ export async function submissionsRoutes(app: FastifyInstance) {
         .header("Content-Type", contentType)
         // PDF `inline` para abrir no navegador — a comissão lê muitos
         // trabalhos seguidos e baixar cada um seria trabalhoso à toa. DOCX
-        // o navegador não abre: vai como download, com o nome do autor.
+        // e PPTX o navegador não abre: vão como download, com o nome do autor.
         .header(
           "Content-Disposition",
           `${tipo === "pdf" ? "inline" : "attachment"}; filename="${encodeURIComponent(fileName)}"`
@@ -230,7 +231,7 @@ export async function submissionsRoutes(app: FastifyInstance) {
   // ── envio público (site do evento) ───────────────────────────────────
   //
   // Sem login: é o próprio autor, pelo site. O que protege é o módulo
-  // precisar estar ligado, a janela aberta, o arquivo ser PDF/DOCX de
+  // precisar estar ligado, a janela aberta, o arquivo ser PDF/DOCX/PPTX de
   // verdade e o limite de envios por IP abaixo.
 
   app.get("/public/events/:eventId/submissions/config", async (request) => {
@@ -257,6 +258,27 @@ export async function submissionsRoutes(app: FastifyInstance) {
       const input = publicCreateSubmissionSchema.parse(request.body);
       const s = await service.createPublicSubmission(eventId, input);
       return reply.status(201).send(ok(s));
+    }
+  );
+
+  // Arquivo grande em partes, antes do formulário (ver submissions.parts.ts).
+  // Limite folgado: um arquivo de 10 MB são ~20 partes, e numa universidade
+  // muitos autores saem pelo mesmo IP.
+  app.post(
+    "/public/events/:eventId/submissions/parts",
+    {
+      bodyLimit: 2 * 1024 * 1024,
+      config: {
+        rateLimit: {
+          max: process.env.NODE_ENV === "test" ? 10_000 : 300,
+          timeWindow: "10 minutes",
+        },
+      },
+    },
+    async (request) => {
+      const { eventId } = eventIdParams.parse(request.params);
+      const input = publicUploadPartSchema.parse(request.body);
+      return ok(await service.receivePublicFilePart(eventId, input));
     }
   );
 

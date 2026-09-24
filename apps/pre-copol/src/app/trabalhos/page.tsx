@@ -184,7 +184,7 @@ export default function TrabalhosPage() {
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      <SiteHeader />
+      <SiteHeader eventTitle="COPOL" />
       <main style={{ flex: 1, padding: "32px 16px 56px" }}>
         <div className="container-page" style={{ maxWidth: 760 }}>
           <h1 style={{ margin: "0 0 8px", fontSize: 30 }}>Submissão de Trabalhos</h1>

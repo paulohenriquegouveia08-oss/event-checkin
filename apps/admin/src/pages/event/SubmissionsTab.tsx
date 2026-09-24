@@ -15,6 +15,15 @@ function formatarReais(valor: string | number | null): string {
   return Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+// O servidor guarda o instante em UTC; o <input type="datetime-local"> quer
+// a hora LOCAL do navegador. Recortar o ISO mostrava 3h a mais — e cada
+// "Salvar" empurrava o prazo mais 3h para frente.
+function toDatetimeLocal(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 /** PDF, DOCX — o que o servidor aceita (ele confere os bytes, não o nome). */
 const ACCEPT_ARQUIVO =
   ".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -196,7 +205,7 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
                 Abre em
                 <input
                   type="datetime-local"
-                  value={settings.opensAt ? settings.opensAt.slice(0, 16) : ""}
+                  value={settings.opensAt ? toDatetimeLocal(settings.opensAt) : ""}
                   onChange={(e) =>
                     setSettings({ ...settings, opensAt: e.target.value || null })
                   }
@@ -206,7 +215,7 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
                 Fecha em
                 <input
                   type="datetime-local"
-                  value={settings.closesAt ? settings.closesAt.slice(0, 16) : ""}
+                  value={settings.closesAt ? toDatetimeLocal(settings.closesAt) : ""}
                   onChange={(e) =>
                     setSettings({ ...settings, closesAt: e.target.value || null })
                   }

@@ -472,3 +472,20 @@ h4 {
   background: linear-gradient(90deg, #ef4444, #f59e0b);
 }
 
+
+/*
+ * O iPhone dá zoom na página ao tocar num campo com fonte menor que 16px
+ * — e não desfaz sozinho quando o autor sai do campo. Com 16px o zoom não
+ * acontece, e a pinça continua livre (travar `maximum-scale` tiraria o
+ * zoom de quem precisa dele para ler).
+ *
+ * `!important` porque os formulários definem a fonte inline, e estilo
+ * inline ganha de qualquer regra sem ele.
+ */
+@media (max-width: 768px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}

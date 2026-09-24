@@ -569,6 +569,13 @@ describe("envio público pelo site, com taxa no Mercado Pago", () => {
     const recusado = await post(`/events/${eventId}/submissions/${b.id}/decide`, { decision: "REJECTED" });
     expect(aprovado.json().data.status).toBe("APPROVED");
     expect(recusado.json().data.status).toBe("REJECTED");
+    // Cada autor recebe o resultado por e-mail (aqui, em modo simulado).
+    expect(aprovado.json().data.autoresAvisados).toBe(1);
+    expect(recusado.json().data.autoresAvisados).toBe(1);
+
+    // Repetir a mesma decisão não manda o e-mail de novo.
+    const repetido = await post(`/events/${eventId}/submissions/${a.id}/decide`, { decision: "APPROVED" });
+    expect(repetido.json().data.autoresAvisados).toBe(0);
 
     // Pago no cartão fica registrado como cartão — o relatório separa.
     const lido = await prisma.submission.findUnique({ where: { id: a.id } });

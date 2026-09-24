@@ -45,6 +45,14 @@ const STATUS_BADGE: Record<api.SubmissionStatus, string> = {
   WITHDRAWN: "badge-muted",
 };
 
+/** "E-mail enviado a 2 autores." — ou o aviso de que algum não saiu. */
+function resumoDoAviso(r: { autoresAvisados: number; falhasNoAviso: number }): string {
+  const enviados =
+    r.autoresAvisados === 1 ? "E-mail enviado a 1 autor." : `E-mail enviado a ${r.autoresAvisados} autores.`;
+  if (r.falhasNoAviso === 0) return enviados;
+  return `${enviados} ${r.falhasNoAviso} não ${r.falhasNoAviso === 1 ? "saiu" : "saíram"} — avise por outro meio.`;
+}
+
 /** Converte o arquivo escolhido em base64 — é assim que o backend recebe. */
 function lerBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -106,13 +114,13 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId, busca, filtroStatus]);
 
-  async function acao<T>(chave: string, fn: () => Promise<T>, sucesso: string) {
+  async function acao<T>(chave: string, fn: () => Promise<T>, sucesso: string | ((r: T) => string)) {
     setError(null);
     setAviso(null);
     setOcupado(chave);
     try {
-      await fn();
-      setAviso(sucesso);
+      const r = await fn();
+      setAviso(typeof sucesso === "function" ? sucesso(r) : sucesso);
       await carregar();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha na operação");
@@ -432,13 +440,14 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
                         type="button"
                         className="btn btn-sm"
                         disabled={ocupado === `ap-${s.id}`}
-                        onClick={() =>
+                        onClick={() => {
+                          if (!window.confirm(`Aprovar ${s.code}? Os autores recebem o resultado por e-mail.`)) return;
                           acao(
                             `ap-${s.id}`,
                             () => api.decideSubmission(eventId, s.id, "APPROVED"),
-                            `${s.code} aprovado.`
-                          )
-                        }
+                            (r) => `${s.code} aprovado. ${resumoDoAviso(r)}`
+                          );
+                        }}
                       >
                         Aprovar
                       </button>
@@ -446,13 +455,18 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
                         type="button"
                         className="btn btn-danger btn-sm"
                         disabled={ocupado === `re-${s.id}`}
-                        onClick={() =>
+                        onClick={() => {
+                          // Cancelar o prompt desiste da recusa; em branco recusa sem parecer.
+                          const motivo = window.prompt(
+                            `Recusar ${s.code}? Os autores recebem o resultado por e-mail.\n\nParecer da comissão (opcional — vai no e-mail):`
+                          );
+                          if (motivo === null) return;
                           acao(
                             `re-${s.id}`,
-                            () => api.decideSubmission(eventId, s.id, "REJECTED"),
-                            `${s.code} recusado.`
-                          )
-                        }
+                            () => api.decideSubmission(eventId, s.id, "REJECTED", motivo.trim() || undefined),
+                            (r) => `${s.code} recusado. ${resumoDoAviso(r)}`
+                          );
+                        }}
                       >
                         Recusar
                       </button>

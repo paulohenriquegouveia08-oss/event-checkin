@@ -949,7 +949,8 @@ export function decideSubmission(
   decision: "APPROVED" | "REJECTED",
   reason?: string
 ) {
-  return request<SubmissionRecord>(`/events/${eventId}/submissions/${submissionId}/decide`, {
+  // Os autores recebem o resultado por e-mail; a resposta diz quantos avisos saíram.
+  return request<SubmissionRecord & { autoresAvisados: number; falhasNoAviso: number }>(`/events/${eventId}/submissions/${submissionId}/decide`, {
     method: "POST",
     body: { decision, reason },
   });

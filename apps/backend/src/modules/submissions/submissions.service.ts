@@ -11,6 +11,7 @@ import {
   type PagamentoConferido,
 } from "../../lib/mercadopago/mercadopago.client.js";
 import { receberParte, retirarArquivo } from "./submissions.parts.js";
+import { emailService } from "../../lib/email/email.service.js";
 import type {
   CreateSubmissionInput,
   PublicCreateSubmissionInput,
@@ -463,7 +464,8 @@ export async function withdrawSubmission(eventId: string, submissionId: string) 
 export async function decideSubmission(
   eventId: string,
   submissionId: string,
-  decision: "APPROVED" | "REJECTED"
+  decision: "APPROVED" | "REJECTED",
+  reason?: string
 ) {
   const s = await getSubmission(eventId, submissionId);
   if (s.status === "DRAFT") {
@@ -472,10 +474,65 @@ export async function decideSubmission(
   if (s.status === "WITHDRAWN") {
     throw new ValidationError("O autor retirou este trabalho");
   }
-  return prisma.submission.update({
+  // Clique repetido na mesma decisão: nada muda, e ninguém recebe o
+  // mesmo e-mail duas vezes.
+  if (s.status === decision) {
+    return { ...s, autoresAvisados: 0, falhasNoAviso: 0 };
+  }
+
+  const atualizado = await prisma.submission.update({
     where: { id: submissionId },
     data: { status: decision, decidedAt: new Date() },
   });
+
+  const aviso = await avisarAutores(eventId, s, decision, reason);
+  return { ...atualizado, autoresAvisados: aviso.enviados, falhasNoAviso: aviso.falhas };
+}
+
+/**
+ * Manda o resultado a cada autor, um e-mail por endereço.
+ *
+ * Falha no envio não desfaz a decisão: a comissão decidiu, e o painel
+ * mostra quantos avisos não saíram para alguém avisar por outro meio.
+ */
+async function avisarAutores(
+  eventId: string,
+  s: { id: string; code: string; title: string; authors: { name: string; email: string }[] },
+  decision: "APPROVED" | "REJECTED",
+  reason?: string,
+): Promise<{ enviados: number; falhas: number }> {
+  const evento = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { id: true, name: true, location: true, emailSettings: true },
+  });
+  if (!evento) return { enviados: 0, falhas: 0 };
+
+  const vistos = new Set<string>();
+  const autores = s.authors.filter((a) => {
+    const email = a.email.trim().toLowerCase();
+    if (!email || vistos.has(email)) return false;
+    vistos.add(email);
+    return true;
+  });
+
+  const resultados = await Promise.allSettled(
+    autores.map((a) =>
+      emailService.sendSubmissionDecision(evento, {
+        to: a.email.trim(),
+        authorName: a.name,
+        submissionId: s.id,
+        code: s.code,
+        title: s.title,
+        decision,
+        reason,
+      })
+    )
+  );
+  const enviados = resultados.filter((r) => r.status === "fulfilled" && r.value.success).length;
+  if (enviados < autores.length) {
+    console.error(`[Submissions] ${autores.length - enviados} aviso(s) de decisão não saíram para ${s.code}`);
+  }
+  return { enviados, falhas: autores.length - enviados };
 }
 
 // ─── Arquivo do trabalho ────────────────────────────────────────────────

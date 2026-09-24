@@ -217,7 +217,7 @@ export async function submissionsRoutes(app: FastifyInstance) {
     async (request) => {
       const { eventId, submissionId } = submissionIdParams.parse(request.params);
       const { decision, reason } = decideSubmissionSchema.parse(request.body);
-      const s = await service.decideSubmission(eventId, submissionId, decision);
+      const s = await service.decideSubmission(eventId, submissionId, decision, reason);
       // A decisão entra na auditoria com o motivo: "por que este trabalho
       // foi reprovado" é a pergunta que chega meses depois, do autor.
       await recordAudit(request, "submissions.decide", "Submission", submissionId, {

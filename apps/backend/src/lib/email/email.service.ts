@@ -60,6 +60,17 @@ export interface SendAttendanceProofEmailParams {
   checkedInAt?: Date | null;
 }
 
+export interface SendSubmissionDecisionParams {
+  to: string;
+  authorName: string;
+  submissionId: string;
+  code: string;
+  title: string;
+  decision: "APPROVED" | "REJECTED";
+  /** Parecer da comissão, se ela escreveu um. Vai no e-mail da recusa. */
+  reason?: string | null;
+}
+
 /** Anexo maior que isto o Resend recusa (40 MB já em Base64). */
 const LIMITE_ANEXO_BYTES = Math.floor((40 * 1024 * 1024 * 3) / 4);
 
@@ -260,6 +271,76 @@ export class EmailService {
         tags: [{ name: "tipo", value: "certificado" }, { name: "evento", value: tagSegura(evento.id) }],
       },
       chaveDeIdempotencia(`cert:${params.contentHash ?? "v1"}`, params.certificateId, opcoes.reenvio),
+    );
+  }
+
+  /** Resultado da avaliação de um trabalho, para cada autor. */
+  async sendSubmissionDecision(
+    evento: EventoParaEmail,
+    params: SendSubmissionDecisionParams,
+  ): Promise<ResultadoDoEnvio> {
+    const s = this.configuracao(evento);
+    const aprovado = params.decision === "APPROVED";
+    const titulo = escaparHtml(params.title);
+    const protocolo = escaparHtml(params.code);
+    const nomeDoEvento = escaparHtml(evento.name);
+
+    const parecer = params.reason?.trim()
+      ? `<div style="margin: 0 0 24px; padding: 16px 18px; background-color: #F1F5F9; border-radius: 10px;">
+          <div style="font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #64748B; margin-bottom: 6px;">Parecer da comissão</div>
+          <div style="font-size: 15px; line-height: 1.6; color: #334155; white-space: pre-line;">${escaparHtml(params.reason.trim())}</div>
+        </div>`
+      : "";
+
+    const corpo = aprovado
+      ? `
+      <p style="font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
+        Olá, <strong>${escaparHtml(params.authorName)}</strong>!
+      </p>
+      <p style="font-size: 15px; line-height: 1.6; margin: 0 0 20px; color: #475569;">
+        Temos uma ótima notícia: o trabalho <strong>${titulo}</strong> foi
+        <strong style="color: #15803D;">aprovado</strong> pela comissão científica do ${nomeDoEvento}.
+      </p>
+      <p style="font-size: 14px; margin: 0 0 20px; color: #64748B;">Protocolo: <strong>${protocolo}</strong></p>
+      ${parecer}
+      <p style="font-size: 15px; line-height: 1.6; margin: 0 0 24px; color: #475569;">
+        Em breve a comissão enviará as orientações para a apresentação. Parabéns!
+      </p>
+      ${botao(s, s.siteUrl, "Acessar página do evento")}`
+      : `
+      <p style="font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
+        Olá, <strong>${escaparHtml(params.authorName)}</strong>.
+      </p>
+      <p style="font-size: 15px; line-height: 1.6; margin: 0 0 20px; color: #475569;">
+        Agradecemos o envio do trabalho <strong>${titulo}</strong>. Após a avaliação,
+        a comissão científica do ${nomeDoEvento} decidiu que ele <strong>não foi aprovado</strong> nesta edição.
+      </p>
+      <p style="font-size: 14px; margin: 0 0 20px; color: #64748B;">Protocolo: <strong>${protocolo}</strong></p>
+      ${parecer}
+      <p style="font-size: 15px; line-height: 1.6; margin: 0 0 24px; color: #475569;">
+        Obrigado pelo interesse — esperamos contar com você no evento.
+      </p>
+      ${botao(s, s.siteUrl, "Acessar página do evento")}`;
+
+    return this.enviar(
+      s,
+      {
+        to: params.to,
+        subject: aprovado
+          ? `Trabalho aprovado — ${evento.name}`
+          : `Resultado da avaliação do trabalho — ${evento.name}`,
+        html: montarEmail({
+          settings: s,
+          eventName: evento.name,
+          eyebrow: aprovado ? "TRABALHO APROVADO" : "RESULTADO DA AVALIAÇÃO",
+          subtitle: aprovado ? "SUBMISSÃO DE TRABALHOS" : "TRABALHO NÃO APROVADO",
+          body: corpo,
+        }),
+        tags: [{ name: "tipo", value: "trabalho-decisao" }, { name: "evento", value: tagSegura(evento.id) }],
+      },
+      // Por decisão e por destinatário: mudar a decisão manda o novo
+      // resultado; clicar duas vezes no mesmo botão não manda de novo.
+      chaveDeIdempotencia(`sub-decisao:${params.decision}`, `${params.submissionId}:${params.to}`),
     );
   }
 

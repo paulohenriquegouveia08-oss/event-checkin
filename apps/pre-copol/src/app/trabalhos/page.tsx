@@ -19,11 +19,12 @@ import { AlertTriangleIcon } from "@/components/Icons";
  * /trabalhos/pagamento — o trabalho só chega à comissão depois de pago.
  */
 
-// Evento do COPOL que a organização gerencia no painel (indicado por ela).
-// Fixo de propósito: procurar "o primeiro evento com copol no nome"
-// depende da ordem da lista — há mais de um evento com COPOL no nome — e
-// trabalho caindo no evento errado some da vista de quem avalia.
-const COPOL_EVENT_ID = "01354410-f5ca-43a9-9d5c-8821ca44fdde";
+// Evento "Copol" (05/11/2026) — onde a comissão confere os trabalhos no
+// painel. Fixo de propósito: procurar "o primeiro evento com copol no
+// nome" depende da ordem da lista, e há vários (PRÉ COPOL, Pré Copol
+// Organização...). Trabalho caindo no evento errado some da vista de
+// quem avalia.
+const COPOL_EVENT_ID = "f1b36d08-e85d-459b-8606-69119ab05a78";
 
 const EXTENSOES_ACEITAS = [".pdf", ".docx"];
 

@@ -22,5 +22,7 @@ export const PATROCINADORES: Patrocinador[] = [
     cota: "Diamante",
     url: "https://www.instagram.com/integrale_londrina",
     cor: "#d7261e",
+    // Recortado do post de divulgação do COPOL, sem o fundo creme.
+    logo: { src: "/partners/integrale.png", largura: 859, altura: 187 },
   },
 ];

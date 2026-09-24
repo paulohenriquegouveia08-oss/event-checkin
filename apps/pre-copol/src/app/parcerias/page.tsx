@@ -107,8 +107,11 @@ export default function ParceriasPage() {
                 >
                   Cota {p.cota}
                 </span>
-                <MarcaPatrocinador p={p} altura={44} />
-                <span style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>{p.descricao}</span>
+                <MarcaPatrocinador p={p} altura={44} largura={360} />
+                {/* O logo já traz a descrição escrita; sem ele, vai em texto. */}
+                {!p.logo && (
+                  <span style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>{p.descricao}</span>
+                )}
               </a>
             ))}
           </div>

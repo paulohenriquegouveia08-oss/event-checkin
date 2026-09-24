@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import {
   createPublicSubmission,
   getSubmissionConfig,
-  listActiveEvents,
   type SubmissionPublicConfig,
 } from "@/lib/api";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -20,9 +19,11 @@ import { AlertTriangleIcon } from "@/components/Icons";
  * /trabalhos/pagamento — o trabalho só chega à comissão depois de pago.
  */
 
-// Mesmo evento que a página de inscrição usa quando a lista de ativos
-// não responde (ver src/app/inscricao/page.tsx).
-const FALLBACK_EVENT_ID = "f1b36d08-e85d-459b-8606-69119ab05a78";
+// Evento do COPOL que a organização gerencia no painel (indicado por ela).
+// Fixo de propósito: procurar "o primeiro evento com copol no nome"
+// depende da ordem da lista — há mais de um evento com COPOL no nome — e
+// trabalho caindo no evento errado some da vista de quem avalia.
+const COPOL_EVENT_ID = "01354410-f5ca-43a9-9d5c-8821ca44fdde";
 
 const EXTENSOES_ACEITAS = [".pdf", ".docx"];
 
@@ -93,9 +94,7 @@ export default function TrabalhosPage() {
   useEffect(() => {
     (async () => {
       try {
-        const ativos = await listActiveEvents().catch(() => []);
-        const copol = ativos.find((e) => e.slug === "copol" || e.name.toLowerCase().includes("copol"));
-        setConfig(await getSubmissionConfig(copol?.id ?? FALLBACK_EVENT_ID));
+        setConfig(await getSubmissionConfig(COPOL_EVENT_ID));
       } catch (e) {
         setErroPagina(e instanceof Error ? e.message : "Não consegui carregar a chamada de trabalhos.");
       } finally {

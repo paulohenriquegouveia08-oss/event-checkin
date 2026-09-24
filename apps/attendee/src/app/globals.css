@@ -28,6 +28,22 @@
   box-sizing: border-box;
 }
 
+/*
+ * Celular: o iOS aumenta a fonte sozinho ao girar a tela, e o toque pinta
+ * um retângulo cinza em cima de todo link/botão — nenhum dos dois combina
+ * com um site que é usado quase só no telefone.
+ */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+a,
+button,
+label {
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
   /*
    * Profundidade em vez de chapado.

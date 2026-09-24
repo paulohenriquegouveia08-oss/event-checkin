@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
@@ -27,6 +27,14 @@ const mono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "Credenciamento · LSPK",
   description: "Acesse seu QR Code, comprovante de presença e certificado.",
+};
+
+// Quase todo acesso é pelo celular, na fila da entrada. A barra do
+// navegador na mesma cor do fundo evita a faixa branca em cima do site.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#101214",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

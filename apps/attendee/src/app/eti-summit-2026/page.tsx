@@ -141,6 +141,8 @@ export default function EtiSummitPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="seu@email.com"
+              autoComplete="email"
+              autoCapitalize="none"
               className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)]/60 px-4 py-3 text-base text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:outline-none"
             />
           </div>
@@ -173,10 +175,11 @@ export default function EtiSummitPage() {
                     <div className="mono text-[0.65rem] text-blue-300/80">{hora}</div>
                   </div>
                   <div className="min-w-0">
-                    <h3 className="truncate text-base font-bold text-[var(--foreground)] group-hover:text-[var(--primary)]">
+                    {/* Sem truncate: no celular cortava "Maratona de Programa…". */}
+                    <h3 className="text-base font-bold leading-snug text-[var(--foreground)] group-hover:text-[var(--primary)]">
                       {a.nome}
                     </h3>
-                    <p className="truncate text-xs text-[var(--muted-foreground)]">{a.resumo}</p>
+                    <p className="mt-0.5 text-xs leading-snug text-[var(--muted-foreground)]">{a.resumo}</p>
                   </div>
                 </div>
                 <span aria-hidden="true" className="shrink-0 text-lg text-[var(--primary)]">

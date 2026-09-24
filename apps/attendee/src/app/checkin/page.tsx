@@ -51,6 +51,36 @@ export default function CheckInPage() {
     }
   }, []);
 
+  // Tela acesa enquanto o QR está aberto: na fila da entrada o celular
+  // apagava a tela e a pessoa precisava desbloquear para mostrar o código.
+  // Wake Lock existe no Safari 16.4+ e no Chrome; onde não existir, nada
+  // muda. O sistema solta a trava quando a aba vai para o fundo — por isso
+  // pede de novo ao voltar.
+  useEffect(() => {
+    type TravaDeTela = { release: () => Promise<void> };
+    const wakeLock = (navigator as Navigator & {
+      wakeLock?: { request: (tipo: "screen") => Promise<TravaDeTela> };
+    }).wakeLock;
+    if (!wakeLock) return;
+
+    let trava: TravaDeTela | null = null;
+    const pedir = () => {
+      if (document.visibilityState !== "visible") return;
+      wakeLock
+        .request("screen")
+        .then((t) => {
+          trava = t;
+        })
+        .catch(() => {});
+    };
+    pedir();
+    document.addEventListener("visibilitychange", pedir);
+    return () => {
+      document.removeEventListener("visibilitychange", pedir);
+      trava?.release().catch(() => {});
+    };
+  }, []);
+
   const showStatus = useCallback((newStatus: CheckInStatus) => {
     setStatus(newStatus);
     setStatusVisible(true);
@@ -400,12 +430,15 @@ export default function CheckInPage() {
             Apresente este QR code na entrada do evento
           </p>
 
-          <div className="mx-auto mb-4 flex w-48 items-center justify-center rounded-xl bg-white p-4">
+          {/* Ocupa a largura do cartão (até ~18rem): QR maior é lido mais
+              rápido pela câmera na entrada, mesmo com a tela com pouco brilho. */}
+          <div className="mx-auto mb-4 flex w-full max-w-[18rem] items-center justify-center rounded-xl bg-white p-4">
             <QRCodeSVG
               value={participant.qrToken}
-              size={160}
+              size={256}
               level="M"
               includeMargin={false}
+              style={{ width: "100%", height: "auto" }}
             />
             {/* Hidden canvas for PDF export */}
             <QRCodeCanvas
@@ -420,7 +453,7 @@ export default function CheckInPage() {
 
           <button
             onClick={handleDownloadPdf}
-            className="mt-4 inline-flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--background)] px-4 py-2 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]"
+            className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--background)] px-4 py-2 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--muted)] sm:w-auto"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
@@ -450,7 +483,7 @@ export default function CheckInPage() {
               <button
                 onClick={handleDownloadProof}
                 disabled={!myDocuments?.attendanceProof.available || downloadingProof}
-                className="shrink-0 rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-colors hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+                className="min-h-10 shrink-0 rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] transition-colors hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {downloadingProof ? "Gerando..." : "Baixar"}
               </button>
@@ -487,7 +520,7 @@ export default function CheckInPage() {
                 <button
                   onClick={handleDownloadCertificate}
                   disabled={!myDocuments?.certificate.canDownload || downloadingCertificate}
-                  className="shrink-0 rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-colors hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="min-h-10 shrink-0 rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] transition-colors hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {downloadingCertificate ? "Gerando..." : "Baixar PDF"}
                 </button>

@@ -380,7 +380,9 @@ export async function listSubmissions(
       : {}),
   };
 
-  const [total, items] = await Promise.all([
+  // O resumo da taxa é do evento inteiro — não muda com o filtro da lista:
+  // "quanto os trabalhos já renderam" não depende de quem está sendo buscado.
+  const [total, items, pagos, aguardando, liberadosSemPagamento] = await Promise.all([
     prisma.submission.count({ where }),
     prisma.submission.findMany({
       where,
@@ -393,9 +395,36 @@ export async function listSubmissions(
         topic: { select: { id: true, name: true } },
       },
     }),
+    prisma.submission.aggregate({
+      where: { eventId, paymentStatus: "PAID" },
+      _count: { _all: true },
+      _sum: { feeAmount: true },
+    }),
+    // Pix gerado e ainda não pago. Os liberados pela comissão também ficam
+    // PENDING (o Pix continua valendo), mas já saíram do rascunho.
+    prisma.submission.aggregate({
+      where: { eventId, paymentStatus: "PENDING", status: "DRAFT" },
+      _count: { _all: true },
+      _sum: { feeAmount: true },
+    }),
+    prisma.submission.count({
+      where: { eventId, paymentStatus: "PENDING", status: { not: "DRAFT" } },
+    }),
   ]);
 
-  return { total, page: q.page, pageSize: q.pageSize, items };
+  return {
+    total,
+    page: q.page,
+    pageSize: q.pageSize,
+    items,
+    resumo: {
+      pagos: pagos._count._all,
+      receita: Number(pagos._sum.feeAmount ?? 0),
+      aguardando: aguardando._count._all,
+      aguardandoValor: Number(aguardando._sum.feeAmount ?? 0),
+      liberadosSemPagamento,
+    },
+  };
 }
 
 /** O autor envia de vez: sai de DRAFT e entra na fila da comissão. */

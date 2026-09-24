@@ -11,6 +11,9 @@ const STATUS_LABEL: Record<api.SubmissionStatus, string> = {
   WITHDRAWN: "Retirado",
 };
 
+/** Mesmo desconto que o relatório de inscritos usa para a receita líquida. */
+const TAXA_MERCADO_PAGO = 0.0099;
+
 function formatarReais(valor: string | number | null): string {
   return Number(valor ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
@@ -66,6 +69,7 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
   const [settings, setSettings] = useState<api.SubmissionSettings | null>(null);
   const [lista, setLista] = useState<api.SubmissionRecord[]>([]);
   const [total, setTotal] = useState(0);
+  const [resumo, setResumo] = useState<api.SubmissionFeeSummary | null>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -88,6 +92,7 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
       setSettings(s);
       setLista(l.items);
       setTotal(l.total);
+      setResumo(l.resumo);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao carregar");
@@ -270,6 +275,40 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
           </div>
         )}
       </section>
+      )}
+
+      {/* ── receita ── */}
+      {resumo && (resumo.pagos > 0 || resumo.aguardando > 0 || settings?.authorFeeRequired) && (
+        <section className="card">
+          <h3>Receita das taxas de submissão</h3>
+          <div className="receita-grid">
+            <div>
+              <div className="muted">Recebido (bruto)</div>
+              <strong className="receita-valor">{formatarReais(resumo.receita)}</strong>
+              <div className="muted">
+                {resumo.pagos} {resumo.pagos === 1 ? "trabalho pago" : "trabalhos pagos"}
+              </div>
+            </div>
+            <div>
+              <div className="muted">Líquido estimado</div>
+              <strong className="receita-valor" style={{ color: "var(--success)" }}>
+                {formatarReais(resumo.receita * (1 - TAXA_MERCADO_PAGO))}
+              </strong>
+              <div className="muted">Após 0,99% do Mercado Pago</div>
+            </div>
+            <div>
+              <div className="muted">Aguardando pagamento</div>
+              <strong className="receita-valor" style={{ color: "var(--warning)" }}>
+                {formatarReais(resumo.aguardandoValor)}
+              </strong>
+              <div className="muted">
+                {resumo.aguardando} {resumo.aguardando === 1 ? "trabalho" : "trabalhos"}
+                {resumo.liberadosSemPagamento > 0 &&
+                  ` · ${resumo.liberadosSemPagamento} liberado${resumo.liberadosSemPagamento === 1 ? "" : "s"} sem pagamento`}
+              </div>
+            </div>
+          </div>
+        </section>
       )}
 
       {/* ── lista ── */}

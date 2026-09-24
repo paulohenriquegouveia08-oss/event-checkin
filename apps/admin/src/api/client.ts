@@ -883,6 +883,15 @@ export function deleteTopic(eventId: string, id: string) {
     method: "DELETE",
   });
 }
+/** Taxa de submissão do evento inteiro (não muda com o filtro da lista). */
+export interface SubmissionFeeSummary {
+  pagos: number;
+  receita: number;
+  aguardando: number;
+  aguardandoValor: number;
+  liberadosSemPagamento: number;
+}
+
 export function listSubmissions(
   eventId: string,
   params: { status?: string; search?: string; page?: number } = {}
@@ -897,6 +906,7 @@ export function listSubmissions(
     page: number;
     pageSize: number;
     items: SubmissionRecord[];
+    resumo: SubmissionFeeSummary;
   }>(`/events/${eventId}/submissions${qs ? `?${qs}` : ""}`);
 }
 export function createSubmission(

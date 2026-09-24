@@ -306,7 +306,7 @@ export function EventDetailPage() {
       </div>
 
       {visibleTabs.length > 0 ? (
-        <div className="row" style={{ borderBottom: "1px solid var(--border)" }}>
+        <div className="tab-bar">
           {visibleTabs.map((t) => (
             <TabButton key={t.key} active={activeTab === t.key} onClick={() => setTab(t.key)}>
               {t.label}
@@ -347,6 +347,8 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
         padding: "10px 4px",
         marginRight: 20,
         fontWeight: 600,
+        whiteSpace: "nowrap",
+        flexShrink: 0,
       }}
     >
       {children}

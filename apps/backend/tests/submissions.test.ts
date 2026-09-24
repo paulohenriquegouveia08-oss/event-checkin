@@ -526,6 +526,30 @@ describe("envio público pelo site, com taxa no Mercado Pago", () => {
     expect(segunda.motivo).toBe("ja_pago");
   });
 
+  it("o painel resume a receita das taxas do evento", async () => {
+    await ligarTaxa();
+    const pago = (await postPublico(`/public/events/${eventId}/submissions`, envio())).json().data;
+    await postPublico(`/public/events/${eventId}/submissions`, envio());
+    await confirmarPagamentoSubmissao({
+      aprovado: true,
+      status: "approved",
+      paymentId: "rec-1",
+      tipo: "bank_transfer",
+      centavos: 1000,
+      referenceId: `${PREFIXO_REFERENCIA_TRABALHO}${pago.id}`,
+    });
+
+    // O filtro da lista não muda o resumo: é do evento inteiro.
+    const res = await get(`/events/${eventId}/submissions?status=APPROVED`);
+    expect(res.json().data.resumo).toEqual({
+      pagos: 1,
+      receita: 10,
+      aguardando: 1,
+      aguardandoValor: 10,
+      liberadosSemPagamento: 0,
+    });
+  });
+
   it("a comissão aprova e recusa o trabalho pago pelo painel", async () => {
     await ligarTaxa();
     const a = (await postPublico(`/public/events/${eventId}/submissions`, envio())).json().data;

@@ -685,4 +685,14 @@ describe("envio público pelo site, com taxa no Mercado Pago", () => {
     expect(res.statusCode).toBe(200);
     expect(JSON.stringify(res.json())).not.toMatch(/ana@uni\.br/);
   });
+
+  it("exclui um trabalho permanentemente pelo painel admin", async () => {
+    const s = (await postPublico(`/public/events/${eventId}/submissions`, envio())).json().data;
+    const resDel = await del(`/events/${eventId}/submissions/${s.id}`);
+    expect(resDel.statusCode).toBe(200);
+    expect(resDel.json().data.deletedId).toBe(s.id);
+
+    const consulta = await get(`/events/${eventId}/submissions/${s.id}`);
+    expect(consulta.statusCode).toBe(404);
+  });
 });

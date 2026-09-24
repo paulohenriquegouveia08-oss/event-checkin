@@ -32,7 +32,13 @@ export interface LayoutParams {
  */
 export function montarEmail({ settings, eventName, eyebrow, subtitle, body }: LayoutParams): string {
   const nome = escaparHtml(eventName);
-  const rodapeExtra = settings.footerNote ? `${escaparHtml(settings.footerNote)}<br>` : "";
+  const rodapeHtml = settings.footerNote
+    ? `<tr>
+        <td style="background-color: #F1F5F9; padding: 20px; text-align: center; font-size: 12px; color: #64748B; border-top: 1px solid #E2E8F0;">
+          ${escaparHtml(settings.footerNote)}
+        </td>
+      </tr>`
+    : "";
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -61,12 +67,7 @@ export function montarEmail({ settings, eventName, eyebrow, subtitle, body }: La
             <td style="padding: 32px;">${body}</td>
           </tr>
 
-          <tr>
-            <td style="background-color: #F1F5F9; padding: 20px; text-align: center; font-size: 12px; color: #64748B; border-top: 1px solid #E2E8F0;">
-              ${rodapeExtra}
-              Este é um e-mail oficial do ${nome}.
-            </td>
-          </tr>
+          ${rodapeHtml}
 
         </table>
       </td>
@@ -78,9 +79,12 @@ export function montarEmail({ settings, eventName, eyebrow, subtitle, body }: La
 
 /** Botão que leva ao site do evento. */
 export function botao(settings: ResolvedEmailSettings, url: string, texto: string): string {
+  const fallback = settings.siteUrl || "https://copol2026.com.br";
+  const destino = (url && url.trim().length > 0) ? url.trim() : fallback;
+
   return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0">
   <tr><td align="center">
-    <a href="${escaparHtml(url)}" target="_blank" style="display: inline-block; background-color: ${settings.primaryColor}; color: #FFFFFF; font-weight: 700; font-size: 15px; padding: 14px 28px; border-radius: 8px; text-decoration: none;">
+    <a href="${escaparHtml(destino)}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: ${settings.primaryColor}; color: #FFFFFF !important; font-weight: 700; font-size: 15px; padding: 14px 28px; border-radius: 8px; text-decoration: none;">
       ${escaparHtml(texto)}
     </a>
   </td></tr>

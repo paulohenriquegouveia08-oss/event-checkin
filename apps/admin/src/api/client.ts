@@ -955,6 +955,12 @@ export function decideSubmission(
     body: { decision, reason },
   });
 }
+export function deleteSubmission(eventId: string, submissionId: string) {
+  return request<{ success: boolean; deletedId: string; code: string }>(
+    `/events/${eventId}/submissions/${submissionId}`,
+    { method: "DELETE" }
+  );
+}
 /** URL do PDF para abrir em nova aba. O token vai no header, então o
  *  link direto não serve — quem chama precisa buscar e criar um blob. */
 export async function fetchSubmissionFile(eventId: string, submissionId: string): Promise<Blob> {

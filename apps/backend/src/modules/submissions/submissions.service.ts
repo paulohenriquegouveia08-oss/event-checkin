@@ -540,6 +540,32 @@ async function avisarAutores(
   return { enviados, falhas: autores.length - enviados };
 }
 
+/**
+ * Exclui permanentemente um trabalho submetido (útil para limpar testes
+ * ou submissões inválidas da administração).
+ */
+export async function deleteSubmission(eventId: string, id: string) {
+  const s = await prisma.submission.findFirst({
+    where: { id, eventId },
+    select: { id: true, code: true, fileKey: true },
+  });
+  if (!s) {
+    throw new NotFoundError("Trabalho não encontrado.");
+  }
+
+  // Remove o arquivo físico do storage, se houver
+  if (s.fileKey) {
+    await certificateStorage.remove(s.fileKey).catch(() => {});
+  }
+
+  // O Prisma cascateia os autores (onDelete: Cascade em SubmissionAuthor)
+  await prisma.submission.delete({
+    where: { id: s.id },
+  });
+
+  return { success: true, deletedId: s.id, code: s.code };
+}
+
 // ─── Arquivo do trabalho ────────────────────────────────────────────────
 
 type TipoArquivo = "pdf" | "docx" | "pptx";

@@ -109,7 +109,11 @@ export function resolveEmailSettings(stored: unknown): ResolvedEmailSettings {
     replyTo: c.replyTo || null,
     primaryColor: c.primaryColor || "#0E3634",
     accentColor: c.accentColor || "#C8A261",
-    siteUrl: c.siteUrl || env.PRE_COPOL_BASE_URL,
+    siteUrl: (c.siteUrl && c.siteUrl.trim().length > 0)
+      ? c.siteUrl.trim()
+      : (env.PRE_COPOL_BASE_URL && env.PRE_COPOL_BASE_URL.trim().length > 0
+          ? env.PRE_COPOL_BASE_URL.trim()
+          : "https://copol2026.com.br"),
     footerNote: c.footerNote || null,
 
     // Só o comprovante de inscrição já saía sozinho, e continua saindo.

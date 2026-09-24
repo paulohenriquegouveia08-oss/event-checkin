@@ -239,6 +239,19 @@ export async function submissionsRoutes(app: FastifyInstance) {
     }
   );
 
+  app.delete(
+    "/events/:eventId/submissions/:submissionId",
+    { preHandler: requirePermission("submissions.manage") },
+    async (request) => {
+      const { eventId, submissionId } = submissionIdParams.parse(request.params);
+      const res = await service.deleteSubmission(eventId, submissionId);
+      await recordAudit(request, "submissions.delete", "Submission", submissionId, {
+        code: res.code,
+      });
+      return ok(res);
+    }
+  );
+
   // ── envio público (site do evento) ───────────────────────────────────
   //
   // Sem login: é o próprio autor, pelo site. O que protege é o módulo

@@ -39,6 +39,9 @@ type Tab =
  * permissões de gestão; para as demais contas, nada muda.
  */
 const TABS: { key: Tab; label: string; permission: string; gestao?: string[] }[] = [
+  { key: "inscriptions", label: "Inscritos", permission: "participants.view" },
+  { key: "submissions", label: "Trabalhos", permission: "submissions.view" },
+  { key: "certificates", label: "Certificados", permission: "certificates.view" },
   {
     key: "credenciamento",
     label: "📷 Credenciamento",
@@ -46,16 +49,13 @@ const TABS: { key: Tab; label: string; permission: string; gestao?: string[] }[]
     gestao: ["participants.edit"],
   },
   { key: "participants", label: "Participantes", permission: "participants.view" },
-  { key: "inscriptions", label: "Inscritos", permission: "participants.view" },
   { key: "batches", label: "Lotes", permission: "events.view", gestao: ["events.edit"] },
   { key: "schedule", label: "Programação", permission: "events.view", gestao: ["events.edit"] },
-  { key: "terminals", label: "Terminais", permission: "terminals.view" },
+  { key: "emails", label: "E-mails", permission: "events.edit" },
+  { key: "report", label: "Relatório Presença", permission: "reports.view" },
   { key: "statistics", label: "Estatísticas", permission: "statistics.view" },
   { key: "monitor", label: "Monitor", permission: "monitor.view" },
-  { key: "report", label: "Relatório Presença", permission: "reports.view" },
-  { key: "certificates", label: "Certificados", permission: "certificates.view" },
-  { key: "submissions", label: "Trabalhos", permission: "submissions.view" },
-  { key: "emails", label: "E-mails", permission: "events.edit" },
+  { key: "terminals", label: "Terminais", permission: "terminals.view" },
   // Última da fila: é onde se liga e desliga módulo, coisa que se faz uma
   // vez no começo e raramente depois.
   {
@@ -336,19 +336,24 @@ export function EventDetailPage() {
 function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className="btn-sm"
+      className={`tab-btn ${active ? "active" : ""}`}
       style={{
-        background: "transparent",
-        border: "none",
-        borderBottom: active ? "2px solid var(--primary)" : "2px solid transparent",
-        color: active ? "var(--text)" : "var(--text-muted)",
-        borderRadius: 0,
-        padding: "10px 4px",
-        marginRight: 20,
-        fontWeight: 600,
+        background: active ? "var(--primary)" : "var(--surface, #ffffff)",
+        color: active ? "#ffffff" : "var(--text, #334155)",
+        border: active ? "1px solid var(--primary)" : "1px solid var(--border, #e2e8f0)",
+        borderRadius: 8,
+        padding: "8px 14px",
+        fontSize: "13.5px",
+        fontWeight: active ? 600 : 500,
         whiteSpace: "nowrap",
-        flexShrink: 0,
+        cursor: "pointer",
+        transition: "all 0.15s ease",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        boxShadow: active ? "0 1px 3px rgba(0,0,0,0.12)" : "none",
       }}
     >
       {children}

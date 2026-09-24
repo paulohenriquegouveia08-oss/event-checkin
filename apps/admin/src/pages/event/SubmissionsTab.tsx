@@ -489,6 +489,32 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
                       Retirar
                     </button>
                   )}
+
+                  {canManage && (
+                    <button
+                      type="button"
+                      className="btn btn-danger btn-sm"
+                      style={{ background: "#dc2626", color: "#ffffff", borderColor: "#dc2626" }}
+                      disabled={ocupado === `del-${s.id}`}
+                      title="Excluir permanentemente este trabalho (testes)"
+                      onClick={() => {
+                        if (
+                          !window.confirm(
+                            `Excluir permanentemente o trabalho ${s.code} ("${s.title}")?\n\nEsta ação apagará o trabalho do sistema (ideal para limpar testes).`
+                          )
+                        ) {
+                          return;
+                        }
+                        acao(
+                          `del-${s.id}`,
+                          () => api.deleteSubmission(eventId, s.id),
+                          `${s.code} excluído com sucesso.`
+                        );
+                      }}
+                    >
+                      Excluir
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

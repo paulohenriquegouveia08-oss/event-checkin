@@ -1,11 +1,14 @@
 import Image from "next/image";
+import { MarcaPatrocinador } from "./MarcaPatrocinador";
+import { PATROCINADORES } from "@/lib/patrocinadores";
 
 /**
  * Créditos de desenvolvimento e apoio, para o rodapé dos dois sistemas.
  *
- * Duas linhas, não uma, porque os papéis são diferentes: a LSPK
- * desenvolveu; o Ecohub e a Universidade Positivo apoiaram. Um bloco
- * único com os três logos lado a lado diria que fizeram a mesma coisa.
+ * Um bloco por papel, porque os papéis são diferentes: a Integrale
+ * patrocina; a LSPK desenvolveu; o Ecohub e a Universidade Positivo
+ * apoiaram. Um bloco único com todos os logos lado a lado diria que
+ * fizeram a mesma coisa.
  *
  * Padrão visual consistente
  * -------------------------
@@ -31,6 +34,31 @@ export function CreditosParceiros() {
         rowGap: 20,
       }}
     >
+      <Credito rotulo="Patrocínio">
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+          {PATROCINADORES.map((p) => (
+            <a
+              key={p.nome}
+              href={p.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`${p.nome} no Instagram`}
+              style={{
+                background: "#ffffff",
+                borderRadius: 8,
+                padding: "6px 10px",
+                display: "inline-flex",
+                alignItems: "center",
+                height: 32,
+                textDecoration: "none",
+              }}
+            >
+              <MarcaPatrocinador p={p} altura={p.logo ? 20 : 16} />
+            </a>
+          ))}
+        </div>
+      </Credito>
+
       <Credito rotulo="Desenvolvido por">
         <a
           href="https://www.instagram.com/lspktech"

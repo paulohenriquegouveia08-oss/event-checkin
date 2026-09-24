@@ -2,18 +2,20 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
+import { MarcaPatrocinador } from "@/components/MarcaPatrocinador";
+import { PATROCINADORES } from "@/lib/patrocinadores";
 
 export const metadata: Metadata = {
   title: "Realização e Apoio",
   description:
-    "Instituições e empresas parceiras do COPOL 2026: Universidade Positivo (Campus Londrina), Ecohub e LSPK Technology.",
+    "Patrocinadores e parceiros do COPOL 2026: Integrale (cota Diamante), Universidade Positivo (Campus Londrina), Ecohub e LSPK Technology.",
   alternates: {
     canonical: "/parcerias/",
   },
   openGraph: {
     title: "Realização e Apoio | COPOL 2026 — Congresso de Odontologia de Londrina",
     description:
-      "Instituições e empresas parceiras do COPOL 2026: Universidade Positivo, Ecohub e LSPK Technology.",
+      "Patrocinadores e parceiros do COPOL 2026: Integrale (cota Diamante), Universidade Positivo, Ecohub e LSPK Technology.",
     url: "https://copol2026.com.br/parcerias/",
     images: [
       {
@@ -60,13 +62,58 @@ export default function ParceriasPage() {
               color: "var(--gold)",
             }}
           >
-            Realização e apoio
+            Patrocínio, realização e apoio
           </span>
           <h1 style={{ fontSize: "clamp(28px, 4.5vw, 40px)", margin: "8px 0 16px" }}>Parcerias</h1>
           <p style={{ color: "var(--muted-foreground)", fontSize: 16, margin: "0 0 40px", maxWidth: 560, lineHeight: 1.6 }}>
-            O Pré-Copol e o COPOL contam com o apoio de instituições e empresas comprometidas com a excelência em
-            Odontologia.
+            O Pré-Copol e o COPOL contam com o patrocínio e o apoio de instituições e empresas comprometidas com a
+            excelência em Odontologia.
           </p>
+
+          <h2 style={{ fontSize: 22, margin: "0 0 16px" }}>Patrocinadores</h2>
+          <div style={{ display: "grid", gap: 20, marginBottom: 48 }}>
+            {PATROCINADORES.map((p) => (
+              <a
+                key={p.nome}
+                href={p.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={`${p.nome} no Instagram`}
+                className="hover:scale-[1.01]"
+                style={{
+                  background: "#ffffff",
+                  borderRadius: 16,
+                  padding: "28px 24px",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 12,
+                  textAlign: "center",
+                  textDecoration: "none",
+                  boxShadow: "var(--shadow-card)",
+                  transition: "transform 0.2s ease",
+                  maxWidth: 560,
+                  width: "100%",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    letterSpacing: "0.3em",
+                    textTransform: "uppercase",
+                    color: "#0E3634",
+                  }}
+                >
+                  Cota {p.cota}
+                </span>
+                <MarcaPatrocinador p={p} altura={44} />
+                <span style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>{p.descricao}</span>
+              </a>
+            ))}
+          </div>
+
+          <h2 style={{ fontSize: 22, margin: "0 0 16px" }}>Realização e apoio</h2>
 
           <div
             style={{

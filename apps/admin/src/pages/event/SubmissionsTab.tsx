@@ -382,6 +382,8 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
                   </div>
                 </div>
 
+                <ResumoDoTrabalho s={s} />
+
                 <div className="row" style={{ marginTop: 12, flexWrap: "wrap" }}>
                   {s.fileName ? (
                     <button type="button" className="btn btn-sm" onClick={() => abrirArquivo(s)}>
@@ -521,6 +523,43 @@ export function SubmissionsTab({ eventId }: { eventId: string }) {
           </div>
         )}
       </section>
+    </div>
+  );
+}
+
+/** Acima disto o resumo começa recolhido, com o botão para ler inteiro. */
+const RESUMO_LONGO = 320;
+
+/**
+ * O que a comissão precisa para avaliar sem abrir o arquivo: resumo,
+ * palavras-chave e quem são os autores (instituição e apresentador).
+ */
+function ResumoDoTrabalho({ s }: { s: api.SubmissionRecord }) {
+  const [aberto, setAberto] = useState(false);
+  const longo = s.abstract.length > RESUMO_LONGO;
+
+  return (
+    <div className="resumo-trabalho">
+      <div className="resumo-rotulo">Resumo</div>
+      <p className={longo && !aberto ? "resumo-texto resumo-recolhido" : "resumo-texto"}>{s.abstract}</p>
+      {longo && (
+        <button type="button" className="resumo-alternar" onClick={() => setAberto((v) => !v)}>
+          {aberto ? "Recolher resumo" : "Ler resumo completo"}
+        </button>
+      )}
+
+      {s.keywords.length > 0 && (
+        <p className="muted" style={{ margin: "10px 0 0" }}>
+          <strong>Palavras-chave:</strong> {s.keywords.join(", ")}
+        </p>
+      )}
+
+      <p className="muted" style={{ margin: "6px 0 0" }}>
+        <strong>Autores:</strong>{" "}
+        {s.authors
+          .map((a) => `${a.name}${a.institution ? ` (${a.institution})` : ""}${a.isPresenter ? " — apresentador" : ""}`)
+          .join("; ")}
+      </p>
     </div>
   );
 }

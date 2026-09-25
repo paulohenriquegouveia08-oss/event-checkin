@@ -8,14 +8,14 @@ import { PATROCINADORES } from "@/lib/patrocinadores";
 export const metadata: Metadata = {
   title: "Realização e Apoio",
   description:
-    "Patrocinadores e parceiros do COPOL 2026: Integrale (cota Diamante), Universidade Positivo (Campus Londrina), Ecohub e LSPK Technology.",
+    "Patrocinadores e parceiros do COPOL 2026: Integrale, Dental DSL e Radiotech Smart (cota Diamante), Universidade Positivo (Campus Londrina), Ecohub e LSPK Technology.",
   alternates: {
     canonical: "/parcerias/",
   },
   openGraph: {
     title: "Realização e Apoio | COPOL 2026 — Congresso de Odontologia de Londrina",
     description:
-      "Patrocinadores e parceiros do COPOL 2026: Integrale (cota Diamante), Universidade Positivo, Ecohub e LSPK Technology.",
+      "Patrocinadores e parceiros do COPOL 2026: Integrale, Dental DSL e Radiotech Smart (cota Diamante), Universidade Positivo, Ecohub e LSPK Technology.",
     url: "https://copol2026.com.br/parcerias/",
     images: [
       {
@@ -71,7 +71,14 @@ export default function ParceriasPage() {
           </p>
 
           <h2 style={{ fontSize: 22, margin: "0 0 16px" }}>Patrocinadores</h2>
-          <div style={{ display: "grid", gap: 20, marginBottom: 48 }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+              gap: 20,
+              marginBottom: 48,
+            }}
+          >
             {PATROCINADORES.map((p) => (
               <a
                 key={p.nome}
@@ -92,8 +99,6 @@ export default function ParceriasPage() {
                   textDecoration: "none",
                   boxShadow: "var(--shadow-card)",
                   transition: "transform 0.2s ease",
-                  maxWidth: 560,
-                  width: "100%",
                 }}
               >
                 <span
@@ -107,7 +112,9 @@ export default function ParceriasPage() {
                 >
                   Cota {p.cota}
                 </span>
-                <MarcaPatrocinador p={p} altura={44} largura={360} />
+                <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", width: "100%" }}>
+                  <MarcaPatrocinador p={p} altura={44} largura={280} />
+                </div>
                 {/* O logo já traz a descrição escrita; sem ele, vai em texto. */}
                 {!p.logo && (
                   <span style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>{p.descricao}</span>
